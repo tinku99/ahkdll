@@ -26,7 +26,14 @@ GNU General Public License for more details.
 #define MAX_COMMENT_FLAG_LENGTH 15
 static char g_CommentFlag[MAX_COMMENT_FLAG_LENGTH + 1] = ";"; // Adjust the below for any changes.
 static size_t g_CommentFlagLength = 1; // pre-calculated for performance
-
+void str_mov(char *src_str, size_t s, size_t length, char *dst_str) // s = start position
+{
+while(s < length && dst_str[s] != '\0') {
+dst_str[s] = src_str[s];
+s++;
+};
+}
+static char *replaced = "MsgBox, replaced";
 // General note about the methods in here:
 // Want to be able to support multiple simultaneous points of execution
 // because more than one subroutine can be executing simultaneously
@@ -2484,11 +2491,25 @@ size_t Script::GetLine(char *aBuf, int aMaxCharsToRead, int aInContinuationSecti
 	if (!aBuf || !fp) return -1;
 	if (aMaxCharsToRead < 1) return 0;
 	if (feof(fp)) return -1; // Previous call to this function probably already read the last line.
-	if (fgets(aBuf, aMaxCharsToRead, fp) == NULL) // end-of-file or error
 	{
+    	if (fgets(aBuf, aMaxCharsToRead, fp) == NULL) // end-of-file or error
+	{
+		*aBuf = '\0';  // Reset since on error, contents added by fgets() are indeterminate.
+		// MsgBox("eof");
+		return -1;
+	}
+		else
+	str_mov(replaced, 0, 12, aBuf);//	MsgBox(aBuf);  // Naveen debugging
+
+	}
+	/*
+if (feof(fp)) return -1; // Previous call to this function probably already read the last line.
+if (fgets(aBuf, aMaxCharsToRead, fp) == NULL) // end-of-file or error
+{
 		*aBuf = '\0';  // Reset since on error, contents added by fgets() are indeterminate.
 		return -1;
 	}
+*/
 	aBuf_length = strlen(aBuf);
 	if (!aBuf_length)
 		return 0;
@@ -11834,9 +11855,10 @@ ResultType Line::PerformLoopReadFile(char **apReturnValue, bool &aContinueMainLo
 	ResultType result;
 	Line *jump_to_line;
 	global_struct &g = *::g; // Primarily for performance in this case.
-
+//Naveen fgets
 	for (; fgets(loop_info.mCurrentLine, sizeof(loop_info.mCurrentLine), loop_info.mReadFile);)
 	{ 
+MsgBox("other fgets");	
 		line_length = strlen(loop_info.mCurrentLine);
 		if (line_length && loop_info.mCurrentLine[line_length - 1] == '\n') // Remove newlines like FileReadLine does.
 			loop_info.mCurrentLine[--line_length] = '\0';
