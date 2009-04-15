@@ -394,7 +394,13 @@ public:
 	#define DISPLAY_VAR_ERROR  1
 	#define DISPLAY_FUNC_ERROR 2
 	static ResultType ValidateName(char *aName, bool aIsRuntime = false, int aDisplayError = DISPLAY_VAR_ERROR);
-
+// Naveen ahkdll 
+	char *getText()
+	{
+	Var &var = *(mType == VAR_ALIAS ? mAliasFor : this);
+	var.UpdateContents(); 
+		return var.mContents;
+	}
 	char *ToText(char *aBuf, int aBufSize, bool aAppendNewline)
 	// Caller must ensure that Type() == VAR_NORMAL.
 	// aBufSize is an int so that any negative values passed in from caller are not lost.

@@ -26,8 +26,52 @@ GNU General Public License for more details.
 // (GetMessage() or PeekMessage()) is the only means by which events are ever sent to the
 // hook functions.
 
+// Naveen Garg ahkdll code
 
-int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+#include <process.h> // for begin threadx
+
+static struct nameHinstance
+     {
+       HINSTANCE hInstanceP;
+       char *name;
+	   char *argv;
+     } nameHinstanceP ;
+
+static int threadCount = 1 ; 
+static 	HANDLE hThread;
+static 	HANDLE hThread2;
+
+BOOL WINAPI DllMain(HINSTANCE hInstance,DWORD fwdReason, LPVOID lpvReserved)
+
+ {
+switch(fwdReason)
+ {
+ case DLL_PROCESS_ATTACH:
+	 {
+	nameHinstanceP.hInstanceP = hInstance;	
+	break;
+	 }
+ case DLL_THREAD_ATTACH:
+
+ break;
+
+ case DLL_PROCESS_DETACH:
+	 {
+		 CloseHandle( hThread );
+		 break;
+	 }
+ case DLL_THREAD_DETACH:
+ break;
+ }
+
+ return(TRUE); // The initialization was successful, a FALSE will abort
+ // the DLL attach
+ }
+
+
+// int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) 
+// changed to OldWinMain as ahkdll() will indirectly call this now after DllMain()
+int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 	setvbuf(stdout, NULL, _IONBF, 0); // L17: Disable stdout buffering to make it a more effective debugging tool.
 
@@ -136,7 +180,8 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 #ifdef AUTOHOTKEYSC
 			--i; // Make the loop process this item again so that it will be treated as a script param.
 #else
-			script_filespec = param;  // The first unrecognized switch must be the script filespec, by design.
+//			script_filespec = param;  // The first unrecognized switch must be the script filespec, by design.
+			script_filespec =	lpCmdLine;		// Naveen changed to lpCmdLine
 #endif
 		}
 	}
@@ -159,7 +204,10 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	if (   !(var = g_script.FindOrAddVar("0"))   )
 		return CRITICAL_ERROR;  // Realistically should never happen.
 	var->Assign(script_param_num - 1);
-
+// Naveen added pointer communication from sbcl 2.5
+	Var *sbclvar;
+	sbclvar = g_script.FindOrAddVar("argv");
+	sbclvar->Assign(nameHinstanceP.argv);
 	global_init(*g);  // Set defaults prior to the below, since below might override them for AutoIt2 scripts.
 
 // Set up the basics of the script:
@@ -328,3 +376,41 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	MsgSleep(SLEEP_INTERVAL, WAIT_FOR_MESSAGES);
 	return 0; // Never executed; avoids compiler warning.
 }
+
+
+
+unsigned __stdcall runScript( void* pArguments )
+{
+	struct nameHinstance a =  *(struct nameHinstance *)pArguments;
+	HINSTANCE hInstance = a.hInstanceP;
+	char *fileName = a.name;
+
+OldWinMain(hInstance, 0, fileName, 0);	//clinit.ahk
+// _endthreadex( 0 );  // this line never executed
+   return 0;
+} 
+
+
+extern "C" EXPORT int ahkdll(char *fileName, char *argv)
+{
+ unsigned threadID;
+ nameHinstanceP.name = fileName ;
+ nameHinstanceP.argv = argv ;
+ hThread = (HANDLE)_beginthreadex( NULL, 0, &runScript, &nameHinstanceP, 0, &threadID );
+ WaitForSingleObject( hThread, 500 );
+ return (int)hThread;
+}
+
+extern "C" EXPORT char *ahkgetvar(char *name)
+{
+	Var *ahkvar;
+	ahkvar = g_script.FindOrAddVar(name);
+	return ahkvar->getText();
+}	
+
+extern "C" EXPORT int ahkclose(int thread)
+{
+   CloseHandle( (HINSTANCE) thread );
+   return 1;
+}
+

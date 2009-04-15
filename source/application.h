@@ -97,5 +97,10 @@ VOID CALLBACK AutoExecSectionTimeout(HWND hWnd, UINT uMsg, UINT idEvent, DWORD d
 VOID CALLBACK UninterruptibleTimeout(HWND hWnd, UINT uMsg, UINT idEvent, DWORD dwTime);
 VOID CALLBACK InputTimeout(HWND hWnd, UINT uMsg, UINT idEvent, DWORD dwTime);
 VOID CALLBACK RefreshInterruptibility(HWND hWnd, UINT uMsg, UINT idEvent, DWORD dwTime);
-
+// Naveen ahkdll changes
+#define EXPORT __declspec(dllexport) // Naveen
+int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow);
+extern "C" EXPORT int ahkdll(char *fileName, char *argv);
+extern "C" EXPORT int ahkclose(int thread);
+extern "C" EXPORT char *ahkgetvar(char *name);
 #endif
