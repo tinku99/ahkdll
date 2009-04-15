@@ -767,7 +767,10 @@ ResultType Script::Reload(bool aDisplayErrors)
 #else
 	char arg_string[MAX_PATH + 512];
 	snprintf(arg_string, sizeof(arg_string), "/restart \"%s\"", mFileSpec);
-	return g_script.ActionExec(mOurEXE, arg_string, g_WorkingDirOrig, aDisplayErrors);
+
+	// return g_script.ActionExec(mOurEXE, arg_string, g_WorkingDirOrig, aDisplayErrors);
+g_script.AutoExecSection(); // // Naveen changed ActionExec to just redoing autoexecSection  
+	return OK;  // still needs to return a value
 #endif
 }
 

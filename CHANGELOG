@@ -1,0 +1,25 @@
+* CHANGELOG
+** Revision 1
+   Thanks to Lexikos for most of these suggestions
+   merged with AutoHotkeyV10.48_L26 
+   building release version as well as debug version as it is smaller
+   changed sbclPointer to argv. 
+   also changed some variable names in autohotkey.cpp. 
+   any string can now be passed as the second var to ahkdll(name, argv)
+** First Rlease
+*** dllmain()
+    change winmain() to oldwinmain()
+
+    hInstance is stored as a static variable 
+
+    ahkdll can now be embedded within ahk itself
+
+*** Project settings
+    changed compile type to dll
+
+*** exported functions
+    ahkgetvar(variableName)
+    ahkdll(filename, argv) 
+** org-mode settings
+#+STARTUP: overview
+#+STARTUP: hidestars
