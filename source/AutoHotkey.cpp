@@ -35,6 +35,7 @@ static struct nameHinstance
        HINSTANCE hInstanceP;
        char *name;
 	   char *argv;
+	   char *args;
      } nameHinstanceP ;
 
 static int threadCount = 1 ; 
@@ -114,9 +115,28 @@ int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmd
 	bool switch_processing_is_complete = false;
 	int script_param_num = 1;
 
-	for (int i = 1; i < __argc; ++i) // Start at 1 because 0 contains the program name.
+/*  though about implementing a argument parser... 
+	int argc = atoi(nameHinstanceP.argv);
+    char arg1[100];	
+	char arg2[100];
+	char arg3[100]; // "%s %s %s %s", argv2, argv3, argv4, argv5 
+	char arg4[100];
+	char arg5[100];
+	sscanf( nameHinstanceP.argv, "%s", argv1); 
+*/
+//  Naveen v3. 
+char *args[4];
+args[0] = __argv[0];   //      name of host program
+args[1] = nameHinstanceP.argv;  // 1 option such as /Debug  /R /F /STDOUT
+args[2] = nameHinstanceP.name;  // name of script to launch
+args[3] = nameHinstanceP.args;  // script parameters
+   // MsgBox(args[1]);
+int argc = 4;
+// strlen
+	for (int i = 1; i < argc; ++i) // Start at 1 because 0 contains the program name.
 	{
-		param = __argv[i]; // For performance and convenience.
+		param = args[i]; // For performance and convenience.
+	// MsgBox(args[i]);
 		if (switch_processing_is_complete) // All args are now considered to be input parameters for the script.
 		{
 			if (   !(var = g_script.FindOrAddVar(var_name, sprintf(var_name, "%d", script_param_num)))   )
@@ -137,11 +157,11 @@ int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmd
 		else if (!stricmp(param, "/iLib")) // v1.0.47: Build an include-file so that ahk2exe can include library functions called by the script.
 		{
 			++i; // Consume the next parameter too, because it's associated with this one.
-			if (i >= __argc) // Missing the expected filename parameter.
+			if (i >= argc) // Missing the expected filename parameter.
 				return CRITICAL_ERROR;
 			// For performance and simplicity, open/crease the file unconditionally and keep it open until exit.
-			if (   !(g_script.mIncludeLibraryFunctionsThenExit = fopen(__argv[i], "w"))   ) // Can't open the temp file.
-				return CRITICAL_ERROR;
+			if (   !(g_script.mIncludeLibraryFunctionsThenExit = fopen(lpCmdLine, "w"))   ) // Can't open the temp file.
+				return CRITICAL_ERROR;   // Naveen replaced __argv[i] with lpCmdLine above v3
 		}
 #endif
 #ifdef SCRIPT_DEBUG
@@ -391,11 +411,12 @@ OldWinMain(hInstance, 0, fileName, 0);	//clinit.ahk
 } 
 
 
-extern "C" EXPORT int ahkdll(char *fileName, char *argv)
+extern "C" EXPORT int ahkdll(char *fileName, char *argv, char *args)
 {
  unsigned threadID;
  nameHinstanceP.name = fileName ;
  nameHinstanceP.argv = argv ;
+ nameHinstanceP.args = args ;
  hThread = (HANDLE)_beginthreadex( NULL, 0, &runScript, &nameHinstanceP, 0, &threadID );
  WaitForSingleObject( hThread, 500 );
  return (int)hThread;
