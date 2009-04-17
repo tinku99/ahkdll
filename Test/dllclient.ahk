@@ -1,6 +1,6 @@
 ahkvar = "from dll script"
 
-F2::
+F3::
 msgbox % "from host sbclvar =" . argv
 return
 
