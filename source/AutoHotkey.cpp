@@ -184,6 +184,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	//CreateMutex(NULL, FALSE, script_filespec); // script_filespec seems a good choice for uniqueness.
 	//if (!g_ForceLaunch && !restart_mode && GetLastError() == ERROR_ALREADY_EXISTS)
 
+	
 #ifdef AUTOHOTKEYSC
 	LineNumberType load_result = g_script.LoadFromFile();
 #else
@@ -306,6 +307,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	Hotkey::ManifestAllHotkeysHotstringsHooks(); // We want these active now in case auto-execute never returns (e.g. loop)
 	g_script.mIsReadyToExecute = true; // This is done only after the above to support error reporting in Hotkey.cpp.
 
+	
 	Var *clipboard_var = g_script.FindOrAddVar("Clipboard"); // Add it if it doesn't exist, in case the script accesses "Clipboard" via a dynamic variable.
 	if (clipboard_var)
 		// This is done here rather than upon variable creation speed up runtime/dynamic variable creation.
@@ -313,10 +315,16 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		// Since other applications and the user should see any changes the program makes to the clipboard,
 		// don't write-cache it either.
 		clipboard_var->DisableCache();
-
+	
 	// Run the auto-execute part at the top of the script (this call might never return):
 	if (!g_script.AutoExecSection()) // Can't run script at all. Due to rarity, just abort.
 		return CRITICAL_ERROR;
+	g_script.ParseAndAddLine("test(b)", ACT_EXPRESSION);
+   g_script.dynamicLine =  g_script.PreparseBlocks(g_script.dynamicLine);
+	MsgBox((int)g_script.dynamicLine);  // Naveen
+	Var *newline_var = g_script.FindOrAddVar("newline"); 
+newline_var->Assign((int)g_script.dynamicLine);
+
 	// REMEMBER: The call above will never return if one of the following happens:
 	// 1) The AutoExec section never finishes (e.g. infinite loop).
 	// 2) The AutoExec function uses uses the Exit or ExitApp command to terminate the script.

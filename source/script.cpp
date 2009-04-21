@@ -1820,6 +1820,7 @@ ResultType Script::LoadIncludedFile(char *aFileSpec, bool aAllowDuplicateInclude
 			}
 			else // It's a function call on a line by itself, such as fn(x). It can't be if(..) because another section checked that.
 			{
+			//	MsgBox(pending_function, 0, "funcall"); // Naveen
 				if (!ParseAndAddLine(pending_function, ACT_EXPRESSION))
 					return CloseAndReturn(fp, script_buf, FAIL);
 				mCurrLine = NULL; // Prevents showing misleading vicinity lines if the line after a function call is a syntax error.
@@ -2279,9 +2280,12 @@ examine_line:
 				// so do nothing.
 			}
 			else
+			{
+			//	MsgBox(buf, 0, "all lines?"); // Naveen
 				if (!ParseAndAddLine(buf))
 					return CloseAndReturn(fp, script_buf, FAIL);
-		}
+			}
+			}
 		else // This line is an ELSE, possibly with another command immediately after it (on the same line).
 		{
 			// Add the ELSE directly rather than calling ParseAndAddLine() because that function
@@ -2409,6 +2413,7 @@ continue_main_loop: // This method is used in lieu of "continue" for performance
 		// alternatives due to the use of "continue" in some places above.
 		saved_line_number = mCombinedLineNumber;
 		mCombinedLineNumber = pending_function_line_number; // Done so that any syntax errors that occur during the calls below will report the correct line number.
+	//	MsgBox(pending_function, 0, "funcall or definition?"); // Naveen
 		if (!ParseAndAddLine(pending_function, ACT_EXPRESSION)) // Must be function call vs. definition since otherwise the above would have detected the opening brace beneath it and already cleared pending_function.
 			return CloseAndReturn(fp, script_buf, FAIL);
 		mCombinedLineNumber = saved_line_number;
@@ -3603,6 +3608,7 @@ ResultType Script::ParseAndAddLine(char *aLineText, ActionTypeType aActionType, 
 					}
 					// Call Parse() vs. AddLine() because it detects and optimizes simple assignments into
 					// non-exprssions for faster runtime execution.
+ // MsgBox(line_to_add, 0, "change from 47"); // Naveen				
 					if (!ParseAndAddLine(line_to_add)) // For simplicity and maintainability, call self rather than trying to set things up properly to stay in self.
 						return FAIL; // Above already displayed the error.
 				}
@@ -5384,7 +5390,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 	// Now the above has allocated some dynamic memory, the pointers to which we turn over
 	// to Line's constructor so that they can be anchored to the new line.
 	//////////////////////////////////////////////////////////////////////////////////////
-	Line *the_new_line = new Line(mCurrFileIndex, mCombinedLineNumber, aActionType, new_arg, aArgc);
+Line *the_new_line = new Line(mCurrFileIndex, mCombinedLineNumber, aActionType, new_arg, aArgc);
 	if (!the_new_line)
 		return ScriptError(ERR_OUTOFMEM);
 
@@ -6607,7 +6613,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 			label->mJumpToLine = the_new_line;
 		}
 	}
-
+dynamicLine = the_new_line;
 	++mLineCount;  // Right before returning "success", increment our count.
 	return OK;
 }

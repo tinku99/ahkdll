@@ -2432,9 +2432,7 @@ private:
 #endif
 	ResultType IsDirective(char *aBuf);
 
-	ResultType ParseAndAddLine(char *aLineText, ActionTypeType aActionType = ACT_INVALID
-		, ActionTypeType aOldActionType = OLD_INVALID, char *aActionName = NULL
-		, char *aEndMarker = NULL, char *aLiteralMap = NULL, size_t aLiteralMapLength = 0);
+	
 	ResultType ParseDerefs(char *aArgText, char *aArgMap, DerefType *aDeref, int &aDerefCount);
 	char *ParseActionType(char *aBufTarget, char *aBufSource, bool aDisplayErrors);
 	static ActionTypeType ConvertActionType(char *aActionTypeString);
@@ -2446,7 +2444,7 @@ private:
 	// if aStartingLine is allowed to be NULL (for recursive calls).  If they
 	// were member functions of class Line, a check for NULL would have to
 	// be done before dereferencing any line's mNextLine, for example:
-	Line *PreparseBlocks(Line *aStartingLine, bool aFindBlockEnd = false, Line *aParentLine = NULL);
+	
 	Line *PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode = NORMAL_MODE, AttributeType aLoopTypeFile = ATTR_NONE
 		, AttributeType aLoopTypeReg = ATTR_NONE, AttributeType aLoopTypeRead = ATTR_NONE
 		, AttributeType aLoopTypeParse = ATTR_NONE);
@@ -2504,7 +2502,7 @@ public:
 	UINT mCustomIconNumber; // The number of the icon inside the above file.
 
 	UserMenu *mTrayMenu; // Our tray menu, which should be destroyed upon exiting the program.
-    
+    Line *dynamicLine ;  //Naveen
 	ResultType Init(global_struct &g, char *aScriptFilename, bool aIsRestart);
 	ResultType CreateWindows();
 	void EnableOrDisableViewMenuItems(HMENU aMenu, UINT aFlags);
@@ -2523,7 +2521,10 @@ public:
 	ResultType LoadIncludedFile(char *aFileSpec, bool aAllowDuplicateInclude, bool aIgnoreLoadFailure);
 	ResultType UpdateOrCreateTimer(Label *aLabel, char *aPeriod, char *aPriority, bool aEnable
 		, bool aUpdatePriorityOnly);
-
+	Line *PreparseBlocks(Line *aStartingLine, bool aFindBlockEnd = false, Line *aParentLine = NULL);
+	ResultType ParseAndAddLine(char *aLineText, ActionTypeType aActionType = ACT_INVALID
+		, ActionTypeType aOldActionType = OLD_INVALID, char *aActionName = NULL
+		, char *aEndMarker = NULL, char *aLiteralMap = NULL, size_t aLiteralMapLength = 0);
 	ResultType DefineFunc(char *aBuf, Var *aFuncExceptionVar[]);
 #ifndef AUTOHOTKEYSC
 	Func *FindFuncInLibrary(char *aFuncName, size_t aFuncNameLength, bool &aErrorWasShown);

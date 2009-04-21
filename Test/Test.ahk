@@ -1,13 +1,33 @@
-SetBatchLines, -1
-Loop
+LowLevel_init()
+a = default
+b = hi naveen
+func := __findFunc("other")
+return
+
+test(b)
 {
-    Menu, M, Add, Test
-    Menu, M, Icon, Test, AutoHotkey.exe
-;     Menu, M, Icon, Test
-    Menu, M, DeleteAll
-;     StdOut(A_Index)
-    ToolTip % A_Index
+msgbox % b
+msgbox % b
+
 }
 
-Test:
-ExitApp
+other(x)
+{
+msgbox % x
+return
+}
+  
+F1::
+other(a)
+return
+
+
+F2::
+oldline := NumGet(func+4)
+NumPut(newline, func+4)  ; func_JumpToLine := 
+NumPut(oldline, newline+20)  ; func_JumpToLine := 
+return
+
+#Include %A_ScriptDir%
+#Include code.ahk
+#Include LowLevel.ahk
