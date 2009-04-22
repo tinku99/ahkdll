@@ -25,7 +25,7 @@ if (pipe=-1 or pipe_ga=-1) {
 
 
 DllCall("AutoHotkey\ahkdll", "str", fullpipe_name, "str"
-, "1234567", "Cdecl Int")
+, "", "str", "parameters", "Cdecl Int")
 sleep, 1000  
 ; Run, %A_AhkPath% "\\.\pipe\%pipe_name%"
 ; Wait for AutoHotkey to connect to pipe_ga via GetFileAttributes().

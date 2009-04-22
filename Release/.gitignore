@@ -5,8 +5,8 @@
 *.[oa]
 *~
 Debug
-!Release
 *.dll
+*.lib
 *.exe
 *.ilk
 *.pdb
@@ -17,4 +17,5 @@ bin
 *.suo
 *.ncb
 *.user
-
+*.manifest
+*.exp
