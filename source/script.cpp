@@ -1812,6 +1812,7 @@ ResultType Script::LoadIncludedFile(char *aFileSpec, bool aAllowDuplicateInclude
 					ScriptError("Functions cannot contain functions.", pending_function);
 					return CloseAndReturn(fp, script_buf, FAIL);
 				}
+			//	MsgBox(pending_function); // Naveen
 				if (!DefineFunc(pending_function, func_exception_var))
 					return CloseAndReturn(fp, script_buf, FAIL);
 				if (pending_function_has_brace) // v1.0.41: Support one-true-brace for function def, e.g. fn() {
@@ -3608,7 +3609,7 @@ ResultType Script::ParseAndAddLine(char *aLineText, ActionTypeType aActionType, 
 					}
 					// Call Parse() vs. AddLine() because it detects and optimizes simple assignments into
 					// non-exprssions for faster runtime execution.
- // MsgBox(line_to_add, 0, "change from 47"); // Naveen				
+  				
 					if (!ParseAndAddLine(line_to_add)) // For simplicity and maintainability, call self rather than trying to set things up properly to stay in self.
 						return FAIL; // Above already displayed the error.
 				}

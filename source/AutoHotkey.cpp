@@ -319,11 +319,19 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	// Run the auto-execute part at the top of the script (this call might never return):
 	if (!g_script.AutoExecSection()) // Can't run script at all. Due to rarity, just abort.
 		return CRITICAL_ERROR;
-	g_script.ParseAndAddLine("test(b)", ACT_EXPRESSION);
+
+Var *func_exception_var[2000];
+g_script.DefineFunc("dynamic(y)", func_exception_var);
+
+// g_script.AddLine(ACT_BLOCK_BEGIN);
+// g_script.AddLine(ACT_BLOCK_END);
+
+g_script.ParseAndAddLine("test(y)", ACT_EXPRESSION);	
    g_script.dynamicLine =  g_script.PreparseBlocks(g_script.dynamicLine);
-	MsgBox((int)g_script.dynamicLine);  // Naveen
+//	MsgBox((int)g_script.dynamicLine);  // Naveen
 	Var *newline_var = g_script.FindOrAddVar("newline"); 
 newline_var->Assign((int)g_script.dynamicLine);
+
 
 	// REMEMBER: The call above will never return if one of the following happens:
 	// 1) The AutoExec section never finishes (e.g. infinite loop).

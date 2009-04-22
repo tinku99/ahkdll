@@ -2437,8 +2437,7 @@ private:
 	char *ParseActionType(char *aBufTarget, char *aBufSource, bool aDisplayErrors);
 	static ActionTypeType ConvertActionType(char *aActionTypeString);
 	static ActionTypeType ConvertOldActionType(char *aActionTypeString);
-	ResultType AddLabel(char *aLabelName, bool aAllowDupe);
-	ResultType AddLine(ActionTypeType aActionType, char *aArg[] = NULL, ArgCountType aArgc = 0, char *aArgMap[] = NULL);
+	
 
 	// These aren't in the Line class because I think they're easier to implement
 	// if aStartingLine is allowed to be NULL (for recursive calls).  If they
@@ -2522,6 +2521,8 @@ public:
 	ResultType UpdateOrCreateTimer(Label *aLabel, char *aPeriod, char *aPriority, bool aEnable
 		, bool aUpdatePriorityOnly);
 	Line *PreparseBlocks(Line *aStartingLine, bool aFindBlockEnd = false, Line *aParentLine = NULL);
+	ResultType AddLabel(char *aLabelName, bool aAllowDupe);
+	ResultType AddLine(ActionTypeType aActionType, char *aArg[] = NULL, ArgCountType aArgc = 0, char *aArgMap[] = NULL);
 	ResultType ParseAndAddLine(char *aLineText, ActionTypeType aActionType = ACT_INVALID
 		, ActionTypeType aOldActionType = OLD_INVALID, char *aActionName = NULL
 		, char *aEndMarker = NULL, char *aLiteralMap = NULL, size_t aLiteralMapLength = 0);
