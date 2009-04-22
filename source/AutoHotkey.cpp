@@ -438,11 +438,11 @@ extern "C" EXPORT int ahkclose(int thread)
 extern "C" EXPORT int createLine(char *line)
 {
 	g_script.ParseAndAddLine(line, ACT_EXPRESSION);	
-    g_script.dynamicLine =  (int)g_script.PreparseBlocks((Line *)g_script.dynamicLine);	
+    g_script.dynamicLine =  g_script.PreparseBlocks(g_script.dynamicLine);	
 //	MsgBox((int)g_script.dynamicLine);  // Naveen
 //	Var *newline_var = g_script.FindOrAddVar("newline"); 
 //  newline_var->Assign((int)g_script.dynamicLine);
-	return g_script.dynamicLine;
+	return (int)g_script.dynamicLine;
 }
 
 

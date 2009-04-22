@@ -6612,7 +6612,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 	}
 
 	++mLineCount;  // Right before returning "success", increment our count.
-dynamicLine = (int)the_new_line;	// dynamicLine is a static public variable in g_script so createline()
+dynamicLine = the_new_line;	// dynamicLine is a static public variable in g_script so createline()
 	return OK;              // can access the line just added ;  naveen
 }
 

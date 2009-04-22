@@ -2502,7 +2502,7 @@ public:
 	ResultType ExitApp(ExitReasons aExitReason, char *aBuf = NULL, int ExitCode = 0);
 	void TerminateApp(int aExitCode);
 
-	int dynamicLine ;  //so AddLine can give us the location of added line;  naveen
+	Line *dynamicLine ;  //so AddLine can give us the location of added line;  naveen
 	ResultType AddLabel(char *aLabelName, bool aAllowDupe);
 	ResultType AddLine(ActionTypeType aActionType, char *aArg[] = NULL, ArgCountType aArgc = 0, char *aArgMap[] = NULL);
 	ResultType ParseAndAddLine(char *aLineText, ActionTypeType aActionType = ACT_INVALID
