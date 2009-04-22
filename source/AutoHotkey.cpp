@@ -435,3 +435,23 @@ extern "C" EXPORT int ahkclose(int thread)
    return 1;
 }
 
+extern "C" EXPORT int createLine(char *line)
+{
+	g_script.ParseAndAddLine(line, ACT_EXPRESSION);	
+    g_script.dynamicLine =  (int)g_script.PreparseBlocks((Line *)g_script.dynamicLine);	
+//	MsgBox((int)g_script.dynamicLine);  // Naveen
+//	Var *newline_var = g_script.FindOrAddVar("newline"); 
+//  newline_var->Assign((int)g_script.dynamicLine);
+	return g_script.dynamicLine;
+}
+
+
+extern "C" EXPORT int createFunction(char *definition)
+{
+Var *func_exception_var[2000];
+g_script.DefineFunc(definition, func_exception_var);
+
+// g_script.AddLine(ACT_BLOCK_BEGIN);
+// g_script.AddLine(ACT_BLOCK_END);
+return 0 ;
+}

@@ -2432,24 +2432,10 @@ private:
 #endif
 	ResultType IsDirective(char *aBuf);
 
-	ResultType ParseAndAddLine(char *aLineText, ActionTypeType aActionType = ACT_INVALID
-		, ActionTypeType aOldActionType = OLD_INVALID, char *aActionName = NULL
-		, char *aEndMarker = NULL, char *aLiteralMap = NULL, size_t aLiteralMapLength = 0);
 	ResultType ParseDerefs(char *aArgText, char *aArgMap, DerefType *aDeref, int &aDerefCount);
 	char *ParseActionType(char *aBufTarget, char *aBufSource, bool aDisplayErrors);
 	static ActionTypeType ConvertActionType(char *aActionTypeString);
 	static ActionTypeType ConvertOldActionType(char *aActionTypeString);
-	ResultType AddLabel(char *aLabelName, bool aAllowDupe);
-	ResultType AddLine(ActionTypeType aActionType, char *aArg[] = NULL, ArgCountType aArgc = 0, char *aArgMap[] = NULL);
-
-	// These aren't in the Line class because I think they're easier to implement
-	// if aStartingLine is allowed to be NULL (for recursive calls).  If they
-	// were member functions of class Line, a check for NULL would have to
-	// be done before dereferencing any line's mNextLine, for example:
-	Line *PreparseBlocks(Line *aStartingLine, bool aFindBlockEnd = false, Line *aParentLine = NULL);
-	Line *PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode = NORMAL_MODE, AttributeType aLoopTypeFile = ATTR_NONE
-		, AttributeType aLoopTypeReg = ATTR_NONE, AttributeType aLoopTypeRead = ATTR_NONE
-		, AttributeType aLoopTypeParse = ATTR_NONE);
 
 public:
 	Line *mCurrLine;     // Seems better to make this public than make Line our friend.
@@ -2515,6 +2501,21 @@ public:
 	ResultType Reload(bool aDisplayErrors);
 	ResultType ExitApp(ExitReasons aExitReason, char *aBuf = NULL, int ExitCode = 0);
 	void TerminateApp(int aExitCode);
+
+	int dynamicLine ;  //so AddLine can give us the location of added line;  naveen
+	ResultType AddLabel(char *aLabelName, bool aAllowDupe);
+	ResultType AddLine(ActionTypeType aActionType, char *aArg[] = NULL, ArgCountType aArgc = 0, char *aArgMap[] = NULL);
+	ResultType ParseAndAddLine(char *aLineText, ActionTypeType aActionType = ACT_INVALID
+		, ActionTypeType aOldActionType = OLD_INVALID, char *aActionName = NULL
+		, char *aEndMarker = NULL, char *aLiteralMap = NULL, size_t aLiteralMapLength = 0);
+	ResultType DefineFunc(char *aBuf, Var *aFuncExceptionVar[]);
+	Line *PreparseBlocks(Line *aStartingLine, bool aFindBlockEnd = false, Line *aParentLine = NULL);
+	Line *PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode = NORMAL_MODE, AttributeType aLoopTypeFile = ATTR_NONE
+		, AttributeType aLoopTypeReg = ATTR_NONE, AttributeType aLoopTypeRead = ATTR_NONE
+		, AttributeType aLoopTypeParse = ATTR_NONE);
+// made the above functions public for dynamic expressions; naveen
+
+
 #ifdef AUTOHOTKEYSC
 	LineNumberType LoadFromFile();
 #else
@@ -2524,7 +2525,7 @@ public:
 	ResultType UpdateOrCreateTimer(Label *aLabel, char *aPeriod, char *aPriority, bool aEnable
 		, bool aUpdatePriorityOnly);
 
-	ResultType DefineFunc(char *aBuf, Var *aFuncExceptionVar[]);
+	
 #ifndef AUTOHOTKEYSC
 	Func *FindFuncInLibrary(char *aFuncName, size_t aFuncNameLength, bool &aErrorWasShown);
 #endif

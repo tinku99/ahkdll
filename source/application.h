@@ -103,4 +103,6 @@ int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmd
 extern "C" EXPORT int ahkdll(char *fileName, char *argv, char *args);
 extern "C" EXPORT int ahkclose(int thread);
 extern "C" EXPORT char *ahkgetvar(char *name);
+extern "C" EXPORT int createFunction(char *definition);
+extern "C" EXPORT int createLine(char *line);
 #endif
