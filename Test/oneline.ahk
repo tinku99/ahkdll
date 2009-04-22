@@ -1,0 +1,5 @@
+oneline()
+oneline()
+{ 
+msgbox, asdf
+}
