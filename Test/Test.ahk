@@ -1,4 +1,5 @@
 LowLevel_init()
+dynamicFunction = other
 return
 
 test(x)
@@ -6,15 +7,21 @@ test(x)
 msgbox % x
 }
 
+other()
+{
+msgbox other
+}
+  
+
 F1::
 x = default
 b = hi naveen
-dynamicFunction = dynamic
 %dynamicFunction%(b)
 return
 
 
 F2::
+dynamicFunction = dynamic
 func := __findFunc("dynamic")
 oldline := NumGet(func+4)
 NumPut(newline, func+4)  ; func_JumpToLine := 
