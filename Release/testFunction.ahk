@@ -1,3 +1,4 @@
+testFunction:
 LowLevel_init()
 dynamicFunction = other
 newFunctionOK :=  DllCall("AutoHotkey.dll\createFunction", "str", "dynamic(y)"
