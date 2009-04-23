@@ -7,7 +7,7 @@ newline :=  DllCall("AutoHotkey.dll\createLine", "str", "test(y)"
 , "Cdecl int")
 msgbox % ErrorLevel . " " . newline
 a = default
-b = hi naveen
+b = hello
 return
 
 test(b)
