@@ -462,9 +462,6 @@ extern "C" EXPORT int createLine(char *line, ActionTypeType aActionType)
 {
 	g_script.ParseAndAddLine(line, aActionType);	// default = ACT_EXPRESSION, use ACT_INVALID for commands
     g_script.dynamicLine =  g_script.PreparseBlocks(g_script.dynamicLine);	
-//	MsgBox((int)g_script.dynamicLine);  // Naveen
-//	Var *newline_var = g_script.FindOrAddVar("newline"); 
-//  newline_var->Assign((int)g_script.dynamicLine);
 	return (int)g_script.dynamicLine;
 }
 

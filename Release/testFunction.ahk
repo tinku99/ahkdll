@@ -4,7 +4,7 @@ dynamicFunction = other
 newFunctionOK :=  DllCall("AutoHotkey.dll\createFunction", "str", "dynamic(y)"
 , "Cdecl int")
 newline :=  DllCall("AutoHotkey.dll\createLine", "str", "test(y)"
-, "Cdecl int")
+, "uchar", ACT_EXPRESSION = 3, "Cdecl int")
 msgbox % ErrorLevel . " " . newline
 a = default
 b = hello
