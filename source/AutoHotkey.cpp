@@ -435,6 +435,7 @@ extern "C" EXPORT int ahkclose(int thread)
    return 1;
 }
 
+/*
 extern "C" EXPORT int createLine(char *line)
 {
 	g_script.ParseAndAddLine(line, ACT_EXPRESSION);	
@@ -454,4 +455,37 @@ g_script.DefineFunc(definition, func_exception_var);
 // g_script.AddLine(ACT_BLOCK_BEGIN);
 // g_script.AddLine(ACT_BLOCK_END);
 return 0 ;
+}
+*/
+
+extern "C" EXPORT int createLine(char *line, ActionTypeType aActionType)
+{
+	g_script.ParseAndAddLine(line, aActionType);	// default = ACT_EXPRESSION, use ACT_INVALID for commands
+    g_script.dynamicLine =  g_script.PreparseBlocks(g_script.dynamicLine);	
+//	MsgBox((int)g_script.dynamicLine);  // Naveen
+//	Var *newline_var = g_script.FindOrAddVar("newline"); 
+//  newline_var->Assign((int)g_script.dynamicLine);
+	return (int)g_script.dynamicLine;
+}
+
+
+extern "C" EXPORT int createFunction(char *definition)
+{  // definition is only a function prototype line
+   // deprecated for addFile, as you can do the whole function there
+	Var *func_exception_var[2000];
+Line *oldLastLine = g_script.mLastLine;
+g_script.DefineFunc(definition, func_exception_var);
+g_script.AddLine(ACT_BLOCK_BEGIN);
+g_script.AddLine(ACT_BLOCK_END);
+g_script.PreparseBlocks(oldLastLine);
+return 0 ;
+}
+
+extern "C" EXPORT int addFile(char *fileName, bool aAllowDuplicateInclude, bool aIgnoreLoadFailure)
+{   // parses, processes, functions and expression lines from a file into script
+	// labels and hotkeys need some work, probably in the linked list. 
+	Line *oldLastLine = g_script.mLastLine;
+	g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, aIgnoreLoadFailure);
+	g_script.dynamicLine = g_script.PreparseBlocks(oldLastLine);
+	return (int)g_script.dynamicLine;
 }
