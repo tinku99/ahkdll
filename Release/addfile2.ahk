@@ -9,7 +9,15 @@ return
 fifth(z = "sixth")
 {
 msgbox fifth
+gosub label5
 return
 }
 
-fourth("fourth")
+label5:
+msgbox, label5
+return
+
+
+f6::
+gosub label5
+return

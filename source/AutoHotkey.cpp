@@ -479,8 +479,8 @@ return 0 ;
 }
 
 extern "C" EXPORT int addFile(char *fileName, bool aAllowDuplicateInclude, bool aIgnoreLoadFailure)
-{   // parses, processes, functions and expression lines from a file into script
-	// labels and hotkeys need some work, probably in the linked list. 
+{   // dynamically include a file into a script !!
+	// labels, hotkeys, functions.   
 	Line *oldLastLine = g_script.mLastLine;
 	g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, aIgnoreLoadFailure);
 	g_script.dynamicLine = g_script.PreparseBlocks(oldLastLine);
