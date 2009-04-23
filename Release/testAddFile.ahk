@@ -26,18 +26,6 @@ F1::
 %dynamicFunction%(a)
 return
 
-
-F2::
-newFunctionOK :=  DllCall("AutoHotkey.dll\createFunction", "str", "dynamic(d)"
-, "Cdecl int")
-
-dynamicFunction = dynamic
-func := __findFunc("dynamic")
-oldline := NumGet(func+4)
-NumPut(newline, func+4)  ; func_JumpToLine := 
- ; NumPut(oldline, newline+20)  ; func_JumpToLine := 
-return
-
 #Include %A_ScriptDir%
 #Include code.ahk
 #Include LowLevel.ahk

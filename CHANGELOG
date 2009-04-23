@@ -1,12 +1,18 @@
 * CHANGELOG
-** Revision 1
-   Thanks to Lexikos for most of these suggestions
-   merged with AutoHotkeyV10.48_L26 
-   building release version as well as debug version as it is smaller
-   changed sbclPointer to argv. 
-   also changed some variable names in autohotkey.cpp. 
+** Revision 5 (04/22/2009) 
+   dynamically load #include scripts
+   addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)
+** Revision 4
+   dynamic expressions, lines, and functions (04/22/2009) 
+   deprecated for addfile in rev.5
+** Revision 3
+   Options such as /Debug are supported see Lexikos' Debugger
+   ahkdll(str fileName, str option, str parameter) 
+
+** Revision 2
+   Merged with AutoHotkey_1.0.48_L26
    any string can now be passed as the second var to ahkdll(name, argv)
-** First Rlease
+** Revision 1
 *** dllmain()
     change winmain() to oldwinmain()
 
