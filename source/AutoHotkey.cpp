@@ -321,19 +321,19 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		return CRITICAL_ERROR;
 
 Var *func_exception_var[2000];
+Line *dynamicLine2 = g_script.mLastLine;
 g_script.DefineFunc("dynamic(y)", func_exception_var);
 
-// g_script.AddLine(ACT_BLOCK_BEGIN);
-// g_script.AddLine(ACT_BLOCK_END);
+ g_script.AddLine(ACT_BLOCK_BEGIN);
+g_script.AddLine(ACT_BLOCK_END);
 
-g_script.ParseAndAddLine("test(y)", ACT_EXPRESSION);	
-   g_script.dynamicLine =  g_script.PreparseBlocks(g_script.dynamicLine);
+// g_script.ParseAndAddLine("test(y)", ACT_EXPRESSION);	
+//   g_script.dynamicLine =  g_script.PreparseBlocks(g_script.dynamicLine);
 //	MsgBox((int)g_script.dynamicLine);  // Naveen
 	Var *newline_var = g_script.FindOrAddVar("newline"); 
-newline_var->Assign((int)g_script.dynamicLine);
 
 g_script.LoadIncludedFile("Test\\second.ahk", false, false);
-g_script.PreparseBlocks(g_script.mLastLine);
+g_script.PreparseBlocks(dynamicLine2);
 newline_var->Assign((int)g_script.dynamicLine);
 
 /*

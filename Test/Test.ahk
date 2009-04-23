@@ -8,6 +8,13 @@ test(x)
 msgbox % x
 }
 
+load(x)
+{
+mylabel = mylabel
+msgbox, load
+}
+
+
 other()
 {
 msgbox other
@@ -18,9 +25,12 @@ F1::
 x = default
 b = hi naveen
 %dynamicFunction%(b)
+dynamicFunction = second
 return
 
-
+F3::
+dynamicFunction = third
+%dynamicFunction%()
 F2::
 dynamicFunction = dynamic
 func := __findFunc("dynamic")
