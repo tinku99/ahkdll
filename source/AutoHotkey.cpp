@@ -332,6 +332,16 @@ g_script.ParseAndAddLine("test(y)", ACT_EXPRESSION);
 	Var *newline_var = g_script.FindOrAddVar("newline"); 
 newline_var->Assign((int)g_script.dynamicLine);
 
+g_script.LoadIncludedFile("Test\\second.ahk", false, false);
+g_script.PreparseBlocks(g_script.mLastLine);
+newline_var->Assign((int)g_script.dynamicLine);
+
+/*
+Line *mFirstLine, *mLastLine;     // The first and last lines in the linked list.
+	UINT mLineCount;                  // The number of lines.
+	Label *mFirstLabel, *mLastLabel;  // The first and last labels in the linked list.
+	Func *mFirstFunc, *mLastFunc; 
+*/
 
 	// REMEMBER: The call above will never return if one of the following happens:
 	// 1) The AutoExec section never finishes (e.g. infinite loop).
