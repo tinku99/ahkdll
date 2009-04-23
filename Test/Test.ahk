@@ -1,3 +1,4 @@
+test:
 LowLevel_init()
 dynamicFunction = other
 return
