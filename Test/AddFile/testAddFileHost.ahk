@@ -5,8 +5,4 @@ DllCall("AutoHotkey\ahkdll", "str", "testAddFile.ahk", "str", ""
 return
 
 
-!q::
-DllCall("FreeLibrary", "UInt", ahkdll)
-return
-
 !r::Reload
