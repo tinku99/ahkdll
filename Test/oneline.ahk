@@ -1,5 +1,0 @@
-oneline()
-oneline()
-{ 
-msgbox, asdf
-}

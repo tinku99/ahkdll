@@ -1,166 +1,108 @@
 <?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="9.00"
+	Version="7.10"
 	Name="AutoHotkey"
 	ProjectGUID="{76EFDEE3-81CF-4ADA-94DC-EA5509FF6FFC}"
 	RootNamespace="AutoHotkey"
-	Keyword="Win32Proj"
-	TargetFrameworkVersion="131072"
-	>
+	Keyword="Win32Proj">
 	<Platforms>
 		<Platform
-			Name="Win32"
-		/>
+			Name="Win32"/>
 	</Platforms>
-	<ToolFiles>
-	</ToolFiles>
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="temp\$(ConfigurationName)"
+			OutputDirectory="Debug"
+			IntermediateDirectory="Debug"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
-			CharacterSet="2"
-			DeleteExtensionsOnClean="*.obj;*.ilk;*.tlb;*.tli;*.tlh;*.tmp;*.rsp;*.pgc;*.pgd;*.meta"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
+			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;SCRIPT_DEBUG"
-				MinimalRebuild="true"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS"
+				MinimalRebuild="TRUE"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="1"
+				RuntimeLibrary="5"
 				StructMemberAlignment="0"
-				BufferSecurityCheck="true"
-				UsePrecompiledHeader="0"
+				BufferSecurityCheck="TRUE"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
-				Detect64BitPortabilityProblems="false"
-				DebugInformationFormat="4"
-			/>
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="4"/>
 			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
+				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="wsock32.lib winmm.lib version.lib comctl32.lib"
 				OutputFile="$(OutDir)/AutoHotkey.exe"
 				LinkIncremental="2"
-				GenerateDebugInformation="true"
+				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile="$(OutDir)/AutoHotkey.pdb"
 				SubSystem="2"
 				StackReserveSize="4194304"
 				StackCommitSize="0"
 				TerminalServerAware="1"
-				OptimizeForWindows98="0"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				TargetMachine="1"
-			/>
+				OptimizeForWindows98="1"
+				TargetMachine="1"/>
 			<Tool
-				Name="VCALinkTool"
-			/>
+				Name="VCMIDLTool"/>
 			<Tool
-				Name="VCManifestTool"
-			/>
+				Name="VCPostBuildEventTool"/>
 			<Tool
-				Name="VCXDCMakeTool"
-			/>
+				Name="VCPreBuildEventTool"/>
 			<Tool
-				Name="VCBscMakeTool"
-			/>
+				Name="VCPreLinkEventTool"/>
 			<Tool
-				Name="VCFxCopTool"
-			/>
+				Name="VCResourceCompilerTool"/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
+				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
-				Name="VCPostBuildEventTool"
-			/>
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="temp\$(ConfigurationName)"
+			OutputDirectory="Release"
+			IntermediateDirectory="Release"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			CharacterSet="2"
-			DeleteExtensionsOnClean="*.obj;*.ilk;*.tlb;*.tli;*.tlh;*.tmp;*.rsp;*.pgc;*.pgd;*.meta"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
+			WholeProgramOptimization="FALSE">
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="2"
-				EnableIntrinsicFunctions="true"
+				GlobalOptimizations="TRUE"
+				EnableIntrinsicFunctions="TRUE"
 				FavorSizeOrSpeed="1"
-				OmitFramePointers="true"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;SCRIPT_DEBUG"
-				StringPooling="true"
-				ExceptionHandling="0"
+				OmitFramePointers="TRUE"
+				OptimizeForProcessor="0"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
+				StringPooling="TRUE"
+				ExceptionHandling="FALSE"
 				BasicRuntimeChecks="0"
-				RuntimeLibrary="0"
+				RuntimeLibrary="4"
 				StructMemberAlignment="0"
-				BufferSecurityCheck="false"
-				EnableFunctionLevelLinking="true"
-				UsePrecompiledHeader="0"
+				BufferSecurityCheck="FALSE"
+				EnableFunctionLevelLinking="TRUE"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
-				WarnAsError="false"
-				DebugInformationFormat="0"
-			/>
+				WarnAsError="TRUE"
+				DebugInformationFormat="0"/>
 			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
+				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/SAFESEH:NO /Verbose"
 				AdditionalDependencies="wsock32.lib winmm.lib version.lib comctl32.lib"
 				OutputFile="$(OutDir)/AutoHotkey.exe"
 				LinkIncremental="1"
-				IgnoreDefaultLibraryNames="MSVCrt"
-				GenerateDebugInformation="false"
+				IgnoreDefaultLibraryNames="LibCMT;MSVCrt"
+				GenerateDebugInformation="FALSE"
 				SubSystem="2"
 				StackReserveSize="4194304"
 				StackCommitSize="0"
@@ -168,185 +110,125 @@
 				TerminalServerAware="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				OptimizeForWindows98="0"
+				OptimizeForWindows98="1"
 				FunctionOrder="@source/misc/function_order_for_linker_optimization.txt"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				TargetMachine="1"
-			/>
+				TargetMachine="1"/>
 			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
+				Name="VCMIDLTool"/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine=""
-			/>
+				CommandLine="upx --best --no-lzma --filter=73 --compress-icons=0 release\AutoHotkey.exe"/>
+			<Tool
+				Name="VCPreBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 		<Configuration
 			Name="SC (self-contained)|Win32"
 			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="temp\$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			CharacterSet="2"
-			DeleteExtensionsOnClean="*.obj;*.ilk;*.tlb;*.tli;*.tlh;*.tmp;*.rsp;*.pgc;*.pgd;*.meta"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
+			WholeProgramOptimization="FALSE">
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="1"
-				EnableIntrinsicFunctions="true"
+				GlobalOptimizations="TRUE"
+				EnableIntrinsicFunctions="TRUE"
 				FavorSizeOrSpeed="2"
-				OmitFramePointers="true"
+				OmitFramePointers="TRUE"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;AUTOHOTKEYSC"
-				StringPooling="true"
-				ExceptionHandling="0"
-				RuntimeLibrary="0"
+				StringPooling="TRUE"
+				ExceptionHandling="FALSE"
+				RuntimeLibrary="4"
 				StructMemberAlignment="0"
-				BufferSecurityCheck="false"
-				EnableFunctionLevelLinking="true"
-				UsePrecompiledHeader="0"
+				BufferSecurityCheck="FALSE"
+				EnableFunctionLevelLinking="TRUE"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
-				WarnAsError="true"
-				DebugInformationFormat="0"
-			/>
+				WarnAsError="TRUE"
+				DebugInformationFormat="0"/>
 			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="AUTOHOTKEYSC"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
+				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="wsock32.lib winmm.lib version.lib comctl32.lib &quot;$(InputDir)\source\lib\exearc_read_mt.lib&quot;"
 				ShowProgress="0"
 				OutputFile="$(OutDir)/AutoHotkeySC.bin"
 				LinkIncremental="1"
-				IgnoreDefaultLibraryNames="MSVCrt"
-				GenerateDebugInformation="false"
+				IgnoreDefaultLibraryNames="LibCMT;MSVCrt"
+				GenerateDebugInformation="FALSE"
 				SubSystem="2"
 				StackReserveSize="4194304"
 				LargeAddressAware="1"
 				TerminalServerAware="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				OptimizeForWindows98="0"
+				OptimizeForWindows98="1"
 				FunctionOrder="@source/misc/function_order_for_linker_optimization.txt"
-				SetChecksum="false"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				TargetMachine="1"
-			/>
+				TargetMachine="1"/>
 			<Tool
-				Name="VCALinkTool"
-			/>
+				Name="VCMIDLTool"/>
 			<Tool
-				Name="VCManifestTool"
-			/>
+				Name="VCPostBuildEventTool"/>
 			<Tool
-				Name="VCXDCMakeTool"
-			/>
+				Name="VCPreBuildEventTool"/>
 			<Tool
-				Name="VCBscMakeTool"
-			/>
+				Name="VCPreLinkEventTool"/>
 			<Tool
-				Name="VCFxCopTool"
-			/>
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="AUTOHOTKEYSC"/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
+				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
-				Name="VCPostBuildEventTool"
-				CommandLine="&quot;$(ProjectDir)PostBuildSC.ahk&quot;"
-			/>
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 		<Configuration
 			Name="SC (minimum size)|Win32"
 			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="temp\$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			CharacterSet="2"
-			DeleteExtensionsOnClean="*.obj;*.ilk;*.tlb;*.tli;*.tlh;*.tmp;*.rsp;*.pgc;*.pgd;*.meta"
-			WholeProgramOptimization="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
+			WholeProgramOptimization="TRUE">
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="1"
+				GlobalOptimizations="TRUE"
 				InlineFunctionExpansion="1"
-				EnableIntrinsicFunctions="true"
+				EnableIntrinsicFunctions="TRUE"
 				FavorSizeOrSpeed="2"
-				OmitFramePointers="true"
+				OmitFramePointers="TRUE"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;AUTOHOTKEYSC"
-				StringPooling="true"
-				ExceptionHandling="0"
+				StringPooling="TRUE"
+				ExceptionHandling="FALSE"
 				RuntimeLibrary="2"
 				StructMemberAlignment="0"
-				BufferSecurityCheck="false"
-				EnableFunctionLevelLinking="true"
-				UsePrecompiledHeader="0"
+				BufferSecurityCheck="FALSE"
+				EnableFunctionLevelLinking="TRUE"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
-				WarnAsError="true"
-				DebugInformationFormat="0"
-			/>
+				WarnAsError="TRUE"
+				DebugInformationFormat="0"/>
 			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="AUTOHOTKEYSC"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
+				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="wsock32.lib winmm.lib version.lib comctl32.lib &quot;$(InputDir)\source\lib\exearc_read_mt.lib&quot;"
@@ -354,41 +236,37 @@
 				OutputFile="$(OutDir)/AutoHotkeySC.bin"
 				LinkIncremental="1"
 				IgnoreDefaultLibraryNames="libc;libcmt"
-				GenerateDebugInformation="false"
+				GenerateDebugInformation="FALSE"
 				SubSystem="2"
 				StackReserveSize="4194304"
 				LargeAddressAware="1"
 				TerminalServerAware="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				OptimizeForWindows98="0"
+				OptimizeForWindows98="1"
 				FunctionOrder="@source/misc/function_order_for_linker_optimization.txt"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				TargetMachine="1"
-			/>
+				TargetMachine="1"/>
 			<Tool
-				Name="VCALinkTool"
-			/>
+				Name="VCMIDLTool"/>
 			<Tool
-				Name="VCManifestTool"
-			/>
+				Name="VCPostBuildEventTool"/>
 			<Tool
-				Name="VCXDCMakeTool"
-			/>
+				Name="VCPreBuildEventTool"/>
 			<Tool
-				Name="VCBscMakeTool"
-			/>
+				Name="VCPreLinkEventTool"/>
 			<Tool
-				Name="VCFxCopTool"
-			/>
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="AUTOHOTKEYSC"/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
+				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
-				Name="VCPostBuildEventTool"
-				CommandLine="&quot;$(ProjectDir)PostBuildSC.ahk&quot;"
-			/>
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 	</Configurations>
 	<References>
@@ -397,261 +275,192 @@
 		<Filter
 			Name="Source Files"
 			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
-			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
-			>
+			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}">
 			<File
-				RelativePath=".\source\application.cpp"
-				>
+				RelativePath=".\source\application.cpp">
 			</File>
 			<File
-				RelativePath=".\source\AutoHotkey.cpp"
-				>
+				RelativePath=".\source\AutoHotkey.cpp">
 			</File>
 			<File
-				RelativePath=".\source\clipboard.cpp"
-				>
+				RelativePath=".\source\clipboard.cpp">
 			</File>
 			<File
-				RelativePath=".\source\Debugger.cpp"
-				>
+				RelativePath=".\source\globaldata.cpp">
 			</File>
 			<File
-				RelativePath=".\source\globaldata.cpp"
-				>
+				RelativePath=".\source\hook.cpp">
 			</File>
 			<File
-				RelativePath=".\source\hook.cpp"
-				>
+				RelativePath=".\source\hotkey.cpp">
 			</File>
 			<File
-				RelativePath=".\source\hotkey.cpp"
-				>
+				RelativePath=".\source\keyboard_mouse.cpp">
 			</File>
 			<File
-				RelativePath=".\source\keyboard_mouse.cpp"
-				>
+				RelativePath=".\source\mt19937ar-cok.cpp">
 			</File>
 			<File
-				RelativePath=".\source\mt19937ar-cok.cpp"
-				>
+				RelativePath=".\source\os_version.cpp">
 			</File>
 			<File
-				RelativePath=".\source\os_version.cpp"
-				>
+				RelativePath=".\source\script.cpp">
 			</File>
 			<File
-				RelativePath=".\source\script.cpp"
-				>
+				RelativePath=".\source\script2.cpp">
 			</File>
 			<File
-				RelativePath=".\source\script2.cpp"
-				>
+				RelativePath=".\source\script_autoit.cpp">
 			</File>
 			<File
-				RelativePath=".\source\script_autoit.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\script_expression.cpp"
-				>
+				RelativePath=".\source\script_expression.cpp">
 				<FileConfiguration
-					Name="Release|Win32"
-					>
+					Name="Release|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="2"
-						FavorSizeOrSpeed="1"
-					/>
+						FavorSizeOrSpeed="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="SC (self-contained)|Win32"
-					>
+					Name="SC (self-contained)|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
+						UsePrecompiledHeader="0"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="SC (minimum size)|Win32"
-					>
+					Name="SC (minimum size)|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
+						UsePrecompiledHeader="0"/>
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath=".\source\script_gui.cpp"
-				>
+				RelativePath=".\source\script_gui.cpp">
 			</File>
 			<File
-				RelativePath=".\source\script_menu.cpp"
-				>
+				RelativePath=".\source\script_menu.cpp">
 			</File>
 			<File
-				RelativePath=".\source\script_registry.cpp"
-				>
+				RelativePath=".\source\script_registry.cpp">
 			</File>
 			<File
-				RelativePath=".\source\SimpleHeap.cpp"
-				>
+				RelativePath=".\source\SimpleHeap.cpp">
 			</File>
 			<File
-				RelativePath=".\source\stdafx.cpp"
-				>
+				RelativePath=".\source\stdafx.cpp">
 			</File>
 			<File
-				RelativePath=".\source\util.cpp"
-				>
+				RelativePath=".\source\util.cpp">
 			</File>
 			<File
-				RelativePath=".\source\var.cpp"
-				>
+				RelativePath=".\source\var.cpp">
 			</File>
 			<File
-				RelativePath=".\source\window.cpp"
-				>
+				RelativePath=".\source\window.cpp">
 			</File>
 			<File
-				RelativePath=".\source\WinGroup.cpp"
-				>
+				RelativePath=".\source\WinGroup.cpp">
 			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
-			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
-			>
+			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}">
 			<File
-				RelativePath=".\source\application.h"
-				>
+				RelativePath=".\source\application.h">
 			</File>
 			<File
-				RelativePath=".\source\clipboard.h"
-				>
+				RelativePath=".\source\clipboard.h">
 			</File>
 			<File
-				RelativePath=".\source\Debugger.h"
-				>
+				RelativePath=".\source\defines.h">
 			</File>
 			<File
-				RelativePath=".\source\defines.h"
-				>
+				RelativePath=".\source\lib\exearc_read.h">
 			</File>
 			<File
-				RelativePath=".\source\lib\exearc_read.h"
-				>
+				RelativePath=".\source\globaldata.h">
 			</File>
 			<File
-				RelativePath=".\source\globaldata.h"
-				>
+				RelativePath=".\source\hook.h">
 			</File>
 			<File
-				RelativePath=".\source\hook.h"
-				>
+				RelativePath=".\source\hotkey.h">
 			</File>
 			<File
-				RelativePath=".\source\hotkey.h"
-				>
+				RelativePath=".\source\keyboard_mouse.h">
 			</File>
 			<File
-				RelativePath=".\source\keyboard_mouse.h"
-				>
+				RelativePath=".\source\mt19937ar-cok.h">
 			</File>
 			<File
-				RelativePath=".\source\mt19937ar-cok.h"
-				>
+				RelativePath=".\source\os_version.h">
 			</File>
 			<File
-				RelativePath=".\source\os_version.h"
-				>
+				RelativePath=".\source\lib_pcre\pcre\pcre.h">
 			</File>
 			<File
-				RelativePath=".\source\lib_pcre\pcre\pcre.h"
-				>
+				RelativePath=".\source\qmath.h">
 			</File>
 			<File
-				RelativePath=".\source\qmath.h"
-				>
+				RelativePath=".\source\resources\resource.h">
 			</File>
 			<File
-				RelativePath=".\source\resources\resource.h"
-				>
+				RelativePath=".\source\script.h">
 			</File>
 			<File
-				RelativePath=".\source\script.h"
-				>
+				RelativePath=".\source\SimpleHeap.h">
 			</File>
 			<File
-				RelativePath=".\source\SimpleHeap.h"
-				>
+				RelativePath=".\source\stdafx.h">
 			</File>
 			<File
-				RelativePath=".\source\stdafx.h"
-				>
+				RelativePath=".\source\util.h">
 			</File>
 			<File
-				RelativePath=".\source\util.h"
-				>
+				RelativePath=".\source\var.h">
 			</File>
 			<File
-				RelativePath=".\source\var.h"
-				>
+				RelativePath=".\source\window.h">
 			</File>
 			<File
-				RelativePath=".\source\window.h"
-				>
-			</File>
-			<File
-				RelativePath=".\source\WinGroup.h"
-				>
+				RelativePath=".\source\WinGroup.h">
 			</File>
 		</Filter>
 		<Filter
 			Name="Resource Files"
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
-			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
-			>
+			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}">
 			<File
-				RelativePath=".\source\resources\AutoHotkey.exe.manifest"
-				>
+				RelativePath=".\source\resources\AutoHotkey.exe.manifest">
 			</File>
 			<File
-				RelativePath=".\source\resources\AutoHotkey.rc"
-				>
+				RelativePath=".\source\resources\AutoHotkey.rc">
 			</File>
 			<File
-				RelativePath=".\source\resources\icon_filetype.ico"
-				>
+				RelativePath=".\source\resources\icon_filetype.ico">
 			</File>
 			<File
-				RelativePath=".\source\resources\icon_main.ico"
-				>
+				RelativePath=".\source\resources\icon_main.ico">
 			</File>
 			<File
-				RelativePath=".\source\resources\icon_pause.ico"
-				>
+				RelativePath=".\source\resources\icon_pause.ico">
 			</File>
 			<File
-				RelativePath=".\source\resources\icon_pause_suspend.ico"
-				>
+				RelativePath=".\source\resources\icon_pause_suspend.ico">
 			</File>
 			<File
-				RelativePath=".\source\resources\icon_suspend.ico"
-				>
+				RelativePath=".\source\resources\icon_suspend.ico">
 			</File>
 			<File
-				RelativePath=".\source\resources\icon_tray_win9x.ico"
-				>
+				RelativePath=".\source\resources\icon_tray_win9x.ico">
 			</File>
 			<File
-				RelativePath=".\source\resources\icon_tray_win9x_suspend.ico"
-				>
+				RelativePath=".\source\resources\icon_tray_win9x_suspend.ico">
 			</File>
 		</Filter>
 		<File
-			RelativePath=".\source\misc\function_order_for_linker_optimization.txt"
-			>
+			RelativePath=".\source\misc\function_order_for_linker_optimization.txt">
 		</File>
 	</Files>
 	<Globals>

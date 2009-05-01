@@ -1,7 +1,7 @@
 /*
 AutoHotkey
 
-Copyright 2003-2009 Chris Mallett (support@autohotkey.com)
+Copyright 2003-2008 Chris Mallett (support@autohotkey.com)
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -24,7 +24,7 @@ GNU General Public License for more details.
 
 ResultType Script::PerformGui(char *aCommand, char *aParam2, char *aParam3, char *aParam4)
 {
-	int window_index = g->GuiDefaultWindowIndex; // Which window to operate upon.  Initialized to thread's default.
+	int window_index = g.GuiDefaultWindowIndex; // Which window to operate upon.  Initialized to thread's default.
 	char *options; // This will contain something that is meaningful only when gui_command == GUI_CMD_OPTIONS.
 	GuiCommands gui_command = Line::ConvertGuiCommand(aCommand, &window_index, &options);
 	if (gui_command == GUI_CMD_INVALID)
@@ -41,11 +41,11 @@ ResultType Script::PerformGui(char *aCommand, char *aParam2, char *aParam3, char
 		return GuiType::Destroy(window_index);
 
 	case GUI_CMD_DEFAULT:
-		// Change the "default" member, not g->GuiWindowIndex because that contains the original
+		// Change the "default" member, not g.GuiWindowIndex because that contains the original
 		// window number reponsible for launching this thread, which should not be changed because it is
 		// used to produce the contents of A_Gui.  Also, it's okay if the specify window index doesn't
 		// currently exist.
-		g->GuiDefaultWindowIndex = window_index;
+		g.GuiDefaultWindowIndex = window_index;
 		return OK;
 	}
 
@@ -73,7 +73,7 @@ ResultType Script::PerformGui(char *aCommand, char *aParam2, char *aParam3, char
 		case GUI_CMD_OPTIONS:
 			if (!stricmp(options, "+LastFoundExist"))
 			{
-				g->hWndLastUsed = NULL;
+				g.hWndLastUsed = NULL;
 				return OK;
 			}
 			break;
@@ -117,11 +117,11 @@ ResultType Script::PerformGui(char *aCommand, char *aParam2, char *aParam3, char
 	if (gui_command == GUI_CMD_OPTIONS)
 	{
 		if (set_last_found_window)
-			g->hWndLastUsed = gui.mHwnd;
+			g.hWndLastUsed = gui.mHwnd;
 		// Fix for v1.0.35.05: Must do the following only if gui_command==GUI_CMD_OPTIONS, otherwise
 		// the own_dialogs setting will get reset during other commands such as "Gui Show", "Gui Add"
 		if (own_dialogs != TOGGLE_INVALID) // v1.0.35.06: Plus or minus "OwnDialogs" was present rather than being entirely absent.
-			g->DialogOwnerIndex = (own_dialogs == TOGGLED_ON) ? window_index : MAX_GUI_WINDOWS; // Reset to out-of-bounds when "-OwnDialogs" is present.
+			g.DialogOwnerIndex = (own_dialogs == TOGGLED_ON) ? window_index : MAX_GUI_WINDOWS; // Reset to out-of-bounds when "-OwnDialogs" is present.
 		return OK;
 	}
 
@@ -315,7 +315,7 @@ ResultType Script::PerformGui(char *aCommand, char *aParam2, char *aParam3, char
 ResultType Line::GuiControl(char *aCommand, char *aControlID, char *aParam3)
 {
 	char *options; // This will contain something that is meaningful only when gui_command == GUICONTROL_CMD_OPTIONS.
-	int window_index = g->GuiDefaultWindowIndex; // Which window to operate upon.  Initialized to thread's default.
+	int window_index = g.GuiDefaultWindowIndex; // Which window to operate upon.  Initialized to thread's default.
 	GuiControlCmds guicontrol_cmd = Line::ConvertGuiControlCmd(aCommand, &window_index, &options);
 	if (guicontrol_cmd == GUICONTROL_CMD_INVALID)
 		// This is caught at load-time 99% of the time and can only occur here if the sub-command name
@@ -853,7 +853,6 @@ ResultType Line::GuiControl(char *aCommand, char *aControlID, char *aParam3)
 
 	case GUICONTROL_CMD_ENABLE:
 	case GUICONTROL_CMD_DISABLE:
-	{
 		// GUI_CONTROL_ATTRIB_EXPLICITLY_DISABLED is maintained for use with tab controls.  It allows controls
 		// on inactive tabs to be marked for later enabling.  It also allows explicitly disabled controls to
 		// stay disabled even when their tab/page becomes active. It is updated unconditionally for simplicity
@@ -868,23 +867,13 @@ ResultType Line::GuiControl(char *aCommand, char *aControlID, char *aParam3)
 				// ... or either there is no current tab/page (or there are no tabs at all) or the one selected
 				// is not this control's: Do not disable or re-enable the control in this case.
 			return OK;
-
-		// L23: Restrict focus workaround to when the control is/was actually focused. Fixes a bug introduced by L13: enabling or disabling a control caused the active Edit control to reselect its text.
-		bool gui_control_was_focused = GetForegroundWindow() == gui.mHwnd && GetFocus() == control.hwnd;
-
 		// Since above didn't return, act upon the enabled/disable:
-		EnableWindow(control.hwnd, guicontrol_cmd == GUICONTROL_CMD_ENABLE);
-		
-		// L23: Only if EnableWindow removed the keyboard focus entirely, reset the focus.
-		if (gui_control_was_focused && !GetFocus())
-			SetFocus(gui.mHwnd);
-		
+		EnableWindow(control.hwnd, guicontrol_cmd == GUICONTROL_CMD_ENABLE ? TRUE : FALSE);
 		if (control.type == GUI_CONTROL_TAB) // This control is a tab control.
 			// Update the control so that its current tab's controls will all be enabled or disabled (now
 			// that the tab control itself has just been enabled or disabled):
 			gui.ControlUpdateCurrentTab(control, false);
 		return OK;
-	}
 
 	case GUICONTROL_CMD_SHOW:
 	case GUICONTROL_CMD_HIDE:
@@ -1087,7 +1076,7 @@ ResultType Line::GuiControl(char *aCommand, char *aControlID, char *aParam3)
 ResultType Line::GuiControlGet(char *aCommand, char *aControlID, char *aParam3)
 {
 	Var &output_var = *OUTPUT_VAR;
-	int window_index = g->GuiDefaultWindowIndex; // Which window to operate upon.  Initialized to thread's default.
+	int window_index = g.GuiDefaultWindowIndex; // Which window to operate upon.  Initialized to thread's default.
 	GuiControlGetCmds guicontrolget_cmd = Line::ConvertGuiControlGetCmd(aCommand, &window_index);
 	if (guicontrolget_cmd == GUICONTROLGET_CMD_INVALID)
 	{
@@ -1317,13 +1306,12 @@ ResultType GuiType::Destroy(GuiIndexType aWindowIndex)
 	//gui.mHwnd = NULL;
 	//gui.mControlCount = 0; // All child windows (controls) are automatically destroyed with parent.
 	HICON icon_eligible_for_destruction = gui.mIconEligibleForDestruction;
-	HICON icon_eligible_for_destruction_small = gui.mIconEligibleForDestructionSmall;
 	free(gui.mControl); // Free the control array, which was previously malloc'd.
 	delete g_gui[aWindowIndex]; // After this, the var "gui" is invalid so should not be referenced, i.e. the next line.
 	g_gui[aWindowIndex] = NULL;
 	--sGuiCount; // This count is maintained to help performance in the main event loop and other places.
 	if (icon_eligible_for_destruction && icon_eligible_for_destruction != g_script.mCustomIcon) // v1.0.37.07.
-		DestroyIconsIfUnused(icon_eligible_for_destruction, icon_eligible_for_destruction_small); // Must be done only after "g_gui[aWindowIndex] = NULL".
+		DestroyIconIfUnused(icon_eligible_for_destruction); // Must be done only after "g_gui[aWindowIndex] = NULL".
 	// For simplicity and performance, any fonts used *solely* by a destroyed window are destroyed
 	// only when the program terminates.  Another reason for this is that sometimes a destroyed window
 	// is soon recreated to use the same fonts it did before.
@@ -1332,7 +1320,7 @@ ResultType GuiType::Destroy(GuiIndexType aWindowIndex)
 
 
 
-void GuiType::DestroyIconsIfUnused(HICON ahIcon, HICON ahIconSmall)
+void GuiType::DestroyIconIfUnused(HICON ahIcon)
 // Caller has ensured that the GUI window previously using ahIcon has been destroyed prior to calling
 // this function.
 {
@@ -1352,8 +1340,6 @@ void GuiType::DestroyIconsIfUnused(HICON ahIcon, HICON ahIconSmall)
 	// Since above didn't return, this icon is not currently in use by a GUI window.  The caller has
 	// authorized us to destroy it.
 	DestroyIcon(ahIcon);
-	// L17: Small icon should always also be unused at this point.
-	DestroyIcon(ahIconSmall);
 }
 
 
@@ -1398,15 +1384,14 @@ ResultType GuiType::Create()
 		, mOwner, NULL, g_hInstance, NULL))   )
 		return FAIL;
 
-	// L17: Use separate big/small icons for best results.
-	HICON big_icon, small_icon;
+	HICON main_icon;
 	if (g_script.mCustomIcon)
 	{
-		mIconEligibleForDestruction = big_icon = g_script.mCustomIcon;
-		mIconEligibleForDestructionSmall = small_icon = g_script.mCustomIconSmall; // Should always be non-NULL if mCustomIcon is non-NULL.
+		main_icon = g_script.mCustomIcon;
+		mIconEligibleForDestruction = main_icon;
 	}
 	else
-		big_icon = small_icon = (HICON)LoadImage(g_hInstance, MAKEINTRESOURCE(IDI_MAIN), IMAGE_ICON, 0, 0, LR_SHARED); // Use LR_SHARED to conserve memory (since the main icon is loaded for so many purposes).
+		main_icon = (HICON)LoadImage(g_hInstance, MAKEINTRESOURCE(IDI_MAIN), IMAGE_ICON, 0, 0, LR_SHARED); // Use LR_SHARED to conserve memory (since the main icon is loaded for so many purposes).
 		// Unlike mCustomIcon, leave mIconEligibleForDestruction NULL because a shared HICON such as one
 		// loaded via LR_SHARED should never be destroyed.
 	// Setting the small icon puts it in the upper left corner of the dialog window.
@@ -1422,8 +1407,8 @@ ResultType GuiType::Create()
 	// 2) It's owned by another GUI window but it has the WS_EX_APPWINDOW style (might force a taskbar button):
 	//    Same effect as in #1.
 	// 3) Possibly other ways.
-	SendMessage(mHwnd, WM_SETICON, ICON_SMALL, (LPARAM)small_icon); // Testing shows that a zero is returned for both;
-	SendMessage(mHwnd, WM_SETICON, ICON_BIG, (LPARAM)big_icon);   // i.e. there is no previous icon to destroy in this case.
+	SendMessage(mHwnd, WM_SETICON, ICON_SMALL, (LPARAM)main_icon); // Testing shows that a zero is returned for both;
+	SendMessage(mHwnd, WM_SETICON, ICON_BIG, (LPARAM)main_icon);   // i.e. there is no previous icon to destroy in this case.
 
 	return OK;
 }
@@ -6213,7 +6198,7 @@ ResultType GuiType::Submit(bool aHideIt)
 				// for multiple selections is left intact.
 				if (selection_number == -1)
 					selection_number = 0;
-				// Convert explicitly to decimal so that g->FormatIntAsHex is not obeyed.
+				// Convert explicitly to decimal so that g.FormatIntAsHex is not obeyed.
 				// This is so that this result matches the decimal format tradition set by
 				// the "1" and "0" strings normally used for radios and checkboxes:
 				_itoa(selection_number, temp, 10); // selection_number can be legitimately zero.
@@ -6433,11 +6418,11 @@ ResultType GuiType::ControlGetContents(Var &aOutputVar, GuiControlType &aControl
 			length = SendMessage(aControl.hwnd, CB_GETLBTEXT, (WPARAM)index, (LPARAM)aOutputVar.Contents());
 			if (length == CB_ERR) // Given the way it was called, this should be impossible based on MSDN docs.
 			{
-				aOutputVar.Close();
+				aOutputVar.Close(); // In case it's the clipboard.
 				return aOutputVar.Assign();
 			}
 			aOutputVar.Length() = (VarSizeType)length;  // Update it to the actual length, which can vary from the estimate.
-			return aOutputVar.Close(); // Must be called after Assign(NULL, ...) or when Contents() has been altered because it updates the variable's attributes and properly handles VAR_CLIPBOARD.
+			return aOutputVar.Close(); // In case it's the clipboard.
 
 		case GUI_CONTROL_LISTBOX:
 			if (GetWindowLong(aControl.hwnd, GWL_STYLE) & (LBS_EXTENDEDSEL|LBS_MULTIPLESEL))
@@ -6546,12 +6531,12 @@ ResultType GuiType::ControlGetContents(Var &aOutputVar, GuiControlType &aControl
 				length = SendMessage(aControl.hwnd, LB_GETTEXT, (WPARAM)index, (LPARAM)aOutputVar.Contents());
 				if (length == LB_ERR) // Given the way it was called, this should be impossible based on MSDN docs.
 				{
-					aOutputVar.Close();
+					aOutputVar.Close(); // In case it's the clipboard.
 					return aOutputVar.Assign();
 				}
 			}
 			aOutputVar.Length() = (VarSizeType)length;  // Update it to the actual length, which can vary from the estimate.
-			return aOutputVar.Close(); // Must be called after Assign(NULL, ...) or when Contents() has been altered because it updates the variable's attributes and properly handles VAR_CLIPBOARD.
+			return aOutputVar.Close(); // In case it's the clipboard.
 
 		case GUI_CONTROL_TAB:
 			index = TabCtrl_GetCurSel(aControl.hwnd); // Get index of currently selected item.
@@ -6612,7 +6597,7 @@ ResultType GuiType::ControlGetContents(Var &aOutputVar, GuiControlType &aControl
 		StrReplace(aOutputVar.Contents(), "\r\n", "\n", SCS_SENSITIVE);
 		aOutputVar.Length() = (VarSizeType)strlen(aOutputVar.Contents());
 	}
-	return aOutputVar.Close(); // Must be called after Assign(NULL, ...) or when Contents() has been altered because it updates the variable's attributes and properly handles VAR_CLIPBOARD.
+	return aOutputVar.Close();  // In case it's the clipboard.
 }
 
 
@@ -6648,7 +6633,7 @@ GuiIndexType GuiType::FindControl(char *aControlID)
 			if (mControl[u].output_var == var)
 				return u;  // Match found.
 	}
-	if (g->CurrentFunc // v1.0.46.15: Since above failed to match: if we're in a function (which is checked for performance reasons), search for a static or ByRef-that-points-to-a-global-or-static because both should be supported.
+	if (g.CurrentFunc // v1.0.46.15: Since above failed to match: if we're in a function (which is checked for performance reasons), search for a static or ByRef-that-points-to-a-global-or-static because both should be supported.
 		&& (var = g_script.FindVar(aControlID, 0, NULL, ALWAYS_USE_LOCAL)))
 	{
 		// No need to do "var = var->ResolveAlias()" because the line above never finds locals, only globals.
@@ -6804,9 +6789,6 @@ int GuiType::FindOrCreateFont(char *aOptions, char *aFontName, FontType *aFounda
 		strlcpy(font.name, aFontName, MAX_FONT_NAME_LENGTH+1);
 	COLORREF color = CLR_NONE; // Because we want to treat CLR_DEFAULT as a real color.
 
-	// L19: Set default quality to that of previous versions.
-	font.quality = PROOF_QUALITY;
-
 	// Temp vars:
 	char color_str[32], *space_pos;
 
@@ -6889,10 +6871,6 @@ int GuiType::FindOrCreateFont(char *aOptions, char *aFontName, FontType *aFounda
 			font.weight = atoi(cp + 1);
 			break;
 
-		case 'Q': // L19: Allow control over font quality (anti-aliasing, etc.).
-			font.quality = atoi(cp + 1);
-			break;
-
 		// Otherwise: Ignore other characters, such as the digits that occur after the P/X/Y option letters.
 		} // switch()
 	} // for()
@@ -6930,7 +6908,7 @@ int GuiType::FindOrCreateFont(char *aOptions, char *aFontName, FontType *aFounda
 	// closer to the size specified:
 	if (   !(font.hfont = CreateFont(-MulDiv(font.point_size, pixels_per_point_y, 72), 0, 0, 0
 		, font.weight, font.italic, font.underline, font.strikeout
-		, DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, font.quality, FF_DONTCARE, font.name))   )
+		, DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, PROOF_QUALITY, FF_DONTCARE, font.name))   )
 		// OUT_DEFAULT_PRECIS/OUT_TT_PRECIS ... DEFAULT_QUALITY/PROOF_QUALITY
 	{
 		g_script.ScriptError("Can't create font." ERR_ABORT);  // Short msg since so rare.
@@ -6951,8 +6929,7 @@ int GuiType::FindFont(FontType &aFont)
 			&& sFont[i].weight == aFont.weight
 			&& sFont[i].italic == aFont.italic
 			&& sFont[i].underline == aFont.underline
-			&& sFont[i].strikeout == aFont.strikeout
-			&& sFont[i].quality == aFont.quality) // Match found.
+			&& sFont[i].strikeout == aFont.strikeout) // Match found.
 			return i;
 	return -1;  // Indicate failure.
 }
@@ -6962,13 +6939,13 @@ int GuiType::FindFont(FontType &aFont)
 LRESULT CALLBACK GuiWindowProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
 	// If a message pump other than our own is running -- such as that of a dialog like MsgBox -- it will
-	// dispatch messages directly here.  This is detected by means of g->CalledByIsDialogMessageOrDispatch==false.
+	// dispatch messages directly here.  This is detected by means of g.CalledByIsDialogMessageOrDispatch==false.
 	// Such messages need to be checked here because MsgSleep hasn't seen the message and thus hasn't
-	// done the check. The g->CalledByIsDialogMessageOrDispatch method relies on the fact that we never call
+	// done the check. The g.CalledByIsDialogMessageOrDispatch method relies on the fact that we never call
 	// MsgSleep here for the types of messages dispatched from MsgSleep, which seems true.  Also, if
-	// we do lauch a monitor thread here via MsgMonitor, that means g->CalledByIsDialogMessageOrDispatch==false.
+	// we do lauch a monitor thread here via MsgMonitor, that means g.CalledByIsDialogMessageOrDispatch==false.
 	// Therefore, any calls to MsgSleep made by the new thread can't corrupt our caller's settings of
-	// g->CalledByIsDialogMessageOrDispatch because in that case, our caller isn't MsgSleep's IsDialog/Dispatch.
+	// g.CalledByIsDialogMessageOrDispatch because in that case, our caller isn't MsgSleep's IsDialog/Dispatch.
 	// As an added precaution against the complexity of these message issues (only one of several such scenarios
 	// is described above), CalledByIsDialogMessageOrDispatch is put into the g-struct rather than being
 	// a normal global.  That way, a thread's calls to MsgSleep can't interfere with the value of
@@ -6976,10 +6953,10 @@ LRESULT CALLBACK GuiWindowProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lPara
 	// unnecessary, it adds maintainability.
 	LRESULT msg_reply;
 	if (g_MsgMonitorCount // Count is checked here to avoid function-call overhead.
-		&& (!g->CalledByIsDialogMessageOrDispatch || g->CalledByIsDialogMessageOrDispatchMsg != iMsg) // v1.0.44.11: If called by IsDialog or Dispatch but they changed the message number, check if the script is monitoring that new number.
+		&& (!g.CalledByIsDialogMessageOrDispatch || g.CalledByIsDialogMessageOrDispatchMsg != iMsg) // v1.0.44.11: If called by IsDialog or Dispatch but they changed the message number, check if the script is monitoring that new number.
 		&& MsgMonitor(hWnd, iMsg, wParam, lParam, NULL, msg_reply))
 		return msg_reply; // MsgMonitor has returned "true", indicating that this message should be omitted from further processing.
-	g->CalledByIsDialogMessageOrDispatch = false;
+	g.CalledByIsDialogMessageOrDispatch = false;
 	// Fixed for v1.0.40.01: The above line was added to resolve a case where our caller did make the value
 	// true but the message it sent us results in a recursive call to us (such as when the user resizes a
 	// window by dragging its borders: that apparently starts a loop in DefDlgProc that calls this
@@ -7964,26 +7941,8 @@ LRESULT CALLBACK GuiWindowProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lPara
 		// And in any case, pass it on to DefDlgProc() in case it does any extra cleanup:
 		break;
 
-	// For WM_ENTERMENULOOP/WM_EXITMENULOOP, there is similar code in MainWindowProc(), so maintain them together.
-	// WM_ENTERMENULOOP: One of the MENU BAR menus has been displayed, and then we know the user is is still in
-	// the menu bar, even moving to different menus and/or menu items, until WM_EXITMENULOOP is received.
-	// Note: It seems that when window's menu bar is being displayed/navigated by the user, our thread
-	// is tied up in a message loop other than our own.  In other words, it's very similar to the
-	// TrackPopupMenuEx() call used to handle the tray menu, which is why g_MenuIsVisible can be used
-	// for both types of menus to indicate to MainWindowProc() that timed subroutines should not be
-	// checked or allowed to launch during such times.  Also, "break" is used rather than "return 0"
-	// to let DefWindowProc()/DefaultDlgProc() take whatever action it needs to do for these.
-	// UPDATE: The value of g_MenuIsVisible is checked before changing it because it might already be
-	// set to MENU_TYPE_POPUP (apparently, TrackPopupMenuEx sometimes/always generates WM_ENTERMENULOOP).
-	// BAR vs. POPUP currently doesn't matter (as long as its non-zero); thus, the above is done for
-	// maintainability.
-	case WM_ENTERMENULOOP:
-		if (!g_MenuIsVisible) // See comments above.
-			g_MenuIsVisible = MENU_TYPE_BAR;
-		break;
-	case WM_EXITMENULOOP:
-		g_MenuIsVisible = MENU_TYPE_NONE; // See comments above.
-		break;
+	// Cases for WM_ENTERMENULOOP and WM_EXITMENULOOP:
+	HANDLE_MENU_LOOP
 
 	} // switch()
 
@@ -8391,20 +8350,12 @@ char *GuiType::HotkeyToText(WORD aHotkey, char *aBuf)
 	// 4) Using the Send command to send the hotkey seems very rare; the script would normally Gosub the hotkey's
 	//    subroutine instead.
 	VKtoKeyName(vk, 0, cp, 100);
-
-	// v1.0.48: The above calls GetKeyName(), which calls GetKeyNameText(), which produces the character's
-	// name rather than the character iself if the VK is a dead key (e.g. Zircumflex rather than ^ in the
-	// German keyboard layout).  Since such names are not currently supported by commands like
-	// Hotkey/GetKeyState/Send, try another method to convert it.  Testing shows that MapVirtualKey() produces
-	// the correct character, at least for dead keys in the German keyboard layout.
-	if (*cp  // cp can be blank when the user has pressed only some modifiers so far, such as Ctrl+Alt.
-		&& !TextToVK(cp)) // Check if it would be a valid hotkey name.  See comment-block above.
-	{
-		if (*cp = (char)MapVirtualKey(vk, 2)) // It is not necessary to call the Ex() version of MapVirtualKey because this hotkey control is one of our own, so its language/layout should be the same as this thread's
-			cp[1] = '\0'; // It seems unlikely that TextToVK() won't find a reverse mapping for the character found above, so that isn't checked. This whole situation is rare anyway because it only occurs for dead keys.
-		else // Might never happen, but here for completeness.
-			sprintf(cp, "vk%02X", vk); // If this weren't done, arguably the name that was just in cp prior to MapVirtualKey() should be put back in there (or never taken out in the first place).
-	}
+	// The above call might be produce an unknown key-name via GetKeyName().  Since it seems so rare and
+	// the exact string to be returned (e.g. SC vs. VK) is uncertain/debatable: For now, it seems best to
+	// leave it as its native-language name rather than attempting to convert it to an SC or VK that
+	// can be compatible with GetKeyState or the Hotkey command:
+	//if (!TextToVK(cp))
+	//	sprintf(cp, "vk%02X", vk);
 	return aBuf;
 }
 

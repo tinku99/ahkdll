@@ -239,8 +239,6 @@ typedef struct pcre_callout_block {
   /* ------------------- Added for Version 1 -------------------------- */
   int          pattern_position;  /* Offset to next item in the pattern */
   int          next_item_length;  /* Length of next item in the pattern */
-  /* ------------------- Added for AutoHotkey ------------------------- */
-  void        *user_callout;
   /* ------------------------------------------------------------------ */
 } pcre_callout_block;
 
@@ -256,9 +254,6 @@ PCRE_EXP_DECL void  (*pcre_free)(void *);
 PCRE_EXP_DECL void *(*pcre_stack_malloc)(size_t);
 PCRE_EXP_DECL void  (*pcre_stack_free)(void *);
 PCRE_EXP_DECL int   (*pcre_callout)(pcre_callout_block *);
-//#ifdef SUPPORT_CALLOUT  /* AutoHotkey: Omit the callout feature from the code until it's needed. */
-PCRE_EXP_DECL void *(*pcre_resolve_user_callout)(const char *, int);
-//#endif
 #else   /* VPCOMPAT */
 PCRE_EXP_DECL void *pcre_malloc(size_t);
 PCRE_EXP_DECL void  pcre_free(void *);
