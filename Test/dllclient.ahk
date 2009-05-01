@@ -1,4 +1,4 @@
 #Persistent
-parameters = %2%
-msgbox % "script parameters =" . parameters
+msgbox % "script parameters =" . A_ScriptParams . "script options = "
+. A_ScriptOptions 
 return

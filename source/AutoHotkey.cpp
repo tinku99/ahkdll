@@ -138,15 +138,13 @@ args[3] = nameHinstanceP.args;  // script parameters, all in one string (* char)
 int argc = 4;
 
 	for (int i = 1; i < argc; ++i)  //	Naveen changed from:  for (int i = 1; i < __argc; ++i) see above
-	{
+	{  // Naveen: v6.1 put options in script variables as well
 		param = args[i]; // Naveen changed from: __argv[i]; see above
-		if (switch_processing_is_complete) // All args are now considered to be input parameters for the script.
-		{
 			if (   !(var = g_script.FindOrAddVar(var_name, sprintf(var_name, "%d", script_param_num)))   )
 				return CRITICAL_ERROR;  // Realistically should never happen.
 			var->Assign(param);
 			++script_param_num;
-		}
+		
 	}   // Naveen: v6.1 only argv needs special processing
 	    //              script will do its own parameter parsing
 
@@ -192,7 +190,6 @@ param = args[2] ; // Naveen: v6.1 Script options in nameHinstanceP.name will be 
 
 if (param = strcasestr(param, "/Debug"))
 {
-	MsgBox(param) ; // TESTING: make sure param points to /Debug
 	                // Naveen TODO: build AutoHotkey.exe statically linked to AutoHotkey.dll
 					// so I can debug in msvc.
 		if (!g_Debugger.IsConnected()  && (param[6] == '\0' || param[6] == '='))
@@ -256,11 +253,15 @@ else // since this is not a recognized switch, the end of the [Switches] section
 		return CRITICAL_ERROR;  // Realistically should never happen.
 	var->Assign(script_param_num - 1);
 
-	// Naveen v1. put script parameter into an ahk variable
-	// Todo: remove this as script parameter now goes to script global %2% 
-	Var *A_ScriptParam;
-	A_ScriptParam = g_script.FindOrAddVar("A_ScriptParam");
-	A_ScriptParam->Assign(nameHinstanceP.argv);
+	// Naveen v6.1 added script vars: A_ScriptParams and A_ScriptOptions
+	// 
+	Var *A_ScriptParams;
+	A_ScriptParams = g_script.FindOrAddVar("A_ScriptParams");	
+	A_ScriptParams->Assign(nameHinstanceP.args);
+
+	Var *A_ScriptOptions;
+	A_ScriptOptions = g_script.FindOrAddVar("A_ScriptOptions");	
+	A_ScriptOptions->Assign(nameHinstanceP.argv);
 
 // Naveen Todo: change 'g' to a more descriptive and easily searchable name such as threadStruct
 	global_init(*g);  // Set defaults prior to the below, since below might override them for AutoIt2 scripts.
