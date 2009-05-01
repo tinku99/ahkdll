@@ -1,0 +1,27 @@
+* ahkdll
+** about
+A shared library for AutoHotkey by Naveen Garg
+based on Lexikos' custom build: http://www.autohotkey.net/~Lexikos/AutoHotkey_L/
+of AutoHotkey http://www.autohotkey.com/ by Chris Chris Mallett
+
+Download dll here: http://www.autohotkey.net/~tinku99/
+source: git://github.com/tinku99/ahkdll.git
+
+to try it out:
+just run dllhost.ahk in the debug folder with the original AutoHotkey program.
+
+for a more involved demonstration, try ahklisp:
+http://www.ahklisp.com
+http://www.autohotkey.com/forum/viewtopic.php?t=43081
+
+** License:  see license.txt
+changes from AutoHotkey and AutoHotkey_L also copyrighted under GPL by Naveen Garg. 2009
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 2, June 1991
+** discussion
+autohotkey forum: http://www.autohotkey.com/forum/topic43049.html
+
+** org-mode settings
+#+STARTUP: overview
+#+STARTUP: hidestars
+

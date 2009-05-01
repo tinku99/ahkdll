@@ -1,0 +1,4 @@
+** Bugs
+Unloading of the dll is done without cleanup.
+So, trying to load a second script with ahkdll(script, argv) crashes.
+
