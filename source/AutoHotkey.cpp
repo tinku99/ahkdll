@@ -26,8 +26,72 @@ GNU General Public License for more details.
 // (GetMessage() or PeekMessage()) is the only means by which events are ever sent to the
 // hook functions.
 
+// Naveen: v1. #Include process.h for begin threadx 
+#include <process.h>  
 
-int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+// Naveen: v3. struct nameHinstance 
+// carries startup paramaters for script
+// Todo: change name to something more intuitive
+static struct nameHinstance
+     {
+       HINSTANCE hInstanceP;
+       char *name;
+	   char *argv;
+	   char *args;
+     } nameHinstanceP ;
+
+// Naveen v1. HANDLE hThread
+// Todo: move this to struct nameHinstance
+static 	HANDLE hThread;
+
+// Naveen v1. hThread2 and threadCount
+// Todo: remove these as multithreading was implemented 
+//       with multiple loading of the dll under separate names.
+static int threadCount = 1 ; 
+static 	HANDLE hThread2;
+
+// Naveen v1. DllMain() - puts hInstance into struct nameHinstanceP 
+//                        so it can be passed to OldWinMain()
+// hInstance is required for script initialization 
+// probably for window creation
+// Todo: better cleanup in DLL_PROCESS_DETACH: windows, variables, no exit from script
+
+BOOL WINAPI DllMain(HINSTANCE hInstance,DWORD fwdReason, LPVOID lpvReserved)
+ {
+switch(fwdReason)
+ {
+ case DLL_PROCESS_ATTACH:
+	 {
+	nameHinstanceP.hInstanceP = hInstance;	
+	break;
+	 }
+ case DLL_THREAD_ATTACH:
+
+ break;
+
+ case DLL_PROCESS_DETACH:
+	 {
+		 CloseHandle( hThread ); // need better cleanup: windows, variables, no exit from script
+		 break;
+	 }
+ case DLL_THREAD_DETACH:
+ break;
+ }
+
+ return(TRUE); // a FALSE will abort the DLL attach
+ }
+
+
+
+
+
+// int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) 
+
+// Naveen v1. changed WinMain() to OldWinMain()
+//            ahkdll() will call this through runscript() after DllMain()
+// Todo: separate AutoHotkey.exe_N project with a WinMain() to use the AutoHotkey.dll library
+
+int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 	setvbuf(stdout, NULL, _IONBF, 0); // L17: Disable stdout buffering to make it a more effective debugging tool.
 
@@ -70,9 +134,23 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	bool switch_processing_is_complete = false;
 	int script_param_num = 1;
 
-	for (int i = 1; i < __argc; ++i) // Start at 1 because 0 contains the program name.
+	
+
+
+// Naveen: v3. replaced command line __argc and __argv above with args[]
+//             currently only a single parameter such as /Debug is allowed in args[1]
+//             a single script parameter may contain white space in args[0]
+//             the client dll can use StringSplit to extract individual parameters
+char *args[4];
+args[0] = __argv[0];   //      name of host program
+args[1] = nameHinstanceP.argv;  // 1 option such as /Debug  /R /F /STDOUT
+args[2] = nameHinstanceP.name;  // name of script to launch
+args[3] = nameHinstanceP.args;  // script parameters, all in one string (* char)
+int argc = 4;
+
+	for (int i = 1; i < argc; ++i)  //	Naveen changed from:  for (int i = 1; i < __argc; ++i) see above
 	{
-		param = __argv[i]; // For performance and convenience.
+		param = args[i]; // Naveen changed from: __argv[i]; see above
 		if (switch_processing_is_complete) // All args are now considered to be input parameters for the script.
 		{
 			if (   !(var = g_script.FindOrAddVar(var_name, sprintf(var_name, "%d", script_param_num)))   )
@@ -136,7 +214,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 #ifdef AUTOHOTKEYSC
 			--i; // Make the loop process this item again so that it will be treated as a script param.
 #else
-			script_filespec = param;  // The first unrecognized switch must be the script filespec, by design.
+			script_filespec =	lpCmdLine;  // Naveen changed from: script_filespec = param;  see above
 #endif
 		}
 	}
@@ -160,6 +238,13 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		return CRITICAL_ERROR;  // Realistically should never happen.
 	var->Assign(script_param_num - 1);
 
+	// Naveen v1. put script parameter into an ahk variable
+	// Todo: remove this as script parameter now goes to script global %2% 
+	Var *sbclvar;
+	sbclvar = g_script.FindOrAddVar("argv");
+	sbclvar->Assign(nameHinstanceP.argv);
+
+// Naveen Todo: change 'g' to a more descriptive and easily searchable name such as threadStruct
 	global_init(*g);  // Set defaults prior to the below, since below might override them for AutoIt2 scripts.
 
 // Set up the basics of the script:
@@ -327,4 +412,81 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	// return (and we never want this to return):
 	MsgSleep(SLEEP_INTERVAL, WAIT_FOR_MESSAGES);
 	return 0; // Never executed; avoids compiler warning.
+}
+
+// Naveen: v1. runscript() - runs the script in a separate thread compared to host application.
+unsigned __stdcall runScript( void* pArguments )
+{
+	struct nameHinstance a =  *(struct nameHinstance *)pArguments;
+	HINSTANCE hInstance = a.hInstanceP;
+	char *fileName = a.name;
+	OldWinMain(hInstance, 0, fileName, 0);	
+	_endthreadex( 0 );  
+    return 0;
+} 
+
+
+// Naveen: v1. ahkdll() - load AutoHotkey script into dll
+// Naveen: v3. ahkdll(script, single command line option, script parameters)
+// options such as /Debug are supported, see Lexikos' Debugger 
+extern "C" EXPORT int ahkdll(char *fileName, char *argv, char *args)
+{
+ unsigned threadID;
+ nameHinstanceP.name = fileName ;
+ nameHinstanceP.argv = argv ;
+ nameHinstanceP.args = args ;
+ hThread = (HANDLE)_beginthreadex( NULL, 0, &runScript, &nameHinstanceP, 0, &threadID );
+ WaitForSingleObject( hThread, 500 );
+ return (int)hThread;
+}
+
+// Naveen: v1. ahkgetvar()
+extern "C" EXPORT char *ahkgetvar(char *name)
+{
+	Var *ahkvar;
+	ahkvar = g_script.FindOrAddVar(name);
+	return ahkvar->getText();  // var.getText() added in V1. 
+}	
+
+// Naveen v2. ahkclose() 
+// Todo: proper cleanup: destructors for classes and windows
+extern "C" EXPORT int ahkclose(int thread)
+{
+   CloseHandle( (HINSTANCE) thread );  // this is probably useless by itself
+   return 1;
+}
+
+// Naveen: v4. createLine() - turns a line of text into a Line class instance
+// Todo: destructor for line 
+extern "C" EXPORT int createLine(char *line, ActionTypeType aActionType)
+{
+	g_script.ParseAndAddLine(line, aActionType);	// default = ACT_EXPRESSION, use ACT_INVALID for commands
+    g_script.dynamicLine =  g_script.PreparseBlocks(g_script.dynamicLine);	
+	return (int)g_script.dynamicLine;
+}
+
+// Naveen: v4.1 CreateFunction() - deprecated for addFile()
+// Todo: destructor for functions
+extern "C" EXPORT int createFunction(char *definition)
+{  // definition is only a function prototype line
+   // deprecated for addFile, as you can do the whole function there
+	Var *func_exception_var[2000];
+Line *oldLastLine = g_script.mLastLine;
+g_script.DefineFunc(definition, func_exception_var);
+g_script.AddLine(ACT_BLOCK_BEGIN);
+g_script.AddLine(ACT_BLOCK_END);
+g_script.PreparseBlocks(oldLastLine);
+return 0 ;
+}
+
+
+// Naveen: v6 addFile()
+// Todo: support for #Directives, and proper treatment of mIsReadytoExecute
+extern "C" EXPORT int addFile(char *fileName, bool aAllowDuplicateInclude, bool aIgnoreLoadFailure)
+{   // dynamically include a file into a script !!
+	// labels, hotkeys, functions.   
+	Line *oldLastLine = g_script.mLastLine;
+	g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, aIgnoreLoadFailure);
+	g_script.dynamicLine = g_script.PreparseBlocks(oldLastLine);
+	return (int)g_script.dynamicLine;
 }

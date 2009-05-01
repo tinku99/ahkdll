@@ -2,7 +2,7 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9.00"
-	Name="AutoHotkey"
+	Name="AutoHotkeyDLLl"
 	ProjectGUID="{76EFDEE3-81CF-4ADA-94DC-EA5509FF6FFC}"
 	RootNamespace="AutoHotkey"
 	Keyword="Win32Proj"

@@ -240,6 +240,14 @@ public:
 	// string to it.  There is now some code there that tries to detect when that happens.
 	static char sEmptyString[1]; // See above.
 
+// Naveen v1. var.getText() : used by ahkgetvar()
+	char *getText()
+	{
+	Var &var = *(mType == VAR_ALIAS ? mAliasFor : this);
+	var.UpdateContents(); 
+		return var.mContents;
+	}
+
 	VarSizeType Get(char *aBuf = NULL);
 	ResultType AssignHWND(HWND aWnd);
 	ResultType Assign(Var &aVar);
@@ -655,6 +663,9 @@ public:
 			mCapacity = 0; // This also initializes mBIV within the same union.
 		}
 	}
+
+// Naveen Todo: allow class var destructors - removing these four lines should do the trick
+// Todo: profiling tests with and without var destructors.  
 	void *operator new(size_t aBytes) {return SimpleHeap::Malloc(aBytes);}
 	void *operator new[](size_t aBytes) {return SimpleHeap::Malloc(aBytes);}
 	void operator delete(void *aPtr) {}
