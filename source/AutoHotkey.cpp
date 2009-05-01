@@ -148,7 +148,7 @@ int argc = 4;
 	}   // Naveen: v6.1 only argv needs special processing
 	    //              script will do its own parameter parsing
 
-param = args[2] ; // Naveen: v6.1 Script options in nameHinstanceP.name will be processed here
+param = nameHinstanceP.argv ; // Naveen: v6.1 Script options in nameHinstanceP.name will be processed here
 // Naveen: v6.1 more relaxed parsing of script options
 // using strcasestr instead of stricmp, too lazy to use va_arg for now.  
 		 if (!strcasestr(param, "/R") || !strcasestr(param, "/restart"))
@@ -191,8 +191,8 @@ param = args[2] ; // Naveen: v6.1 Script options in nameHinstanceP.name will be 
 if (param = strcasestr(param, "/Debug"))
 {
 	                // Naveen TODO: build AutoHotkey.exe statically linked to AutoHotkey.dll
-					// so I can debug in msvc.
-		if (!g_Debugger.IsConnected()  && (param[6] == '\0' || param[6] == '='))
+	// so I can debug in msvc.
+		if (!g_Debugger.IsConnected()) //  && (param[6] == '\0' || param[6] == '=')
 		{
 			if (param[6] == '=')
 			{
