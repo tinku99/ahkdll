@@ -5,7 +5,7 @@
 *.[oa]
 *~
 Debug
-!Release
+Release
 *.dll
 *.exe
 *.ilk
@@ -18,3 +18,5 @@ bin
 *.ncb
 *.user
 temp
+*.lib
+*.idb

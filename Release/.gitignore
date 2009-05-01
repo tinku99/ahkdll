@@ -19,3 +19,5 @@ bin
 *.user
 *.manifest
 *.exp
+*.html
+*.idb
