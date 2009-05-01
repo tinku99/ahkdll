@@ -2437,8 +2437,13 @@ private:
 	ResultType CloseAndReturn(FILE *fp, UCHAR *aBuf, ResultType return_value);
 	size_t GetLine(char *aBuf, int aMaxCharsToRead, int aInContinuationSection, FILE *fp);
 #endif
-	ResultType IsDirective(char *aBuf);
 
+	// Naveen: v4. public g_script variables and methods
+	//  variables: first and last: lines, labels, functions
+	//  methods: addlabel, addline, preparseblocks, preparseifelse           
+    // used by AddFile(), AddLine() 
+public:
+	ResultType IsDirective(char *aBuf);
 	ResultType ParseAndAddLine(char *aLineText, ActionTypeType aActionType = ACT_INVALID
 		, ActionTypeType aOldActionType = OLD_INVALID, char *aActionName = NULL
 		, char *aEndMarker = NULL, char *aLiteralMap = NULL, size_t aLiteralMapLength = 0);
@@ -2447,11 +2452,6 @@ private:
 	static ActionTypeType ConvertActionType(char *aActionTypeString);
 	static ActionTypeType ConvertOldActionType(char *aActionTypeString);
 
-	// Naveen: v4. public g_script variables and methods
-	//  variables: first and last: lines, labels, functions
-	//  methods: addlabel, addline, preparseblocks, preparseifelse           
-    // used by AddFile(), AddLine() 
-public:
 	ResultType AddLabel(char *aLabelName, bool aAllowDupe);
 	ResultType AddLine(ActionTypeType aActionType, char *aArg[] = NULL, ArgCountType aArgc = 0, char *aArgMap[] = NULL);
 

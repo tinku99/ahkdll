@@ -769,7 +769,7 @@ ResultType Script::Reload(bool aDisplayErrors)
 	char arg_string[MAX_PATH + 512];
 	snprintf(arg_string, sizeof(arg_string), "/restart \"%s\"", mFileSpec);
 //	Naveen v1. removed: return g_script.ActionExec(mOurEXE, arg_string, g_WorkingDirOrig, aDisplayErrors);
-	g_script.AutoExecSection();  //	Naveen v1. used to be actionexec(mourexe...)
+	return g_script.AutoExecSection();  //	Naveen v1. used to be actionexec(mourexe...)
 #endif
 }
 
