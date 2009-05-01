@@ -678,6 +678,8 @@ ResultType Script::Edit()
 
 
 
+// Naveen: v1. Reload just repeats autoexecsection since we can't reload without proper cleanup
+// Todo: proper cleanup
 ResultType Script::Reload(bool aDisplayErrors)
 {
 	// The new instance we're about to start will tell our process to stop, or it will display
@@ -689,7 +691,8 @@ ResultType Script::Reload(bool aDisplayErrors)
 #else
 	char arg_string[MAX_PATH + 512];
 	snprintf(arg_string, sizeof(arg_string), "/restart \"%s\"", mFileSpec);
-	return g_script.ActionExec(mOurEXE, arg_string, g_WorkingDirOrig, aDisplayErrors);
+//	Naveen v1. removed: return g_script.ActionExec(mOurEXE, arg_string, g_WorkingDirOrig, aDisplayErrors);
+	return g_script.AutoExecSection();  //	Naveen v1. used to be actionexec(mourexe...)
 #endif
 }
 
@@ -6477,6 +6480,10 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 	}
 
 	++mLineCount;  // Right before returning "success", increment our count.
+	// Naveen: v4. in AddLine(), puts pointer to added line in g_script.dynamicLine
+	// so createLine() can access it.  
+	// Todo: I wonder if we can return a struct that starts with ResultType OK, and also has *Line.  
+	dynamicLine = the_new_line;	
 	return OK;
 }
 

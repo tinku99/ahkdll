@@ -2362,10 +2362,13 @@ private:
 	friend class Debugger;
 #endif
 
+/*  // Naveen v4.  in class Script moved first and last: lines, labels, functions to public:
 	Line *mFirstLine, *mLastLine;     // The first and last lines in the linked list.
 	UINT mLineCount;                  // The number of lines.
 	Label *mFirstLabel, *mLastLabel;  // The first and last labels in the linked list.
 	Func *mFirstFunc, *mLastFunc;     // The first and last functions in the linked list.
+*/
+
 	Var **mVar, **mLazyVar; // Array of pointers-to-variable, allocated upon first use and later expanded as needed.
 	int mVarCount, mVarCountMax, mLazyVarCount; // Count of items in the above array as well as the maximum capacity.
 	WinGroup *mFirstGroup, *mLastGroup;  // The first and last variables in the linked list.
@@ -2395,8 +2398,12 @@ private:
 	ResultType CloseAndReturn(FILE *fp, UCHAR *aBuf, ResultType return_value);
 	size_t GetLine(char *aBuf, int aMaxCharsToRead, int aInContinuationSection, FILE *fp);
 #endif
+	// Naveen: v4. public g_script variables and methods
+	//  variables: first and last: lines, labels, functions
+	//  methods: addlabel, addline, preparseblocks, preparseifelse           
+    // used by AddFile(), AddLine() 
+public:
 	ResultType IsDirective(char *aBuf);
-
 	ResultType ParseAndAddLine(char *aLineText, ActionTypeType aActionType = ACT_INVALID
 		, ActionTypeType aOldActionType = OLD_INVALID, char *aActionName = NULL
 		, char *aEndMarker = NULL, char *aLiteralMap = NULL, size_t aLiteralMapLength = 0);
@@ -2404,19 +2411,25 @@ private:
 	char *ParseActionType(char *aBufTarget, char *aBufSource, bool aDisplayErrors);
 	static ActionTypeType ConvertActionType(char *aActionTypeString);
 	static ActionTypeType ConvertOldActionType(char *aActionTypeString);
+
 	ResultType AddLabel(char *aLabelName, bool aAllowDupe);
 	ResultType AddLine(ActionTypeType aActionType, char *aArg[] = NULL, ArgCountType aArgc = 0, char *aArgMap[] = NULL);
 
 	// These aren't in the Line class because I think they're easier to implement
-	// if aStartingLine is allowed to be NULL (for recursive calls).  If they
-	// were member functions of class Line, a check for NULL would have to
-	// be done before dereferencing any line's mNextLine, for example:
+	// if aStartingLine is allowed to be NULL (for recursive calls).  
 	Line *PreparseBlocks(Line *aStartingLine, bool aFindBlockEnd = false, Line *aParentLine = NULL);
 	Line *PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode = NORMAL_MODE, AttributeType aLoopTypeFile = ATTR_NONE
 		, AttributeType aLoopTypeReg = ATTR_NONE, AttributeType aLoopTypeRead = ATTR_NONE
 		, AttributeType aLoopTypeParse = ATTR_NONE);
 
-public:
+	Line *mFirstLine, *mLastLine;     
+	UINT mLineCount;                  
+	Label *mFirstLabel, *mLastLabel;  
+	Func *mFirstFunc, *mLastFunc;     
+	
+	Line *dynamicLine ;  //Naveen: added script.dynamicLine so *Line can be returned from AddLine() to CreateLine()
+	// Naveen :end
+
 	Line *mCurrLine;     // Seems better to make this public than make Line our friend.
 	Label *mPlaceholderLabel; // Used in place of a NULL label to simplify code.
 	char mThisMenuItemName[MAX_MENU_NAME_LENGTH + 1];

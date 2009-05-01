@@ -119,7 +119,13 @@ public:
 	// sEmptyString in DllCall(), which forces an exception to occur immediately, which is caught by the
 	// exception handler there.
 	static char sEmptyString[1]; // See above.
-
+// Naveen v1. var.getText() : used by ahkgetvar()
+	char *getText()
+	{
+	Var &var = *(mType == VAR_ALIAS ? mAliasFor : this);
+	// var.UpdateContents();  this was added in 1.0.48 
+		return var.mContents;
+	}
 	ResultType AssignHWND(HWND aWnd);
 	ResultType Assign(DWORD aValueToAssign);
 	ResultType Assign(int aValueToAssign);
@@ -362,6 +368,11 @@ public:
 			mCapacity = 0; // This also initializes mBIV within the same union.
 		}
 	}
+
+
+// Naveen Todo: allow class var destructors - removing these four lines should do the trick
+// Todo: profiling tests with and without var destructors.  
+
 	void *operator new(size_t aBytes) {return SimpleHeap::Malloc(aBytes);}
 	void *operator new[](size_t aBytes) {return SimpleHeap::Malloc(aBytes);}
 	void operator delete(void *aPtr) {}
