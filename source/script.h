@@ -2467,7 +2467,6 @@ public:
 	Label *mFirstLabel, *mLastLabel;  
 	Func *mFirstFunc, *mLastFunc;     
 	
-	Line *dynamicLine ;  //Naveen: added script.dynamicLine so *Line can be returned from AddLine() to CreateLine()
 	// Naveen :end
 
 	Line *mCurrLine;     // Seems better to make this public than make Line our friend.

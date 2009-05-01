@@ -6617,10 +6617,6 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 	}
 
 	++mLineCount;  // Right before returning "success", increment our count.
-	// Naveen: v4. in AddLine(), puts pointer to added line in g_script.dynamicLine
-	// so createLine() can access it.  
-	// Todo: I wonder if we can return a struct that starts with ResultType OK, and also has *Line.  
-	dynamicLine = the_new_line;	
 	return OK;              
 
 }

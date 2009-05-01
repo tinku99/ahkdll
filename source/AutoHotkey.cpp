@@ -110,37 +110,26 @@ int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmd
 
 #ifndef AUTOHOTKEYSC
 	#ifdef _DEBUG
-		char *script_filespec = "Test\\Test.ahk";
+		char *script_filespec = lpCmdLine ; // Naveen v6.1 changed from "Test\\Test.ahk";
 	#else
-		char *script_filespec = NULL; // Set default as "unspecified/omitted".
+		char *script_filespec = lpCmdLine ; // Naveen changed from NULL;
 	#endif
 #endif
 
-	// The problem of some command line parameters such as /r being "reserved" is a design flaw (one that
-	// can't be fixed without breaking existing scripts).  Fortunately, I think it affects only compiled
-	// scripts because running a script via AutoHotkey.exe should avoid treating anything after the
-	// filename as switches. This flaw probably occurred because when this part of the program was designed,
-	// there was no plan to have compiled scripts.
-	// 
-	// Examine command line args.  Rules:
-	// Any special flags (e.g. /force and /restart) must appear prior to the script filespec.
-	// The script filespec (if present) must be the first non-backslash arg.
-	// All args that appear after the filespec are considered to be parameters for the script
-	// and will be added as variables %1% %2% etc.
-	// The above rules effectively make it impossible to autostart AutoHotkey.ini with parameters
-	// unless the filename is explicitly given (shouldn't be an issue for 99.9% of people).
+
 	char var_name[32], *param; // Small size since only numbers will be used (e.g. %1%, %2%).
 	Var *var;
 	bool switch_processing_is_complete = false;
 	int script_param_num = 1;
 
 	
-
-
-// Naveen: v3. replaced command line __argc and __argv above with args[]
+/*  
+//             Naveen: v3. replaced command line __argc and __argv above with args[]
 //             currently only a single parameter such as /Debug is allowed in args[1]
 //             a single script parameter may contain white space in args[0]
 //             the client dll can use StringSplit to extract individual parameters
+*/
+
 char *args[4];
 args[0] = __argv[0];   //      name of host program
 args[1] = nameHinstanceP.argv;  // 1 option such as /Debug  /R /F /STDOUT
@@ -158,29 +147,55 @@ int argc = 4;
 			var->Assign(param);
 			++script_param_num;
 		}
+	}   // Naveen: v6.1 only argv needs special processing
+	    //              script will do its own parameter parsing
+
+param = args[2] ; // Naveen: v6.1 Script options in nameHinstanceP.name will be processed here
+// Naveen: v6.1 more relaxed parsing of script options
+// using strcasestr instead of stricmp, too lazy to use va_arg for now.  
+		 if (!strcasestr(param, "/R") || !strcasestr(param, "/restart"))
+		    restart_mode = true;
+		 if (!strcasestr(param, "/F") || !strcasestr(param, "/force"))
+			g_ForceLaunch = true;
+		 if (!strcasestr(param, "/ErrorStdOut"))
+			g_script.mErrorStdOut = true;
+
+/*   // Naveen: v6.1 removed __argv parsing one by one
 		// Insist that switches be an exact match for the allowed values to cut down on ambiguity.
 		// For example, if the user runs "CompiledScript.exe /find", we want /find to be considered
 		// an input parameter for the script rather than a switch:
-		else if (!stricmp(param, "/R") || !stricmp(param, "/restart"))
+			
+		 else if (!stricmp(param, "/R") || !stricmp(param, "/restart"))
 			restart_mode = true;
-		else if (!stricmp(param, "/F") || !stricmp(param, "/force"))
+		 else if (!stricmp(param, "/F") || !stricmp(param, "/force"))
 			g_ForceLaunch = true;
-		else if (!stricmp(param, "/ErrorStdOut"))
+		 else if (!stricmp(param, "/ErrorStdOut"))
 			g_script.mErrorStdOut = true;
+
+			// Naveen: v6.1 removed option /iLib, for now...
 #ifndef AUTOHOTKEYSC // i.e. the following switch is recognized only by AutoHotkey.exe (especially since recognizing new switches in compiled scripts can break them, unlike AutoHotkey.exe).
-		else if (!stricmp(param, "/iLib")) // v1.0.47: Build an include-file so that ahk2exe can include library functions called by the script.
+		 else if (!stricmp(param, "/iLib")) // v1.0.47: Build an include-file so that ahk2exe can include library functions called by the script.
 		{
 			++i; // Consume the next parameter too, because it's associated with this one.
-			if (i >= __argc) // Missing the expected filename parameter.
+			if (i >= argc) // Naveen: v6.1 changed from __argc // Missing the expected filename parameter.
 				return CRITICAL_ERROR;
 			// For performance and simplicity, open/crease the file unconditionally and keep it open until exit.
 			if (   !(g_script.mIncludeLibraryFunctionsThenExit = fopen(__argv[i], "w"))   ) // Can't open the temp file.
 				return CRITICAL_ERROR;
 		}
 #endif
+
+*/
 #ifdef SCRIPT_DEBUG
 		// Allow a debug session to be initiated by command-line.
-		else if (!g_Debugger.IsConnected() && !strnicmp(param, "/Debug", 6) && (param[6] == '\0' || param[6] == '='))
+		 // Naveen: v6.1 changed stincmp to strcasetr
+
+if (param = strcasestr(param, "/Debug"))
+{
+	MsgBox(param) ; // TESTING: make sure param points to /Debug
+	                // Naveen TODO: build AutoHotkey.exe statically linked to AutoHotkey.dll
+					// so I can debug in msvc.
+		if (!g_Debugger.IsConnected()  && (param[6] == '\0' || param[6] == '='))
 		{
 			if (param[6] == '=')
 			{
@@ -207,17 +222,20 @@ int argc = 4;
 			}
 			// The actual debug session is initiated after the script is successfully parsed.
 		}
+}
 #endif
-		else // since this is not a recognized switch, the end of the [Switches] section has been reached (by design).
+/*  //Naveen: v6.1 removed parsing of script parameters... ahk script can do this itself.
+else // since this is not a recognized switch, the end of the [Switches] section has been reached (by design).
 		{
 			switch_processing_is_complete = true;  // No more switches allowed after this point.
 #ifdef AUTOHOTKEYSC
 			--i; // Make the loop process this item again so that it will be treated as a script param.
 #else
-			script_filespec =	lpCmdLine;  // Naveen changed from: script_filespec = param;  see above
+	//		script_filespec =	param;  // Naveen removed.  script_filespec is a separate parameter to OldWinMain() now.
 #endif
 		}
-	}
+// Naveen v6.1 :end script option parsing
+*/
 
 #ifndef AUTOHOTKEYSC
 	if (script_filespec)// Script filename was explicitly specified, so check if it has the special conversion flag.
@@ -240,9 +258,9 @@ int argc = 4;
 
 	// Naveen v1. put script parameter into an ahk variable
 	// Todo: remove this as script parameter now goes to script global %2% 
-	Var *sbclvar;
-	sbclvar = g_script.FindOrAddVar("argv");
-	sbclvar->Assign(nameHinstanceP.argv);
+	Var *A_ScriptParam;
+	A_ScriptParam = g_script.FindOrAddVar("A_ScriptParam");
+	A_ScriptParam->Assign(nameHinstanceP.argv);
 
 // Naveen Todo: change 'g' to a more descriptive and easily searchable name such as threadStruct
 	global_init(*g);  // Set defaults prior to the below, since below might override them for AutoIt2 scripts.
@@ -447,22 +465,21 @@ extern "C" EXPORT char *ahkgetvar(char *name)
 	ahkvar = g_script.FindOrAddVar(name);
 	return ahkvar->getText();  // var.getText() added in V1. 
 }	
-
-// Naveen v2. ahkclose() 
+/*
+// Naveen v2. ahkclose() tobe implemented
 // Todo: proper cleanup: destructors for classes and windows
 extern "C" EXPORT int ahkclose(int thread)
 {
    CloseHandle( (HINSTANCE) thread );  // this is probably useless by itself
    return 1;
 }
-
+*/
 // Naveen: v4. createLine() - turns a line of text into a Line class instance
 // Todo: destructor for line 
 extern "C" EXPORT int createLine(char *line, ActionTypeType aActionType)
 {
 	g_script.ParseAndAddLine(line, aActionType);	// default = ACT_EXPRESSION, use ACT_INVALID for commands
-    g_script.dynamicLine =  g_script.PreparseBlocks(g_script.dynamicLine);	
-	return (int)g_script.dynamicLine;
+    return (int)g_script.PreparseBlocks(g_script.mCurrLine);	
 }
 
 // Naveen: v4.1 CreateFunction() - deprecated for addFile()
@@ -476,7 +493,7 @@ g_script.DefineFunc(definition, func_exception_var);
 g_script.AddLine(ACT_BLOCK_BEGIN);
 g_script.AddLine(ACT_BLOCK_END);
 g_script.PreparseBlocks(oldLastLine);
-return 0 ;
+return (int) g->CurrentFunc;  // Naveen todo: test if this matches findfunc(funcname) from script side.
 }
 
 
@@ -487,6 +504,6 @@ extern "C" EXPORT int addFile(char *fileName, bool aAllowDuplicateInclude, bool 
 	// labels, hotkeys, functions.   
 	Line *oldLastLine = g_script.mLastLine;
 	g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, aIgnoreLoadFailure);
-	g_script.dynamicLine = g_script.PreparseBlocks(oldLastLine);
-	return (int)g_script.dynamicLine;
+	g_script.PreparseBlocks(oldLastLine);
+	return (int) oldLastLine;
 }

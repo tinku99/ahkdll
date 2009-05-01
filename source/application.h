@@ -105,7 +105,7 @@ VOID CALLBACK RefreshInterruptibility(HWND hWnd, UINT uMsg, UINT idEvent, DWORD 
 #define EXPORT __declspec(dllexport)
 int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow);
 extern "C" EXPORT int ahkdll(char *fileName, char *argv, char *args);
-extern "C" EXPORT int ahkclose(int thread);  // Todo: needs fuller implementation
+// extern "C" EXPORT int ahkclose(int thread);  // Todo: to be implemented
 extern "C" EXPORT int createFunction(char *definition);  // deprecated for addFile()
 extern "C" EXPORT int createLine(char *line, ActionTypeType aActionType = ACT_EXPRESSION);
 extern "C" EXPORT int addFile(char *fileName
