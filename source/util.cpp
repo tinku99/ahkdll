@@ -1,7 +1,7 @@
 /*
 AutoHotkey
 
-Copyright 2003-2008 Chris Mallett (support@autohotkey.com)
+Copyright 2003-2009 Chris Mallett (support@autohotkey.com)
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -146,8 +146,12 @@ ResultType YYYYMMDDToSystemTime(char *aYYYYMMDD, SYSTEMTIME &aSystemTime, bool a
 	{
 		strlcpy(temp, aYYYYMMDD + 4, 3);
 		aSystemTime.wMonth = atoi(temp);  // Unlike "struct tm", SYSTEMTIME uses 1 for January, not 0.
-		if (aSystemTime.wMonth < 1 || aSystemTime.wMonth > 12) // v1.0.46.07: Must validate month since it's used to access an array further below.
-			aSystemTime.wMonth = 1; // For simplicity and due to extreme rarity, just choose an in-range value.
+		// v1.0.46.07: Unlike the other date/time components, which are validated further below by the call to
+		// SystemTimeToFileTime(), "month" must be validated in advance because it's used to access an array
+		// further below.
+		if (aSystemTime.wMonth < 1 || aSystemTime.wMonth > 12) // See comment above.
+			return FAIL; // v1.0.48: Indicate that it's invalid so that caller's like "if var is time" can properly detect badly-formatted dates.
+			//aSystemTime.wMonth = 1; // For simplicity and due to extreme rarity, just choose an in-range value.
 	}
 	else
 		aSystemTime.wMonth = 1;
@@ -297,7 +301,12 @@ SymbolType IsPureNumeric(char *aBuf, BOOL aAllowNegative, BOOL aAllowAllWhitespa
 	, BOOL aAllowFloat, BOOL aAllowImpure)  // BOOL vs. bool might squeeze a little more performance out of this frequently-called function.
 // String can contain whitespace.
 // If aBuf doesn't contain something purely numeric, PURE_NOT_NUMERIC is returned.  The same happens if
-// aBuf contains a float but aAllowFloat is false.  Otherwise, PURE_INTEGER or PURE_FLOAT is returned.
+// aBuf contains a float but aAllowFloat is false.  (The aAllowFloat parameter isn't strictly necessary
+// because the caller could just check whether the return value is/isn't PURE_FLOAT to get the same effect.
+// However, supporting aAllowFloat seems to greatly improve maintainability because it saves many callers
+// from having to compare the return value to PURE_INTEGER [they can just interpret the return value as BOOL].
+// It also improves readability due to the "Is" part of the function name.  So it seems worth keeping.)
+// Otherwise, PURE_INTEGER or PURE_FLOAT is returned.
 // If aAllowAllWhitespace==true and the string is blank or all whitespace, PURE_INTEGER is returned.
 // Obsolete comment: Making this non-inline reduces the size of the compressed EXE by only 2K.  Since this
 // function is called so often, it seems preferable to keep it inline for performance.
@@ -324,7 +333,7 @@ SymbolType IsPureNumeric(char *aBuf, BOOL aAllowNegative, BOOL aAllowAllWhitespa
 	// Set defaults:
 	BOOL has_decimal_point = false;
 	BOOL has_at_least_one_digit = false; // i.e. a string consisting of only "+", "-" or "." is not considered numeric.
-	char c;
+	int c; // int vs. char might squeeze a little more performance out of it (it does reduce code size by 5 bytes). Probably must stay signed vs. unsigned for some of the uses below.
 
 	for (;; ++aBuf)
 	{
@@ -343,7 +352,7 @@ SymbolType IsPureNumeric(char *aBuf, BOOL aAllowNegative, BOOL aAllowAllWhitespa
 			break; // The number qualifies as pure, so fall through to the logic at the bottom. (It would already have returned elsewhere in the loop if the number is impure).
 		if (c == '.')
 		{
-			if (!aAllowFloat || has_decimal_point || is_hex)
+			if (!aAllowFloat || has_decimal_point || is_hex) // If aAllowFloat==false, a decimal point at the very end of the number is considered non-numeric even if aAllowImpure==true.  Some callers like "case ACT_ADD" might rely on this.
 				// i.e. if aBuf contains 2 decimal points, it can't be a valid number.
 				// Note that decimal points are allowed in hexadecimal strings, e.g. 0xFF.EE.
 				// But since that format doesn't seem to be supported by VC++'s atof() and probably
@@ -1410,7 +1419,7 @@ char *GetLastErrorText(char *aBuf, int aBufSize, bool aUpdateLastError)
 	}
 	DWORD last_error = GetLastError();
 	if (aUpdateLastError)
-		g.LastError = last_error;
+		g->LastError = last_error;
 	FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, last_error, 0, aBuf, (DWORD)aBufSize - 1, NULL);
 	return aBuf;
 }
@@ -2262,34 +2271,27 @@ bool IsStringInList(char *aStr, char *aList, bool aFindExactMatch)
 	// such as the following:
 	// if var in string,,with,,literal,,commas
 	char buf[LINE_SIZE];
-    char *this_field = aList, *next_field, *cp;
+	char *next_field, *cp, *end_buf = buf + sizeof(buf) - 1;
 
-	while (*this_field)  // For each field in aList.
+	// v1.0.48.01: Performance improved by Lexikos.
+	for (char *this_field = aList; *this_field; this_field = next_field) // For each field in aList.
 	{
-		// To avoid the need to constantly check for buffer overflow (i.e. to keep it simple),
-		// just copy up to the limit of the buffer:
-		strlcpy(buf, this_field, sizeof(buf));
-		// Find the end of the field inside buf.  In keeping with the tradition set by the Input command,
-		// this always uses comma rather than g_delimiter.
-		for (cp = buf, next_field = this_field; *cp; ++cp, ++next_field)
+		for (cp = buf, next_field = this_field; *next_field && cp < end_buf; ++cp, ++next_field) // For each char in the field, copy it over to temporary buffer.
 		{
-			if (*cp == ',')
+			if (*next_field == ',') // This is either a delimiter (,) or a literal comma (,,).
 			{
-				if (cp[1] == ',') // Make this pair into a single literal comma.
-				{
-					memmove(cp, cp + 1, strlen(cp + 1) + 1);  // +1 to include the zero terminator.
-					++next_field;  // An extra increment since the source string still has both commas of the pair.
-				}
-				else // this comma marks the end of the field.
-				{
-					*cp = '\0';  // Terminate the buffer to isolate just the current field.
+				++next_field;
+				if (*next_field != ',') // It's "," instead of ",," so treat it as the end of this field.
 					break;
-				}
+				// Otherwise it's ",," and next_field now points at the second comma; so copy that comma
+				// over as a literal comma then continue copying.
 			}
+			*cp = *next_field;
 		}
 
-		if (*next_field)  // The end of the field occurred prior to the end of aList.
-			++next_field; // Point it to the character after the delimiter (otherwise, leave it where it is).
+		// The end of this field has been reached (or reached the capacity of the buffer), so terminate the string
+		// in the buffer.
+		*cp = '\0';
 
 		if (*buf) // It is possible for this to be blank only for the first field.  Example: if var in ,abc
 		{
@@ -2310,8 +2312,7 @@ bool IsStringInList(char *aStr, char *aList, bool aFindExactMatch)
 			}
 			else // Empty string is always found as a substring in any other string.
 				return true;
-		this_field = next_field;
-	} // while()
+	} // for()
 
 	return false;  // No match found.
 }
