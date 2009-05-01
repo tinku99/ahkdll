@@ -157,7 +157,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/SAFESEH:NO /Verbose"
 				AdditionalDependencies="wsock32.lib winmm.lib version.lib comctl32.lib"
-				OutputFile="$(OutDir)/AutoHotkey.dll"
+				OutputFile="$(OutDir)/../Test/AutoHotkey.dll"
 				LinkIncremental="1"
 				IgnoreDefaultLibraryNames="MSVCrt"
 				GenerateDebugInformation="false"
