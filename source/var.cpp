@@ -559,6 +559,7 @@ ResultType Var::Assign(char *aBuf, VarSizeType aLength, bool aExactSize, bool aO
 			// This case can happen even if space_needed is less than MAX_ALLOC_SIMPLE
 			// because once a var becomes ALLOC_MALLOC, it should never change to
 			// one of the other alloc modes.  See comments higher above for explanation.
+
 			new_size = space_needed; // Below relies on this being initialized unconditionally.
 			if (!aExactSize)
 			{

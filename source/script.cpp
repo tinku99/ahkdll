@@ -60,7 +60,7 @@ Script::Script()
 #endif
 	, mLinesExecutedThisCycle(0), mUninterruptedLineCountMax(1000), mUninterruptibleTime(15)
 	, mRunAsUser(NULL), mRunAsPass(NULL), mRunAsDomain(NULL)
-	, mCustomIcon(NULL) // Normally NULL unless there's a custom tray icon loaded dynamically.
+	, mCustomIcon(NULL), mCustomIconSmall(NULL) // Normally NULL unless there's a custom tray icon loaded dynamically.
 	, mCustomIconFile(NULL), mIconFrozen(false), mTrayIconTip(NULL) // Allocated on first use.
 	, mCustomIconNumber(0)
 {
@@ -165,7 +165,10 @@ Script::~Script() // Destructor.
 	// Above: Probably best to have removed icon from tray and destroyed any Gui/Splash windows that were
 	// using it prior to getting rid of the script's custom icon below:
 	if (mCustomIcon)
+	{
 		DestroyIcon(mCustomIcon);
+		DestroyIcon(mCustomIconSmall); // Should always be non-NULL if mCustomIcon is non-NULL.
+	}
 
 	// Since they're not associated with a window, we must free the resources for all popup menus.
 	// Update: Even if a menu is being used as a GUI window's menu bar, see note above for why menu
@@ -533,9 +536,9 @@ void Script::CreateTrayIcon()
 	mNIC.uCallbackMessage = AHK_NOTIFYICON;
 #ifdef AUTOHOTKEYSC
 	// i.e. don't override the user's custom icon:
-	mNIC.hIcon = mCustomIcon ? mCustomIcon : (HICON)LoadImage(g_hInstance, MAKEINTRESOURCE(mCompiledHasCustomIcon ? IDI_MAIN : g_IconTray), IMAGE_ICON, 0, 0, LR_SHARED);
-#else
-	mNIC.hIcon = mCustomIcon ? mCustomIcon : (HICON)LoadImage(g_hInstance, MAKEINTRESOURCE(g_IconTray), IMAGE_ICON, 0, 0, LR_SHARED); // Use LR_SHARED to conserve memory (since the main icon is loaded for so many purposes).
+	mNIC.hIcon = mCustomIconSmall ? mCustomIconSmall : (HICON)LoadImage(g_hInstance, MAKEINTRESOURCE(mCompiledHasCustomIcon ? IDI_MAIN : g_IconTray), IMAGE_ICON, 0, 0, LR_SHARED);
+#else // L17: Always use small icon for tray.
+	mNIC.hIcon = mCustomIconSmall ? mCustomIconSmall : (HICON)LoadImage(g_hInstance, MAKEINTRESOURCE(g_IconTray), IMAGE_ICON, 0, 0, LR_SHARED); // Use LR_SHARED to conserve memory (since the main icon is loaded for so many purposes).
 #endif
 	UPDATE_TIP_FIELD
 	// If we were called due to an Explorer crash, I don't think it's necessary to call
@@ -569,7 +572,7 @@ void Script::UpdateTrayIcon(bool aForceUpdate)
 		icon = g_IconTray;
 #endif
 	// Use the custom tray icon if the icon is normal (non-paused & non-suspended):
-	mNIC.hIcon = (mCustomIcon && (mIconFrozen || (!g->IsPaused && !g_IsSuspended))) ? mCustomIcon
+	mNIC.hIcon = (mCustomIconSmall && (mIconFrozen || (!g->IsPaused && !g_IsSuspended))) ? mCustomIconSmall // L17: Always use small icon for tray.
 		: (HICON)LoadImage(g_hInstance, MAKEINTRESOURCE(icon), IMAGE_ICON, 0, 0, LR_SHARED); // Use LR_SHARED for simplicity and performance more than to conserve memory in this case.
 	if (Shell_NotifyIcon(NIM_MODIFY, &mNIC))
 	{
@@ -645,7 +648,9 @@ ResultType Script::AutoExecSection()
 		mLastScriptRest = mLastPeekTime = GetTickCount();
 
 		++g_nThreads;
+			DEBUGGER_STACK_PUSH(SE_Thread, mFirstLine, desc, "auto-execute")
 		ExecUntil_result = mFirstLine->ExecUntil(UNTIL_RETURN); // Might never return (e.g. infinite loop or ExitApp).
+			DEBUGGER_STACK_POP()
 		--g_nThreads;
 		// Our caller will take care of setting g_default properly.
 
@@ -782,6 +787,9 @@ ResultType Script::ExitApp(ExitReasons aExitReason, char *aBuf, int aExitCode)
 		snprintf(buf, sizeof(buf), "Critical Error: %s\n\n" WILL_EXIT, aBuf);
 		// To avoid chance of more errors, don't use MsgBox():
 		MessageBox(g_hWnd, buf, g_script.mFileSpec, MB_OK | MB_SETFOREGROUND | MB_APPLMODAL);
+#ifdef SCRIPT_DEBUG
+		g_Debugger.Exit(aExitReason);
+#endif
 		TerminateApp(CRITICAL_ERROR); // Only after the above.
 	}
 
@@ -791,6 +799,10 @@ ResultType Script::ExitApp(ExitReasons aExitReason, char *aBuf, int aExitCode)
 	// condition should be added to the below if statement:
 	static bool sExitLabelIsRunning = false;
 	if (!mOnExitLabel || sExitLabelIsRunning)  // || !mIsReadyToExecute
+	{
+#ifdef SCRIPT_DEBUG
+		g_Debugger.Exit(aExitReason);
+#endif
 		// In the case of sExitLabelIsRunning == true:
 		// There is another instance of this function beneath us on the stack.  Since we have
 		// been called, this is a true exit condition and we exit immediately.
@@ -798,6 +810,7 @@ ResultType Script::ExitApp(ExitReasons aExitReason, char *aBuf, int aExitCode)
 		// extra thread for ExitApp() (which allows it to run even when MAX_THREADS_EMERGENCY has
 		// been reached).  See TOTAL_ADDITIONAL_THREADS.
 		TerminateApp(aExitCode);
+	}
 
 	// Otherwise, the script contains the special RunOnExit label that we will run here instead
 	// of exiting.  And since it does, we know that the script is in a ready-to-execute state
@@ -839,14 +852,26 @@ ResultType Script::ExitApp(ExitReasons aExitReason, char *aBuf, int aExitCode)
 	g_AllowInterruption = FALSE; // Mark the thread just created above as permanently uninterruptible (i.e. until it finishes and is destroyed).
 
 	sExitLabelIsRunning = true;
+	DEBUGGER_STACK_PUSH(SE_Thread, mOnExitLabel->mJumpToLine, desc, mOnExitLabel->mName)
 	if (mOnExitLabel->Execute() == FAIL)
+	{
+#ifdef SCRIPT_DEBUG
+		g_Debugger.Exit(EXIT_ERROR);
+#endif
 		// If the subroutine encounters a failure condition such as a runtime error, exit immediately.
 		// Otherwise, there will be no way to exit the script if the subroutine fails on each attempt.
 		TerminateApp(aExitCode);
+	}
+	DEBUGGER_STACK_POP()
 	sExitLabelIsRunning = false;  // In case the user wanted the thread to end normally (see above).
 
 	if (terminate_afterward)
+	{
+#ifdef SCRIPT_DEBUG
+		g_Debugger.Exit(aExitReason);
+#endif
 		TerminateApp(aExitCode);
+	}
 
 	// Otherwise:
 	ResumeUnderlyingThread(ErrorLevel_saved);
@@ -969,10 +994,33 @@ LineNumberType Script::LoadFromFile(bool aScriptWasNotspecified)
 	if (   !(mPlaceholderLabel = new Label(""))   ) // Not added to linked list since it's never looked up.
 		return LOADING_FAILED;
 
+	// L4: Changed this next section to support lines added for #if (expression).
+	// Each #if (expression) is pre-parsed *before* the main script in order for
+	// function library auto-inclusions to be processed correctly.
+
 	// Load the main script file.  This will also load any files it includes with #Include.
 	if (   LoadIncludedFile(mFileSpec, false, false) != OK
-		|| !AddLine(ACT_EXIT) // Fix for v1.0.47.04: Add an Exit because otherwise, a script that ends in an IF-statement will crash in PreparseBlocks() because PreparseBlocks() expects every IF-statements mNextLine to be non-NULL (helps loading performance too).
-		|| !PreparseBlocks(mFirstLine)   ) // Must preparse the blocks before preparsing the If/Else's further below because If/Else may rely on blocks.
+		|| !AddLine(ACT_EXIT)) // Fix for v1.0.47.04: Add an Exit because otherwise, a script that ends in an IF-statement will crash in PreparseBlocks() because PreparseBlocks() expects every IF-statements mNextLine to be non-NULL (helps loading performance too).
+		return LOADING_FAILED;
+
+	if (g_HotExprLineCount)
+	{	// Resolve function references on #if (expression) lines.
+		for (int expr_line_index = 0; expr_line_index < g_HotExprLineCount; ++expr_line_index)
+		{
+			Line *was_last_line = mLastLine;
+			Line *line = g_HotExprLines[expr_line_index];
+			// Since PreparseBlocks assumes mNextLine!=NULL for ACT_IFEXPR, temporarily change mActionType to something else.
+			line->mActionType = ACT_INVALID;
+			PreparseBlocks(line);
+			line->mActionType = ACT_IFEXPR;
+
+			// The above may have auto-included a file from the userlib/stdlib,
+			// in which case function references in the newly added code will be
+			// resolved with the rest of the script, below.
+		}
+	}
+
+	if (!PreparseBlocks(mFirstLine))
 		return LOADING_FAILED; // Error was already displayed by the above calls.
 	// ABOVE: In v1.0.47, the above may have auto-included additional files from the userlib/stdlib.
 	// That's why the above is done prior to adding the EXIT lines and other things below.
@@ -2704,6 +2752,88 @@ inline ResultType Script::IsDirective(char *aBuf)
 		return CONDITION_TRUE;
 	}
 
+	// L4: Handle #if (expression) directive.
+	if (IS_DIRECTIVE_MATCH("#If"))
+	{
+		if (!parameter) // The omission of the parameter indicates that any existing criteria should be turned off.
+		{
+			g_HotCriterion = HOT_NO_CRITERION; // Indicate that no criteria are in effect for subsequent hotkeys.
+			g_HotWinTitle = ""; // Helps maintainability and some things might rely on it.
+			g_HotWinText = "";  //
+			g_HotExprIndex = -1;
+			return CONDITION_TRUE;
+		}
+
+		ResultType res;
+
+		Func *currentFunc = g->CurrentFunc;
+		bool nextLineIsFunctionBody = mNextLineIsFunctionBody;
+		Var **funcExceptionVar = mFuncExceptionVar;
+		Func *lastFunc = mLastFunc;
+		
+		// Set things up so:
+		//  a) Variable references are always global.
+		//  b) AddLine doesn't make our dummy line the body of a function in cases such as this:
+		//		function() {
+		//		#if expression
+		g->CurrentFunc = NULL;
+		mNextLineIsFunctionBody = false;
+		mFuncExceptionVar = NULL;
+		mLastFunc = NULL;
+
+		// ACT_IFEXPR vs ACT_EXPRESSION so EvaluateCondition() can be used. Also, ACT_EXPRESSION is designed to discard the result of the expression, since it normally would not be used.
+		if ((res = AddLine(ACT_IFEXPR, &parameter, 1)) != OK)
+			return res;
+		Line *hot_expr_line = mLastLine;
+
+		// Now undo the unwanted effects of AddLine:
+
+		// Ensure no labels were pointed to the newly added line.
+		for (Label *label = mLastLabel; label != NULL && label->mJumpToLine == mLastLine; label = label->mPrevLabel)
+			label->mJumpToLine = NULL;
+
+		// Remove the newly added line from the actual script.
+		if (mFirstLine == mLastLine)
+			mFirstLine = NULL;
+		mLastLine = mLastLine->mPrevLine;
+		if (mLastLine) // Will be NULL if no actual code precedes the #if.
+			mLastLine->mNextLine = NULL;
+		mCurrLine = mLastLine;
+		--mLineCount;
+
+		// Restore the properties we overrode earlier.
+		g->CurrentFunc = currentFunc;
+		mNextLineIsFunctionBody = nextLineIsFunctionBody;
+		mFuncExceptionVar = funcExceptionVar;
+		mLastFunc = lastFunc;
+
+		// Set the new criterion.
+		g_HotCriterion = HOT_IF_EXPR;
+		// Use the expression text to identify hotkey variants.
+		g_HotWinTitle = hot_expr_line->mArg[0].text;
+		g_HotWinText = "";
+
+		if (g_HotExprLineCount + 1 > g_HotExprLineCountMax)
+		{	// Allocate or reallocate g_HotExprLines.
+			g_HotExprLineCountMax += 100;
+			g_HotExprLines = (Line**)realloc(g_HotExprLines, g_HotExprLineCountMax * 4);
+		}
+		g_HotExprIndex = g_HotExprLineCount++;
+		g_HotExprLines[g_HotExprIndex] = hot_expr_line;
+		// VicinityToText() assumes lines are linked both ways, so clear mPrevLine in case an error occurs when this line is validated.
+		hot_expr_line->mPrevLine = NULL;
+		// The lines could be linked to simplify function resolution (i.e. allow calling PreparseBlocks() for all lines instead of once for each line) -- However, this would cause confusing/irrelevant vicinity lines to be shown if an error occurs.
+
+		return CONDITION_TRUE;
+	}
+	// L4: Allow #if timeout to be adjusted.
+	if (IS_DIRECTIVE_MATCH("#IfTimeout"))
+	{
+		if (parameter)
+			g_HotExprTimeout = ATOU(parameter);
+		return CONDITION_TRUE;
+	}
+
 	if (!strnicmp(aBuf, "#IfWin", 6))
 	{
 		bool invert = !strnicmp(aBuf + 6, "Not", 3);
@@ -2713,6 +2843,7 @@ inline ResultType Script::IsDirective(char *aBuf)
 			g_HotCriterion = invert ? HOT_IF_NOT_EXIST : HOT_IF_EXIST;
 		else // It starts with #IfWin but isn't Active or Exist: Don't alter g_HotCriterion.
 			return CONDITION_FALSE; // Indicate unknown directive since there are currently no other possibilities.
+		g_HotExprIndex = -1;	// L4: For consistency, don't allow mixing of #if and other #ifWin criterion.
 		if (!parameter) // The omission of the parameter indicates that any existing criteria should be turned off.
 		{
 			g_HotCriterion = HOT_NO_CRITERION; // Indicate that no criteria are in effect for subsequent hotkeys.
@@ -6038,8 +6169,8 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 			switch(menu_cmd)
 			{
 			case MENU_CMD_TIP:
-			case MENU_CMD_ICON:
-			case MENU_CMD_NOICON:
+			//case MENU_CMD_ICON: // L17: Now valid for other menus, used to set menu item icons.
+			//case MENU_CMD_NOICON:
 			case MENU_CMD_MAINWINDOW:
 			case MENU_CMD_NOMAINWINDOW:
 			case MENU_CMD_CLICK:
@@ -6063,7 +6194,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 			case MENU_CMD_STANDARD:
 			case MENU_CMD_NOSTANDARD:
 			case MENU_CMD_DELETEALL:
-			case MENU_CMD_NOICON:
+			//case MENU_CMD_NOICON: // L17: Parameter #3 is now used to specify a menu item whose icon should be removed.
 			case MENU_CMD_MAINWINDOW:
 			case MENU_CMD_NOMAINWINDOW:
 				if (*new_raw_arg3 || *new_raw_arg4 || *NEW_RAW_ARG5 || *NEW_RAW_ARG6)
@@ -6082,6 +6213,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 			case MENU_CMD_DELETE:
 			case MENU_CMD_TIP:
 			case MENU_CMD_CLICK:
+			case MENU_CMD_NOICON: // Lexikos: See comment in section above.
 				if (   menu_cmd != MENU_CMD_RENAME && (*new_raw_arg4 || *NEW_RAW_ARG5 || *NEW_RAW_ARG6)   )
 					return ScriptError("Parameter #4 and beyond should be omitted in this case.", new_raw_arg4);
 				switch(menu_cmd)
@@ -6090,6 +6222,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 				case MENU_CMD_TIP:
 				case MENU_CMD_DEFAULT:
 				case MENU_CMD_DELETE:
+				case MENU_CMD_NOICON:
 					break;  // i.e. for commands other than the above, do the default below.
 				default:
 					if (!*new_raw_arg3)
@@ -6408,7 +6541,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 		// It's only necessary to check mLastFunc, not the one(s) that come before it, to see if its
 		// mJumpToLine is NULL.  This is because our caller has made it impossible for a function
 		// to ever have been defined in the first place if it lacked its opening brace.  Search on
-		// "consecutive function" for more comments.  In addition, the following does not check
+  		// "consecutive function" for more comments.  In addition, the following does not check
 		// that mCurrentFuncOpenBlockCount is exactly 1, because: 1) Want to be able to support function
 		// definitions inside of other function definitions (to help script maintainability); 2) If
 		// mCurrentFuncOpenBlockCount is 0 or negative, that will be caught as a syntax error by PreparseBlocks(),
@@ -8779,7 +8912,7 @@ Line *Script::PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode, Attribute
 			if (line->ArgHasDeref(1))
 				// Since the jump-point contains a deref, it must be resolved at runtime:
 				line->mRelatedLine = NULL;
-			else
+  			else
 			{
 				if (!line->GetJumpTarget(false))
 					return NULL; // Error was already displayed by called function.
@@ -8803,7 +8936,8 @@ Line *Script::PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode, Attribute
 
 		case ACT_HOTKEY:
 			if (   *line_raw_arg2 && !line->ArgHasDeref(2)
-				&& !line->ArgHasDeref(1) && strnicmp(line_raw_arg1, "IfWin", 5)   ) // v1.0.42: Omit IfWinXX from validation.
+				&& !line->ArgHasDeref(1) && strnicmp(line_raw_arg1, "IfWin", 5) // v1.0.42: Omit IfWinXX from validation.
+				&& strnicmp(line_raw_arg1, "If", 2)	)	// L4: Also omit If from validation - for #if (expression).
 				if (   !(line->mAttribute = FindLabel(line_raw_arg2))   )
 					if (!Hotkey::ConvertAltTab(line_raw_arg2, true))
 						return line->PreparseError(ERR_NO_LABEL);
@@ -10007,6 +10141,11 @@ ResultType Line::ExecUntil(ExecUntilMode aMode, char **apReturnValue, Line **apJ
 		// be run so that the time it takes to run will be reflected in the ListLines log.
         g_script.mCurrLine = line;  // Simplifies error reporting when we get deep into function calls.
 
+#ifdef SCRIPT_DEBUG
+		if (g_Debugger.IsConnected())
+			g_Debugger.PreExecLine(line);
+#endif
+
 		if (g.ListLinesIsEnabled)
 		{
 			// Maintain a circular queue of the lines most recently executed:
@@ -11053,6 +11192,38 @@ ResultType Line::EvaluateCondition() // __forceinline on this reduces benchmarks
 	return if_condition ? CONDITION_TRUE : CONDITION_FALSE;
 }
 
+// L4: Evaluate an expression used to define #if hotkey variant criterion.
+//	This is called by MainWindowProc when it receives an AHK_HOT_IF_EXPR message.
+ResultType Line::EvaluateHotCriterionExpression()
+{
+	// Initialize a new quasi-thread to evaluate the expression. This may not be necessary for simple
+	// expressions, but expressions which call user-defined functions may otherwise interfere with
+	// whatever quasi-thread is running when the hook thread requests that this expression be evaluated.
+	
+	// Based on parts of MsgMonitor(). See there for comments.
+
+	if (g_nThreads >= g_MaxThreadsTotal)
+		return CONDITION_FALSE;
+
+	// See MsgSleep() for comments about the following section.
+	char ErrorLevel_saved[ERRORLEVEL_SAVED_SIZE];
+	strlcpy(ErrorLevel_saved, g_ErrorLevel->Contents(), sizeof(ErrorLevel_saved));
+	// Critical seems to improve reliability, either because the thread completes faster (i.e. before the timeout) or because we check for messages less often.
+	InitNewThread(0, false, true, ACT_CRITICAL);
+	DEBUGGER_STACK_PUSH(SE_Thread, this, desc, "#If")
+
+	g_script.mLastScriptRest = g_script.mLastPeekTime = GetTickCount();
+
+	// EVALUATE THE EXPRESSION
+	ResultType result = ExpandArgs();
+	if (result == OK)
+		result = EvaluateCondition();
+
+	DEBUGGER_STACK_POP()
+	ResumeUnderlyingThread(ErrorLevel_saved);
+
+	return result;
+}
 
 
 ResultType Line::PerformLoop(char **apReturnValue, bool &aContinueMainLoop, Line *&aJumpToLine
@@ -12811,19 +12982,20 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 	case ACT_LISTLINES:
 		if (   (toggle = ConvertOnOff(ARG1, NEUTRAL)) == NEUTRAL   )
 			return ShowMainWindow(MAIN_MODE_LINES, false); // Pass "unrestricted" when the command is explicitly used in the script.
-		// Otherwise:
-		if (g.ListLinesIsEnabled != (toggle == TOGGLED_ON)) // It's not already set to the specified value.
+		if (g.ListLinesIsEnabled)
 		{
-			g.ListLinesIsEnabled = (toggle == TOGGLED_ON);
-			// Remove "ListLines On/Off" from the line history to avoid cluttering it, especially in cases
-			// where a timer fires frequently (even if such a timer used "ListLines Off" as its top line,
-			// that line iself would appear very frequently in the line history).
+			// Since ExecUntil() just logged this ListLines Off in the line history, remove it to avoid
+			// cluttering the line history with distracting lines that the user probably wouldn't want to see.
+			// Might be especially useful in cases where a timer fires frequently (even if such a timer
+			// used "ListLines Off" as its top line, that line itself would appear very frequently in the line
+			// history).  v1.0.48.03: Fixed so that the below executes only when ListLines was previously "On".
 			if (sLogNext > 0)
 				--sLogNext;
 			else
 				sLogNext = LINE_LOG_SIZE - 1;
 			sLog[sLogNext] = NULL; // Without this, one of the lines in the history would be invalid due to the circular nature of the line history array, which would also cause the line history to show the wrong chronlogical order in some cases.
 		}
+		g.ListLinesIsEnabled = (toggle == TOGGLED_ON);
 		return OK;
 	case ACT_LISTVARS:
 		return ShowMainWindow(MAIN_MODE_VARS, false); // Pass "unrestricted" when the command is explicitly used in the script.
@@ -13039,7 +13211,7 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		return FormatTime(ARG2, ARG3);
 
 	case ACT_MENU:
-		return g_script.PerformMenu(FIVE_ARGS);
+		return g_script.PerformMenu(SIX_ARGS); // L17: Changed from FIVE_ARGS to access previously "reserved" arg (for use by Menu,,Icon).
 
 	case ACT_GUI:
 		return g_script.PerformGui(FOUR_ARGS);

@@ -27,7 +27,7 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 // RT_MANIFEST
 //
 
-CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST             "AutoHotkey.exe.manifest"
+//CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST             "AutoHotkey.exe.manifest"
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -174,12 +174,12 @@ BEGIN
             VALUE "ProductName", ""
             VALUE "ProductVersion", "1, 0, 48, 02"
 #else
-            VALUE "FileDescription", "AutoHotkey"
+            VALUE "FileDescription", "AutoHotkey_L"
             VALUE "FileVersion", "1, 0, 48, 02"
-            VALUE "InternalName", "AutoHotkey"
-            VALUE "LegalCopyright", "Copyright (C) 2009"
+            VALUE "InternalName", "AutoHotkey_L"
+            VALUE "LegalCopyright", "Copyright (C) 2008"
             VALUE "OriginalFilename", "AutoHotkey.rc"
-            VALUE "ProductName", "AutoHotkey"
+            VALUE "ProductName", "AutoHotkey_L"
             VALUE "ProductVersion", "1, 0, 48, 02"
 #endif
         END

@@ -103,7 +103,6 @@ void SendKeys(char *aKeys, bool aSendRaw, SendModes aSendModeOrig, HWND aTargetW
 	if (!*aKeys)
 		return;
 	global_struct &g = *::g; // Reduces code size and may improve performance.
-
 	// For performance and also to reserve future flexibility, recognize {Blind} only when it's the first item
 	// in the string.
 	if (sInBlindMode = !aSendRaw && !strnicmp(aKeys, "{Blind}", 7)) // Don't allow {Blind} while in raw mode due to slight chance {Blind} is intended to be sent as a literal string.
@@ -295,8 +294,8 @@ void SendKeys(char *aKeys, bool aSendRaw, SendModes aSendModeOrig, HWND aTargetW
 	sModifiersLR_persistent &= mods_current & ~mods_down_physically_and_logically;
 	modLR_type persistent_modifiers_for_this_SendKeys, extra_persistent_modifiers_for_blind_mode;
 	if (sInBlindMode)
-	{
-		// The following value is usually zero unless the user is currently holding down
+  	{
+  		// The following value is usually zero unless the user is currently holding down
 		// some modifiers as part of a hotkey. These extra modifiers are the ones that
 		// this send operation (along with all its calls to SendKey and similar) should
 		// consider to be down for the duration of the Send (unless they go up via an
@@ -628,6 +627,47 @@ void SendKeys(char *aKeys, bool aSendRaw, SendModes aSendModeOrig, HWND aTargetW
 					// Do this only once at the end of the sequence:
 					DoKeyDelay(); // It knows not to do the delay for SM_INPUT.
 				}
+
+				else if (key_text_length > 2 && !strnicmp(aKeys, "U+", 2) && !aTargetWindow)
+				{
+					// L24: Send a unicode value as shown by Character Map.
+					// Use SendInput in unicode mode if available, otherwise fall back to SendASC.
+					WORD u_code = (WORD) strtol(aKeys + 2, NULL, 16);
+
+					if (g_os.IsWin2000orLater())
+					{
+						// L25: Set modifier key-state in case it matters.
+						SetModifierLRState(mods_for_next_key | persistent_modifiers_for_this_SendKeys
+							, sSendMode ? sEventModifiersLR : GetModifierLRState(), NULL, false, true, KEY_IGNORE);
+
+						INPUT u_input[2];
+						
+						u_input[0].type = INPUT_KEYBOARD;
+						u_input[0].ki.wVk = 0;
+						u_input[0].ki.wScan = u_code;
+						u_input[0].ki.dwFlags = KEYEVENTF_UNICODE;
+						u_input[0].ki.time = 0;
+						// L25: Set dwExtraInfo to ensure AutoHotkey ignores the event; otherwise it may trigger a SCxxx hotkey (where xxx is u_code).
+						u_input[0].ki.dwExtraInfo = KEY_IGNORE;
+						
+						u_input[1].type = INPUT_KEYBOARD;
+						u_input[1].ki.wVk = 0;
+						u_input[1].ki.wScan = u_code;
+						u_input[1].ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
+						u_input[1].ki.time = 0;
+						u_input[1].ki.dwExtraInfo = KEY_IGNORE;
+
+						SendInput(2, u_input, sizeof(INPUT));
+					}
+					else
+					{
+						char asc[6];
+						SendASC(_itoa(u_code, asc, 10));
+					}
+					
+					DoKeyDelay();
+				}
+
 				//else do nothing since it isn't recognized as any of the above "else if" cases (see below).
 
 				// If what's between {} is unrecognized, such as {Bogus}, it's safest not to send

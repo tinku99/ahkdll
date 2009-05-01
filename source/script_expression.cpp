@@ -141,7 +141,7 @@ char *Line::ExpandExpression(int aArgIndex, ResultType &aResult, char *&aTarget,
 					// Check if it's a normal variable rather than a built-in or environment variable.
 					// This happens when g_NoEnv==FALSE.
 					switch (this_token.var->Type())
-					{
+  					{
 					case VAR_NORMAL:
 						if (this_token.var->HasContents()) // v1.0.46.07: It's not an environment variable.
 						{
@@ -184,7 +184,7 @@ char *Line::ExpandExpression(int aArgIndex, ResultType &aResult, char *&aTarget,
 						// A_Msec: Would help but it's probably rarely used; probably has poor granularity, not likely to be better than A_TickCount.
 						// A_TimeIdle/Physical: These are seldom performance-critical.
 						break; // case VAR_BUILTIN
-					}
+  					}
 					// Otherwise, it's an environment variable, built-in variable, or normal variable of zero-length
 					// (and it is also known now that g_NoEnv==FALSE because otherwise the loadtime
 					// ExpressionToPostfix() would never have made this item into SYM_DYNAMIC under these conditions).
