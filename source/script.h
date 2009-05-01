@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #ifdef AUTOHOTKEYSC
 	#include "lib\exearc_read.h"
 #endif
+#include "Debugger.h"
 
 #include "os_version.h" // For the global OS_Version object
 EXTERN_OSVER; // For the access to the g_os version object without having to include globaldata.h
@@ -48,6 +49,7 @@ enum ExecUntilMode {NORMAL_MODE, UNTIL_RETURN, UNTIL_BLOCK_END, ONLY_ONE_LINE};
 #define ATTR_LOOP_REG (void *)4
 #define ATTR_LOOP_READ_FILE (void *)5
 #define ATTR_LOOP_PARSE (void *)6
+#define ATTR_LOOP_WHILE (void *)7 // Lexikos: This is used to differentiate ACT_WHILE from ACT_LOOP, allowing code to be shared.
 typedef void *AttributeType;
 
 enum FileLoopModeType {FILE_LOOP_INVALID, FILE_LOOP_FILES_ONLY, FILE_LOOP_FILES_AND_FOLDERS, FILE_LOOP_FOLDERS_ONLY};
@@ -542,6 +544,7 @@ private:
 	ResultType PerformLoopParse(char **apReturnValue, bool &aContinueMainLoop, Line *&aJumpToLine);
 	ResultType Line::PerformLoopParseCSV(char **apReturnValue, bool &aContinueMainLoop, Line *&aJumpToLine);
 	ResultType PerformLoopReadFile(char **apReturnValue, bool &aContinueMainLoop, Line *&aJumpToLine, FILE *aReadFile, char *aWriteFileName);
+	ResultType Line::PerformLoopWhile(char **apReturnValue, bool &aContinueMainLoop, Line *&aJumpToLine); // Lexikos: ACT_WHILE.
 	ResultType Perform();
 
 	ResultType MouseGetPos(DWORD aOptions);
@@ -684,6 +687,11 @@ public:
 	Line *mPrevLine, *mNextLine; // The prev & next lines adjacent to this one in the linked list; NULL if none.
 	Line *mRelatedLine;  // e.g. the "else" that belongs to this "if"
 	Line *mParentLine; // Indicates the parent (owner) of this line.
+
+#ifdef SCRIPT_DEBUG
+	Breakpoint *mBreakpoint;
+#endif
+
 	// Probably best to always use ARG1 even if other things have supposedly verfied
 	// that it exists, since it's count-check should make the dereference of a NULL
 	// pointer (or accessing non-existent array elements) virtually impossible.
@@ -856,6 +864,8 @@ public:
 	char *ExpandArg(char *aBuf, int aArgIndex, Var *aArgVar = NULL);
 	char *ExpandExpression(int aArgIndex, ResultType &aResult, char *&aTarget, char *&aDerefBuf
 		, size_t &aDerefBufSize, char *aArgDeref[], size_t aExtraSize);
+
+	ResultType EvaluateHotCriterionExpression(); // Lexikos: Called by MainWindowProc to handle an AHK_HOT_IF_EXPR message.
 
 	ResultType Deref(Var *aOutputVar, char *aBuf);
 
@@ -1680,6 +1690,9 @@ public:
 		{
 			if (!stricmp(aBuf, "WheelUp") || !stricmp(aBuf, "WU")) return VK_WHEEL_UP;
 			if (!stricmp(aBuf, "WheelDown") || !stricmp(aBuf, "WD")) return VK_WHEEL_DOWN;
+			// Lexikos: Vista-only support for horizontal scrolling.
+			if (!stricmp(aBuf, "WheelLeft") || !stricmp(aBuf, "WL")) return VK_WHEEL_LEFT;
+			if (!stricmp(aBuf, "WheelRight") || !stricmp(aBuf, "WR")) return VK_WHEEL_RIGHT;
 		}
 		return 0;
 	}
@@ -1739,6 +1752,9 @@ public:
 		: mFileIndex(aFileIndex), mLineNumber(aFileLineNumber), mActionType(aActionType)
 		, mAttribute(ATTR_NONE), mArgc(aArgc), mArg(aArg)
 		, mPrevLine(NULL), mNextLine(NULL), mRelatedLine(NULL), mParentLine(NULL)
+#ifdef SCRIPT_DEBUG
+		, mBreakpoint(NULL)
+#endif
 		{}
 	void *operator new(size_t aBytes) {return SimpleHeap::Malloc(aBytes);}
 	void *operator new[](size_t aBytes) {return SimpleHeap::Malloc(aBytes);}
@@ -1782,7 +1798,9 @@ public:
 	{
 		Label *prev_label = g.CurrentLabel; // This will be non-NULL when a subroutine is called from inside another subroutine.
 		g.CurrentLabel = this;
+		DEBUGGER_STACK_PUSH(SE_Sub, mJumpToLine, sub, this)
 		ResultType result = mJumpToLine->ExecUntil(UNTIL_RETURN); // The script loader has ensured that Label::mJumpToLine can't be NULL.
+		DEBUGGER_STACK_POP()
 		g.CurrentLabel = prev_label;
 		return result;
 	}
@@ -1827,6 +1845,7 @@ public:
 	#define VAR_ASSUME_NONE 0
 	#define VAR_ASSUME_LOCAL 1
 	#define VAR_ASSUME_GLOBAL 2
+	#define VAR_ASSUME_STATIC 3 // Lexikos: Assume local and static.
 	// Keep small members adjacent to each other to save space and improve perf. due to byte alignment:
 	UCHAR mDefaultVarType;
 	bool mIsBuiltIn; // Determines contents of union. Keep this member adjacent/contiguous with the above.
@@ -1866,7 +1885,24 @@ public:
 		// for a command that references A_Index in two of its args such as the following:
 		// ToolTip, O, ((cos(A_Index) * 500) + 500), A_Index
 		++mInstances;
+		DEBUGGER_STACK_PUSH(SE_Func, mJumpToLine, func, this)
 		ResultType result = mJumpToLine->ExecUntil(UNTIL_BLOCK_END, &aReturnValue);
+#ifdef SCRIPT_DEBUG
+		if (g_Debugger.IsConnected())
+		{
+			if (result == EARLY_RETURN)
+			{
+				// Find the end of this function.
+				Line *line;
+				for (line = mJumpToLine; line && (line->mActionType != ACT_BLOCK_END || !line->mAttribute); line = line->mNextLine);
+				// Give user the opportunity to inspect variables before returning.
+				if (line)
+					g_Debugger.PreExecLine(line);
+			}
+			g_Debugger.StackPop();
+		}
+		//DEBUGGER_STACK_POP()
+#endif
 		--mInstances;
 		// Restore the original value in case this function is called from inside another function.
 		// Due to the synchronous nature of recursion and recursion-collapse, this should keep
@@ -2322,6 +2358,10 @@ class Script
 {
 private:
 	friend class Hotkey;
+#ifdef SCRIPT_DEBUG
+	friend class Debugger;
+#endif
+
 	Line *mFirstLine, *mLastLine;     // The first and last lines in the linked list.
 	UINT mLineCount;                  // The number of lines.
 	Label *mFirstLabel, *mLastLabel;  // The first and last labels in the linked list.
@@ -2606,7 +2646,9 @@ VarSizeType BIV_TimeIdle(char *aBuf, char *aVarName);
 VarSizeType BIV_TimeIdlePhysical(char *aBuf, char *aVarName);
 VarSizeType BIV_IPAddress(char *aBuf, char *aVarName);
 VarSizeType BIV_IsAdmin(char *aBuf, char *aVarName);
-
+// Lexikos: Added BIV_IsPaused and BIV_IsCritical.
+VarSizeType BIV_IsPaused(char *aBuf, char *aVarName);
+VarSizeType BIV_IsCritical(char *aBuf, char *aVarName);
 
 
 ////////////////////////
@@ -2629,6 +2671,7 @@ void BIF_Chr(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCou
 void BIF_NumGet(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_NumPut(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_IsLabel(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
+void BIF_IsFunc(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount); // Lexikos: IsFunc - for use with dynamic function calls.
 void BIF_GetKeyState(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_VarSetCapacity(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_FileExist(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);

@@ -1001,8 +1001,8 @@ ResultType Line::Transform(char *aCmd, char *aValue1, char *aValue2)
 		// It's possible that using just the &#number convention (e.g. &#128 through &#255;) would be
 		// more appropriate for some users, but that mode can be added in the future if it is ever
 		// needed (by passing a mode setting for aValue2):
-		// €‚ƒ„…†‡ˆ‰Š‹Œ‘’“”•–—˜™š›œŸ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿
-		// ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏĞÑÒÓÔÕÖ×ØÙÚÛÜİŞßàáâãäåæçèéêëìíîïğñòóôõö÷øùúûüışÿ
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		static const char *sHtml[128] = { // v1.0.40.02: Removed leading '&' and trailing ';' to reduce code size.
 			  "euro", "#129", "sbquo", "fnof", "bdquo", "hellip", "dagger", "Dagger"
 			, "circ", "permil", "Scaron", "lsaquo", "OElig", "#141", "#381", "#143"
@@ -2106,6 +2106,8 @@ ResultType Line::ControlClick(vk_type aVK, int aClickCount, char *aOptions, char
 	UINT msg_down, msg_up;
 	WPARAM wparam;
 	bool vk_is_wheel = aVK == VK_WHEEL_UP || aVK == VK_WHEEL_DOWN;
+	// Lexikos: Vista-only support for horizontal scrolling.
+	bool vk_is_hwheel = aVK == VK_WHEEL_LEFT || aVK == VK_WHEEL_RIGHT;
 
 	if (vk_is_wheel)
 	{
@@ -2132,6 +2134,10 @@ ResultType Line::ControlClick(vk_type aVK, int aClickCount, char *aOptions, char
 		//	wparam |= MK_CONTROL;
         //if (g_MouseHook)
 		//	wparam |= g_mouse_buttons_logical;
+	}
+	else if (vk_is_hwheel)	// Lexikos: Vista-only support for horizontal scrolling.
+	{
+		wparam = (aClickCount * ((aVK == VK_WHEEL_LEFT) ? -WHEEL_DELTA : WHEEL_DELTA)) << 16;
 	}
 	else
 	{
@@ -2171,6 +2177,11 @@ ResultType Line::ControlClick(vk_type aVK, int aClickCount, char *aOptions, char
 	if (vk_is_wheel)
 	{
 		PostMessage(control_window, WM_MOUSEWHEEL, wparam, lparam);
+		DoControlDelay;
+	}
+	else if (vk_is_hwheel)	// Lexikos: Vista-only support for horizontal scrolling.
+	{
+		PostMessage(control_window, WM_MOUSEHWHEEL, wparam, lparam);
 		DoControlDelay;
 	}
 	else
@@ -3355,13 +3366,15 @@ ResultType Line::WinGetTitle(char *aTitle, char *aText, char *aExcludeTitle, cha
 
 ResultType Line::WinGetClass(char *aTitle, char *aText, char *aExcludeTitle, char *aExcludeText)
 {
+	// Lexikos: Some changes here to fix a potential Access Violation which occurs when WinGetClass is used with a window whose window procedure has been overridden by script.
+	Var &output_var = *OUTPUT_VAR;
 	HWND target_window = DetermineTargetWindow(aTitle, aText, aExcludeTitle, aExcludeText);
 	if (!target_window)
-		return OUTPUT_VAR->Assign();
+		return output_var.Assign();
 	char class_name[WINDOW_CLASS_SIZE];
 	if (!GetClassName(target_window, class_name, sizeof(class_name)))
-		return OUTPUT_VAR->Assign();
-	return OUTPUT_VAR->Assign(class_name);
+		return output_var.Assign();
+	return output_var.Assign(class_name);
 }
 
 
@@ -5235,6 +5248,11 @@ LRESULT CALLBACK MainWindowProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 		// SendMessage, 0x44, 1029,,, %A_ScriptFullPath% - AutoHotkey
 		// SendMessage, 1029,,,, %A_ScriptFullPath% - AutoHotkey  ; Same as above but not sent via TRANSLATE.
 		return GetCurrentProcessId(); // Don't use ReplyMessage because then our thread can't reply to itself with this answer.
+
+	case AHK_HOT_IF_EXPR: // Lexikos: HotCriterionAllowsFiring uses this to ensure expressions are evaluated only on the main thread.
+		if ((int)wParam > -1 && (int)wParam < g_HotExprLineCount)
+			return g_HotExprLines[(int)wParam]->EvaluateHotCriterionExpression();
+		return 0;
 
 	HANDLE_MENU_LOOP // Cases for WM_ENTERMENULOOP and WM_EXITMENULOOP.
 
@@ -11321,6 +11339,29 @@ VarSizeType BIV_TimeIdlePhysical(char *aBuf, char *aVarName)
 }
 
 
+// Lexikos: Added BIV_IsPaused and BIV_IsCritical.
+
+VarSizeType BIV_IsPaused(char *aBuf, char *aVarName)
+{
+	if (aBuf)
+	{
+		*aBuf++ = g.UnderlyingThreadIsPaused ? '1' : '0';
+		*aBuf = '\0';
+	}
+	return 1;
+}
+
+VarSizeType BIV_IsCritical(char *aBuf, char *aVarName)
+{
+	if (aBuf)
+	{
+		*aBuf++ = g.ThreadIsCritical ? '1' : '0';
+		*aBuf = '\0';
+	}
+	return 1;
+}
+
+
 ////////////////////////
 // BUILT-IN FUNCTIONS //
 ////////////////////////
@@ -11610,8 +11651,11 @@ void ConvertDllArgType(char *aBuf[], DYNAPARM &aDynaParam)
 				aDynaParam.passed_by_address = false;
 				aDynaParam.is_unsigned = false;
 			}
-			else // First iteration, so aDynaParam.type's value will be set by the second.
+			else // First iteration, so aDynaParam.type's value will be set by the second (however, the loop's own condition will skip the second iteration if the second type_string is NULL).
+			{
+				aDynaParam.type = DLL_ARG_INVALID; // Set in case: 1) the second iteration is skipped by the loop's own condition (since the caller doesn't always initialize "type"); or 2) the second iteration can't find a valid type.
 				continue;
+			}
 		}
 		// Since above didn't "continue", the type is explicitly valid so "return" to ensure that
 		// the second iteration doesn't run (in case this is the first iteration):
@@ -13492,6 +13536,11 @@ void BIF_IsLabel(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aPara
 }
 
 
+void BIF_IsFunc(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount) // Lexikos: IsFunc - for use with dynamic function calls.
+{
+	aResultToken.value_int64 = g_script.FindFunc(ExprTokenToString(*aParam[0], aResultToken.buf)) ? 1 : 0;
+}
+
 
 void BIF_GetKeyState(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount)
 {
@@ -14046,7 +14095,7 @@ UINT __stdcall RegisterCallbackCStub(UINT *params, char *address) // Used by BIF
 // (not many of those). Win32 is quite picky about the stack always being 4 byte-aligned, (I have seen only one
 // application which defied that and it was a patched ported DOS mixed mode application). The Win32 calling
 // convention assumes that the parameter size equals the pointer size. 64 integers on Win32 are passed on
-// pointers, or as two 32 bit halves for some functions…
+// pointers, or as two 32 bit halves for some functionsï¿½
 {
 	#define DEFAULT_CB_RETURN_VALUE 0  // The value returned to the callback's caller if script doesn't provide one.
 
@@ -14097,7 +14146,7 @@ UINT __stdcall RegisterCallbackCStub(UINT *params, char *address) // Used by BIF
 		if (g_nFileDialogs) // If a FileSelectFile dialog is present, ensure the new thread starts at the right working-dir.
 			SetCurrentDirectory(g_WorkingDir); // See MsgSleep() for details.
 		InitNewThread(0, false, true, func.mJumpToLine->mActionType);
-
+		DEBUGGER_STACK_PUSH(SE_Thread, func.mJumpToLine, desc, func.mName)
 	}
 	else // Backup/restore only A_EventInfo. This avoids callbacks changing A_EventInfo for the current thread/context (that would be counterintuitive and a source of script bugs).
 		EventInfo_saved = g.EventInfo;
@@ -14136,7 +14185,10 @@ UINT __stdcall RegisterCallbackCStub(UINT *params, char *address) // Used by BIF
 	Var::FreeAndRestoreFunctionVars(func, var_backup, var_backup_count);
 
 	if (cb.create_new_thread)
+	{
+		DEBUGGER_STACK_POP()
 		ResumeUnderlyingThread(&global_saved, ErrorLevel_saved, true);
+	}
 	else
 		g.EventInfo = EventInfo_saved;
 

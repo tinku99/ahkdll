@@ -22,6 +22,8 @@ GNU General Public License for more details.
 #include "script.h" // For the global script object and g_ErrorLevel
 #include "os_version.h" // For the global OS_Version object
 
+#include "Debugger.h"
+
 extern HINSTANCE g_hInstance;
 extern DWORD g_MainThreadID;
 extern DWORD g_HookThreadID;
@@ -88,7 +90,7 @@ extern int g_MaxHistoryKeys;
 
 extern VarSizeType g_MaxVarCapacity;
 // This value is the absolute limit:
-#define MAX_THREADS_LIMIT 20
+#define MAX_THREADS_LIMIT 200	// Lexikos: Changed to a much less restrictive value, closer to the real limit on my system.
 #define MAX_THREADS_DEFAULT 10
 extern UCHAR g_MaxThreadsPerHotkey;
 extern int g_MaxThreadsTotal;
@@ -99,6 +101,13 @@ extern HotCriterionType g_HotCriterion;
 extern char *g_HotWinTitle;
 extern char *g_HotWinText;
 extern HotkeyCriterion *g_FirstHotCriterion, *g_LastHotCriterion;
+
+// Lexikos: Added global variables for #if (expression). See globaldata.cpp for comments.
+extern int g_HotExprIndex;
+extern Line **g_HotExprLines;
+extern int g_HotExprLineCount;
+extern int g_HotExprLineCountMax;
+extern UINT g_HotExprTimeout;
 
 extern MenuTypeType g_MenuIsVisible;
 extern int g_nMessageBoxes;

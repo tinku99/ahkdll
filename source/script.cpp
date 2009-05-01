@@ -614,7 +614,9 @@ ResultType Script::AutoExecSection()
 		mLastScriptRest = mLastPeekTime = GetTickCount();
 
 		++g_nThreads;
+		DEBUGGER_STACK_PUSH(SE_Thread, mFirstLine, desc, "auto-execute")
 		ResultType result = mFirstLine->ExecUntil(UNTIL_RETURN);
+		DEBUGGER_STACK_POP()
 		--g_nThreads;
 
 		KILL_AUTOEXEC_TIMER  // This also does "g.AllowThreadToBeInterrupted = true"
@@ -707,6 +709,9 @@ ResultType Script::ExitApp(ExitReasons aExitReason, char *aBuf, int aExitCode)
 		snprintf(buf, sizeof(buf), "Critical Error: %s\n\n" WILL_EXIT, aBuf);
 		// To avoid chance of more errors, don't use MsgBox():
 		MessageBox(g_hWnd, buf, g_script.mFileSpec, MB_OK | MB_SETFOREGROUND | MB_APPLMODAL);
+#if SCRIPT_DEBUG
+		g_Debugger.Exit(aExitReason);
+#endif
 		TerminateApp(CRITICAL_ERROR); // Only after the above.
 	}
 
@@ -716,10 +721,15 @@ ResultType Script::ExitApp(ExitReasons aExitReason, char *aBuf, int aExitCode)
 	// condition should be added to the below if statement:
 	static bool sExitLabelIsRunning = false;
 	if (!mOnExitLabel || sExitLabelIsRunning)  // || !mIsReadyToExecute
+	{
+#if SCRIPT_DEBUG
+		g_Debugger.Exit(aExitReason);
+#endif
 		// In the case of sExitLabelIsRunning == true:
 		// There is another instance of this function beneath us on the stack.  Since we have
 		// been called, this is a true exit condition and we exit immediately:
 		TerminateApp(aExitCode);
+	}
 
 	// Otherwise, the script contains the special RunOnExit label that we will run here instead
 	// of exiting.  And since it does, we know that the script is in a ready-to-execute state
@@ -773,14 +783,26 @@ ResultType Script::ExitApp(ExitReasons aExitReason, char *aBuf, int aExitCode)
 	g_script.UpdateTrayIcon();
 
 	sExitLabelIsRunning = true;
+	DEBUGGER_STACK_PUSH(SE_Thread, mOnExitLabel->mJumpToLine, desc, mOnExitLabel->mName)
 	if (mOnExitLabel->Execute() == FAIL)
+	{
+#if SCRIPT_DEBUG
+		g_Debugger.Exit(EXIT_ERROR);
+#endif
 		// If the subroutine encounters a failure condition such as a runtime error, exit immediately.
 		// Otherwise, there will be no way to exit the script if the subroutine fails on each attempt.
 		TerminateApp(aExitCode);
+	}
+	DEBUGGER_STACK_POP()
 	sExitLabelIsRunning = false;  // In case the user wanted the thread to end normally (see above).
 
 	if (terminate_afterward)
+	{
+#if SCRIPT_DEBUG
+		g_Debugger.Exit(aExitReason);
+#endif
 		TerminateApp(aExitCode);
+	}
 
 	// Otherwise:
 	ResumeUnderlyingThread(&global_saved, ErrorLevel_saved, false);
@@ -915,10 +937,33 @@ LineNumberType Script::LoadFromFile(bool aScriptWasNotspecified)
 	if (   !(mPlaceholderLabel = new Label(""))   ) // Not added to linked list since it's never looked up.
 		return LOADING_FAILED;
 
+	// Lexikos: Changed this next section to support lines added for #if (expression).
+	// Each #if (expression) is pre-parsed *before* the main script in order for
+	// function library auto-inclusions to be processed correctly.
+
 	// Load the main script file.  This will also load any files it includes with #Include.
 	if (   LoadIncludedFile(mFileSpec, false, false) != OK
-		|| !AddLine(ACT_EXIT) // Fix for v1.0.47.04: Add an Exit because otherwise, a script that ends in an IF-statement will crash in PreparseBlocks() because PreparseBlocks() expects every IF-statements mNextLine to be non-NULL (helps loading performance too).
-		|| !PreparseBlocks(mFirstLine)   ) // Must preparse the blocks before preparsing the If/Else's further below because If/Else may rely on blocks.
+		|| !AddLine(ACT_EXIT)) // Fix for v1.0.47.04: Add an Exit because otherwise, a script that ends in an IF-statement will crash in PreparseBlocks() because PreparseBlocks() expects every IF-statements mNextLine to be non-NULL (helps loading performance too).
+		return LOADING_FAILED;
+
+	if (g_HotExprLineCount)
+	{	// Resolve function references on #if (expression) lines.
+		for (int expr_line_index = 0; expr_line_index < g_HotExprLineCount; ++expr_line_index)
+		{
+			Line *was_last_line = mLastLine;
+			Line *line = g_HotExprLines[expr_line_index];
+			// Since PreparseBlocks assumes mNextLine!=NULL for ACT_IFEXPR, temporarily change mActionType to something else.
+			line->mActionType = ACT_INVALID;
+			PreparseBlocks(line);
+			line->mActionType = ACT_IFEXPR;
+
+			// The above may have auto-included a file from the userlib/stdlib,
+			// in which case function references in the newly added code will be
+			// resolved with the rest of the script, below.
+		}
+	}
+
+	if (!PreparseBlocks(mFirstLine))
 		return LOADING_FAILED; // Error was already displayed by the above calls.
 	// ABOVE: In v1.0.47, the above may have auto-included additional files from the userlib/stdlib.
 	// That's why the above is done prior to adding the EXIT lines and other things below.
@@ -1090,7 +1135,7 @@ ResultType Script::LoadIncludedFile(char *aFileSpec, bool aAllowDuplicateInclude
 		// to support automatic "include once" behavior.  So just ignore repeats:
 		if (!aAllowDuplicateInclude)
 			for (int f = 0; f < source_file_index; ++f) // Here, source_file_index==Line::sSourceFileCount
-				if (!lstrcmpi(Line::sSourceFile[f], full_path)) // Case insensitive like the file system (testing shows that "Ä" == "ä" in the NTFS, which is hopefully how lstrcmpi works regardless of locale).
+				if (!lstrcmpi(Line::sSourceFile[f], full_path)) // Case insensitive like the file system (testing shows that "ï¿½" == "ï¿½" in the NTFS, which is hopefully how lstrcmpi works regardless of locale).
 					return OK;
 		// The file is added to the list further below, after the file has been opened, in case the
 		// opening fails and aIgnoreLoadFailure==true.
@@ -1890,7 +1935,7 @@ examine_line:
 					&& (remap_dest_vk = hotkey_flag[1] ? TextToVK(cp = Hotkey::TextToModifiers(hotkey_flag, NULL)) : 0xFF)   ) // And the action appears to be a remap destination rather than a command.
 					// For above:
 					// Fix for v1.0.44.07: Set remap_dest_vk to 0xFF if hotkey_flag's length is only 1 because:
-					// 1) It allows a destination key that doesn't exist in the keyboard layout (such as 6::ð in
+					// 1) It allows a destination key that doesn't exist in the keyboard layout (such as 6::ï¿½ in
 					//    English).
 					// 2) It improves performance a little by not calling TextToVK except when the destination key
 					//    might be a mouse button or some longer key name whose actual/correct VK value is relied
@@ -2093,8 +2138,8 @@ examine_line:
 				// v1.0.44.03: Don't allow anything that ends in "::" (other than a line consisting only
 				// of "::") to be a normal label.  Assume it's a command instead (if it actually isn't, a
 				// later stage will report it as "invalid hotkey"). This change avoids the situation in
-				// which a hotkey like ^!ä:: is seen as invalid because the current keyboard layout doesn't
-				// have a "ä" key. Without this change, if such a hotkey appears at the top of the script,
+				// which a hotkey like ^!ï¿½:: is seen as invalid because the current keyboard layout doesn't
+				// have a "ï¿½" key. Without this change, if such a hotkey appears at the top of the script,
 				// its subroutine would execute immediately as a normal label, which would be especially
 				// bad if the hotkey were something like the "Shutdown" command.
 				if (buf[buf_length - 2] == ':' && buf_length > 2) // i.e. allow "::" as a normal label, but consider anything else with double-colon to be a failed-hotkey label that terminates the auto-exec section.
@@ -2650,6 +2695,88 @@ inline ResultType Script::IsDirective(char *aBuf)
 		return CONDITION_TRUE;
 	}
 
+	// Lexikos: Handle #if (expression) directive.
+	if (IS_DIRECTIVE_MATCH("#If"))
+	{
+		if (!parameter) // The omission of the parameter indicates that any existing criteria should be turned off.
+		{
+			g_HotCriterion = HOT_NO_CRITERION; // Indicate that no criteria are in effect for subsequent hotkeys.
+			g_HotWinTitle = ""; // Helps maintainability and some things might rely on it.
+			g_HotWinText = "";  //
+			g_HotExprIndex = -1;
+			return CONDITION_TRUE;
+		}
+
+		ResultType res;
+
+		Func *currentFunc = g.CurrentFunc;
+		bool nextLineIsFunctionBody = mNextLineIsFunctionBody;
+		Var **funcExceptionVar = mFuncExceptionVar;
+		Func *lastFunc = mLastFunc;
+		
+		// Set things up so:
+		//  a) Variable references are always global.
+		//  b) AddLine doesn't make our dummy line the body of a function in cases such as this:
+		//		function() {
+		//		#if expression
+		g.CurrentFunc = NULL;
+		mNextLineIsFunctionBody = false;
+		mFuncExceptionVar = NULL;
+		mLastFunc = NULL;
+
+		// ACT_IFEXPR vs ACT_EXPRESSION so EvaluateCondition() can be used. Also, ACT_EXPRESSION is designed to discard the result of the expression, since it normally would not be used.
+		if ((res = AddLine(ACT_IFEXPR, &parameter, 1)) != OK)
+			return res;
+		Line *hot_expr_line = mLastLine;
+
+		// Now undo the unwanted effects of AddLine:
+
+		// Ensure no labels were pointed to the newly added line.
+		for (Label *label = mLastLabel; label != NULL && label->mJumpToLine == mLastLine; label = label->mPrevLabel)
+			label->mJumpToLine = NULL;
+
+		// Remove the newly added line from the actual script.
+		if (mFirstLine == mLastLine)
+			mFirstLine = NULL;
+		mLastLine = mLastLine->mPrevLine;
+		if (mLastLine) // Will be NULL if no actual code precedes the #if.
+			mLastLine->mNextLine = NULL;
+		mCurrLine = mLastLine;
+		--mLineCount;
+
+		// Restore the properties we overrode earlier.
+		g.CurrentFunc = currentFunc;
+		mNextLineIsFunctionBody = nextLineIsFunctionBody;
+		mFuncExceptionVar = funcExceptionVar;
+		mLastFunc = lastFunc;
+
+		// Set the new criterion.
+		g_HotCriterion = HOT_IF_EXPR;
+		// Use the expression text to identify hotkey variants.
+		g_HotWinTitle = hot_expr_line->mArg[0].text;
+		g_HotWinText = "";
+
+		if (g_HotExprLineCount + 1 > g_HotExprLineCountMax)
+		{	// Allocate or reallocate g_HotExprLines.
+			g_HotExprLineCountMax += 100;
+			g_HotExprLines = (Line**)realloc(g_HotExprLines, g_HotExprLineCountMax * 4);
+		}
+		g_HotExprIndex = g_HotExprLineCount++;
+		g_HotExprLines[g_HotExprIndex] = hot_expr_line;
+		// VicinityToText() assumes lines are linked both ways, so clear mPrevLine in case an error occurs when this line is validated.
+		hot_expr_line->mPrevLine = NULL;
+		// The lines could be linked to simplify function resolution (i.e. allow calling PreparseBlocks() for all lines instead of once for each line) -- However, this would cause confusing/irrelevant vicinity lines to be shown if an error occurs.
+
+		return CONDITION_TRUE;
+	}
+	// Lexikos: Allow #if timeout to be adjusted.
+	if (IS_DIRECTIVE_MATCH("#IfTimeout"))
+	{
+		if (parameter)
+			g_HotExprTimeout = ATOU(parameter);
+		return CONDITION_TRUE;
+	}
+
 	if (!strnicmp(aBuf, "#IfWin", 6))
 	{
 		bool invert = !strnicmp(aBuf + 6, "Not", 3);
@@ -2659,6 +2786,7 @@ inline ResultType Script::IsDirective(char *aBuf)
 			g_HotCriterion = invert ? HOT_IF_NOT_EXIST : HOT_IF_EXIST;
 		else // It starts with #IfWin but isn't Active or Exist: Don't alter g_HotCriterion.
 			return CONDITION_FALSE; // Indicate unknown directive since there are currently no other possibilities.
+		g_HotExprIndex = -1;	// Lexikos: For consistency, don't allow mixing of #if and other #ifWin criterion.
 		if (!parameter) // The omission of the parameter indicates that any existing criteria should be turned off.
 		{
 			g_HotCriterion = HOT_NO_CRITERION; // Indicate that no criteria are in effect for subsequent hotkeys.
@@ -3177,6 +3305,13 @@ ResultType Script::ParseAndAddLine(char *aLineText, ActionTypeType aActionType, 
 					// No further action is required for the word "global" by itself.
 					return OK;
 				}
+				// Lexikos: Added assume-static mode. For now, this requires "static" to be placed above local or global variable declarations.
+				else if (declare_type == VAR_DECLARE_STATIC && mNextLineIsFunctionBody && g.CurrentFunc->mDefaultVarType == VAR_ASSUME_NONE)
+				{
+					g.CurrentFunc->mDefaultVarType = VAR_ASSUME_STATIC;
+					// No further action is required for the word "static" by itself.
+					return OK;
+				}
 				// Otherwise, it's the word "local"/"static" by itself or "global" by itself but that occurs too far down in the body.
 				return ScriptError(ERR_UNRECOGNIZED_ACTION, aLineText); // Vague error since so rare.
 			}
@@ -3201,17 +3336,24 @@ ResultType Script::ParseAndAddLine(char *aLineText, ActionTypeType aActionType, 
 			}
 			else // Since this isn't the first line of the function's body, mDefaultVarType has aleady been set permanently.
 			{
+				// Lexikos: Changed this section to support VAR_ASSUME_STATIC.
 				// Seems best to flag errors since they might be an indication to the user that something
 				// is being done incorrectly in this function, not to mention being a reminder about what
 				// mode the function is in:
-				if (g.CurrentFunc->mDefaultVarType == VAR_ASSUME_GLOBAL)
+				switch (g.CurrentFunc->mDefaultVarType)
 				{
+				case VAR_ASSUME_GLOBAL:
 					if (declare_type == VAR_DECLARE_GLOBAL)
 						return ScriptError("Global variables do not need to be declared in this function.", aLineText);
-				}
-				else // Must be VAR_ASSUME_LOCAL at this stage.
+					break;
+				case VAR_ASSUME_LOCAL:
 					if (declare_type == VAR_DECLARE_LOCAL)
 						return ScriptError("Local variables do not need to be declared in this function.", aLineText);
+					break;
+				case VAR_ASSUME_STATIC:
+					if (declare_type == VAR_DECLARE_STATIC)
+						return ScriptError("Static variables do not need to be declared in this function.", aLineText);
+				}
 			}
 			// Since above didn't break or return, a variable is being declared as an exception to the
 			// mode specified by mDefaultVarType (except if it's a static, which would be an exception
@@ -3221,8 +3363,9 @@ ResultType Script::ParseAndAddLine(char *aLineText, ActionTypeType aActionType, 
 			// variable) because otherwise it would have already displayed an "unnecessary declaration" error
 			// and returned above.  But if the declare_type is static, and given that all static variables are
 			// local, inversion is necessary only if the current mode isn't LOCAL:
-			bool is_already_exception, is_exception = (declare_type != VAR_DECLARE_STATIC
-				|| g.CurrentFunc->mDefaultVarType == VAR_ASSUME_GLOBAL); // Above has ensured that NONE can't be in effect by the time we reach the first static.
+			bool is_already_exception, is_exception = ((declare_type == VAR_DECLARE_GLOBAL) != (g.CurrentFunc->mDefaultVarType == VAR_ASSUME_GLOBAL));
+				// Lexikos: Changed above check to support VAR_ASSUME_STATIC - i.e. when declaring a local, it is only an "exception" if the function is assume-global.
+				/*(declare_type != VAR_DECLARE_STATIC || g.CurrentFunc->mDefaultVarType == VAR_ASSUME_GLOBAL);*/ // Above has ensured that NONE can't be in effect by the time we reach the first static.
 			bool open_brace_was_added, belongs_to_if_or_else_or_loop;
 			VarSizeType var_name_length;
 			char *item;
@@ -3260,6 +3403,9 @@ ResultType Script::ParseAndAddLine(char *aLineText, ActionTypeType aActionType, 
 				}
 				if (declare_type == VAR_DECLARE_STATIC)
 					var->OverwriteAttrib(VAR_ATTRIB_STATIC);
+				// Lexikos: Remove VAR_ATTRIB_STATIC, which is set by AddVar if the current function is assume-static.
+				else if (declare_type == VAR_DECLARE_LOCAL && g.CurrentFunc->mDefaultVarType == VAR_ASSUME_STATIC)
+					var->OverwriteAttrib(0);
 
 				item_end = omit_leading_whitespace(item_end); // Move up to the next comma, assignment-op, or '\0'.
 
@@ -4389,7 +4535,7 @@ ResultType Script::ParseAndAddLine(char *aLineText, ActionTypeType aActionType, 
 	// Loop {   ; Known limitation: Overlaps with file-pattern loop that retrieves single file of name "{".
 	// Loop 5 { ; Also overlaps, this time with file-pattern loop that retrieves numeric filename ending in '{'.
 	// Loop %Var% {  ; Similar, but like the above seems acceptable given extreme rarity of user intending a file pattern.
-	if (aActionType == ACT_LOOP && nArgs == 1 && arg[0][0])  // A loop with exactly one, non-blank arg.
+	if (aActionType == ACT_LOOP && nArgs == 1 && arg[0][0] || aActionType == ACT_WHILE)  // A loop with exactly one, non-blank arg. // Lexikos: Do the same for While.
 	{
 		char *arg1 = arg[0]; // For readability and possibly performance.
 		// A loop with the above criteria (exactly one arg) can only validly be a normal/counting loop or
@@ -5256,6 +5402,10 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 
 	case ACT_REPEAT: // These types of loops are always "NORMAL".
 		line.mAttribute = ATTR_LOOP_NORMAL;
+		break;
+
+	case ACT_WHILE: // Lexikos: ATTR_LOOP_WHILE is used to differentiate ACT_WHILE from ACT_LOOP, allowing code to be shared.
+		line.mAttribute = ATTR_LOOP_WHILE;
 		break;
 
 	// This one alters g_persistent so is present in its entirety (for simplicity) in both SC an non-SC version.
@@ -6218,7 +6368,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 		break;
 
 	case ACT_GETKEYSTATE:
-		// v1.0.44.03: Don't validate single-character key names because although a character like ü might have no
+		// v1.0.44.03: Don't validate single-character key names because although a character like ï¿½ might have no
 		// matching VK in system's default layout, that layout could change to something which does have a VK for it.
 		if (aArgc > 1 && !line.ArgHasDeref(2) && strlen(new_raw_arg2) > 1 && !TextToVK(new_raw_arg2) && !ConvertJoy(new_raw_arg2))
 			return ScriptError(ERR_INVALID_KEY_OR_BUTTON, new_raw_arg2);
@@ -6955,6 +7105,8 @@ Func *Script::FindFunc(char *aFuncName, size_t aFuncNameLength)
 	}
 	else if (!stricmp(func_name, "IsLabel"))
 		bif = BIF_IsLabel;
+	else if (!stricmp(func_name, "IsFunc")) // Lexikos: IsFunc - for use with dynamic function calls.
+		bif = BIF_IsFunc;
 	else if (!stricmp(func_name, "DllCall"))
 	{
 		bif = BIF_DllCall;
@@ -7568,6 +7720,12 @@ Var *Script::AddVar(char *aVarName, size_t aVarNameLength, int aInsertPos, int a
 		return NULL;
 	}
 
+	if (aIsLocal == 1 && g.CurrentFunc->mDefaultVarType == VAR_ASSUME_STATIC)
+	{	// Lexikos: Current function is assume-static, so set static attribute.
+		//	This will be overwritten (again) if this variable is being explicitly declared "local".
+		the_new_var->OverwriteAttrib(VAR_ATTRIB_STATIC);
+	}
+
 	// If there's a lazy var list, aInsertPos provided by the caller is for it, so this new variable
 	// always gets inserted into that list because there's always room for one more (because the
 	// previously added variable would have purged it if it had reached capacity).
@@ -7926,6 +8084,10 @@ void *Script::GetVarType(char *aVarName)
 		|| !strcmp(lower, "tab")) return BIV_Space_Tab;
 	if (!strcmp(lower, "ahkversion")) return BIV_AhkVersion;
 	if (!strcmp(lower, "ahkpath")) return BIV_AhkPath;
+
+	// Lexikos: Added BIV_IsPaused and BIV_IsCritical.
+	if (!strcmp(lower, "ispaused")) return BIV_IsPaused;
+	if (!strcmp(lower, "iscritical")) return BIV_IsCritical;
 
 	// Since above didn't return:
 	return (void *)VAR_NORMAL;
@@ -8324,7 +8486,7 @@ Line *Script::PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode, Attribute
 	AttributeType loop_type_file, loop_type_reg, loop_type_read, loop_type_parse;
 	for (Line *line = aStartingLine; line != NULL;)
 	{
-		if (ACT_IS_IF(line->mActionType) || line->mActionType == ACT_LOOP || line->mActionType == ACT_REPEAT)
+		if (ACT_IS_IF(line->mActionType) || line->mActionType == ACT_LOOP || line->mActionType == ACT_REPEAT || line->mActionType == ACT_WHILE) // Lexikos: Added check for ACT_WHILE.
 		{
 			// ActionType is an IF or a LOOP.
 			line_temp = line->mNextLine;  // line_temp is now this IF's or LOOP's action-line.
@@ -8351,6 +8513,8 @@ Line *Script::PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode, Attribute
 				loop_type_file = ATTR_LOOP_UNKNOWN;
 			else if (aLoopTypeFile == ATTR_LOOP_NORMAL || line->mAttribute == ATTR_LOOP_NORMAL)
 				loop_type_file = ATTR_LOOP_NORMAL;
+			else if (aLoopTypeFile == ATTR_LOOP_WHILE || line->mAttribute == ATTR_LOOP_WHILE) // Lexikos: ACT_WHILE
+				loop_type_file = ATTR_LOOP_WHILE;
 
 			// The section is the same as above except for registry vs. file loops:
 			loop_type_reg = ATTR_NONE;
@@ -8360,6 +8524,8 @@ Line *Script::PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode, Attribute
 				loop_type_reg = ATTR_LOOP_UNKNOWN;
 			else if (aLoopTypeReg == ATTR_LOOP_NORMAL || line->mAttribute == ATTR_LOOP_NORMAL)
 				loop_type_reg = ATTR_LOOP_NORMAL;
+			else if (aLoopTypeReg == ATTR_LOOP_WHILE || line->mAttribute == ATTR_LOOP_WHILE) // Lexikos: ACT_WHILE
+				loop_type_reg = ATTR_LOOP_WHILE;
 
 			// Same as above except for READ-FILE loops:
 			loop_type_read = ATTR_NONE;
@@ -8369,6 +8535,8 @@ Line *Script::PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode, Attribute
 				loop_type_read = ATTR_LOOP_UNKNOWN;
 			else if (aLoopTypeRead == ATTR_LOOP_NORMAL || line->mAttribute == ATTR_LOOP_NORMAL)
 				loop_type_read = ATTR_LOOP_NORMAL;
+			else if (aLoopTypeRead == ATTR_LOOP_WHILE || line->mAttribute == ATTR_LOOP_WHILE) // Lexikos: ACT_WHILE
+				loop_type_read = ATTR_LOOP_WHILE;
 
 			// Same as above except for PARSING loops:
 			loop_type_parse = ATTR_NONE;
@@ -8378,6 +8546,8 @@ Line *Script::PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode, Attribute
 				loop_type_parse = ATTR_LOOP_UNKNOWN;
 			else if (aLoopTypeParse == ATTR_LOOP_NORMAL || line->mAttribute == ATTR_LOOP_NORMAL)
 				loop_type_parse = ATTR_LOOP_NORMAL;
+			else if (aLoopTypeParse == ATTR_LOOP_WHILE || line->mAttribute == ATTR_LOOP_WHILE) // Lexikos: ACT_WHILE
+				loop_type_parse = ATTR_LOOP_WHILE;
 
 			// Check if the IF's action-line is something we want to recurse.  UPDATE: Always
 			// recurse because other line types, such as Goto and Gosub, need to be preparsed
@@ -8431,7 +8601,7 @@ Line *Script::PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode, Attribute
 			// so always continue on to evaluate the IF's ELSE, if present:
 			if (line_temp->mActionType == ACT_ELSE)
 			{
-				if (line->mActionType == ACT_LOOP || line->mActionType == ACT_REPEAT)
+				if (line->mActionType == ACT_LOOP || line->mActionType == ACT_REPEAT || line->mActionType == ACT_WHILE) // Lexikos: Added check for ACT_WHILE.
 				{
 					 // this can't be our else, so let the caller handle it.
 					if (aMode != ONLY_ONE_LINE)
@@ -8528,7 +8698,8 @@ Line *Script::PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode, Attribute
 
 		case ACT_HOTKEY:
 			if (   *line_raw_arg2 && !line->ArgHasDeref(2)
-				&& !line->ArgHasDeref(1) && strnicmp(line_raw_arg1, "IfWin", 5)   ) // v1.0.42: Omit IfWinXX from validation.
+				&& !line->ArgHasDeref(1) && strnicmp(line_raw_arg1, "IfWin", 5) // v1.0.42: Omit IfWinXX from validation.
+				&& strnicmp(line_raw_arg1, "If", 2)	)	// Lexikos: Also omit If from validation - for #if (expression).
 				if (   !(line->mAttribute = FindLabel(line_raw_arg2))   )
 					if (!Hotkey::ConvertAltTab(line_raw_arg2, true))
 						return line->PreparseError(ERR_NO_LABEL);
@@ -8754,6 +8925,11 @@ ResultType Line::ExecUntil(ExecUntilMode aMode, char **apReturnValue, Line **apJ
 		// be run so that the time it takes to run will be reflected in the ListLines log.
         g_script.mCurrLine = line;  // Simplifies error reporting when we get deep into function calls.
 
+#ifdef SCRIPT_DEBUG
+		if (g_Debugger.IsConnected())
+			g_Debugger.PreExecLine(line);
+#endif
+
 		// Maintain a circular queue of the lines most recently executed:
 		sLog[sLogNext] = line; // The code actually runs faster this way than if this were combined with the above.
 		// Get a fresh tick in case tick_now is out of date.  Strangely, it takes benchmarks 3% faster
@@ -8774,7 +8950,7 @@ ResultType Line::ExecUntil(ExecUntilMode aMode, char **apReturnValue, Line **apJ
 		// line (e.g. control stmts such as IF and LOOP).  Also, don't expand
 		// ACT_ASSIGN because a more efficient way of dereferencing may be possible
 		// in that case:
-		if (line->mActionType != ACT_ASSIGN)
+		if (line->mActionType != ACT_ASSIGN && line->mActionType != ACT_WHILE) // Lexikos: Exclude ACT_WHILE so A_Index can be set before the expression is evaluated.
 		{
 			result = line->ExpandArgs();
 			// As of v1.0.31, ExpandArgs() will also return EARLY_EXIT if a function call inside one of this
@@ -9025,6 +9201,7 @@ ResultType Line::ExecUntil(ExecUntilMode aMode, char **apReturnValue, Line **apJ
 
 		case ACT_LOOP:
 		case ACT_REPEAT:
+		case ACT_WHILE: // Lexikos: mAttribute should be ATTR_LOOP_WHILE.
 		{
 			HKEY root_key_type; // For registry loops, this holds the type of root key, independent of whether it is local or remote.
 			AttributeType attr = line->mAttribute;
@@ -9179,6 +9356,9 @@ ResultType Line::ExecUntil(ExecUntilMode aMode, char **apReturnValue, Line **apJ
 					// of ErrorLevel, perhaps changing its value too often when the user would want
 					// it saved.  But in any case, changing that now might break existing scripts).
 					result = OK;
+				break;
+			case ATTR_LOOP_WHILE: // Lexikos: ATTR_LOOP_WHILE is used to differentiate ACT_WHILE from ACT_LOOP, allowing code to be shared.
+				result = line->PerformLoopWhile(apReturnValue, continue_main_loop, jump_to_line);
 				break;
 			}
 
@@ -9703,6 +9883,44 @@ ResultType Line::EvaluateCondition() // __forceinline on this reduces benchmarks
 	return if_condition ? CONDITION_TRUE : CONDITION_FALSE;
 }
 
+// Lexikos: Evaluate an expression used to define #if hotkey variant criterion.
+//	This is called by MainWindowProc when it receives an AHK_HOT_IF_EXPR message.
+ResultType Line::EvaluateHotCriterionExpression()
+{
+	// Initialize a new quasi-thread to evaluate the expression. This may not be necessary for simple
+	// expressions, but expressions which call user-defined functions may otherwise interfere with
+	// whatever quasi-thread is running when the hook thread requests that this expression be evaluated.
+	
+	// Based on parts of MsgMonitor(). See there for comments.
+
+	if (g_nThreads >= g_MaxThreadsTotal)
+		return CONDITION_FALSE;
+
+	// See MsgSleep() for comments about the following section.
+	char ErrorLevel_saved[ERRORLEVEL_SAVED_SIZE];
+	strlcpy(ErrorLevel_saved, g_ErrorLevel->Contents(), sizeof(ErrorLevel_saved));
+	global_struct global_saved;
+	CopyMemory(&global_saved, &g, sizeof(global_struct));
+	if (g_nFileDialogs)
+		SetCurrentDirectory(g_WorkingDir);
+	//InitNewThread(0, false, true, ACT_IFEXPR);
+	// Critical seems to improve reliability, either because the thread completes faster (i.e. before the timeout) or because we check for messages less often.
+	InitNewThread(0, false, true, ACT_CRITICAL);
+	DEBUGGER_STACK_PUSH(SE_Thread, this, desc, "#If")
+	g_script.UpdateTrayIcon();
+
+	g_script.mLastScriptRest = g_script.mLastPeekTime = GetTickCount();
+
+	// EVALUATE THE EXPRESSION
+	ResultType result = ExpandArgs();
+	if (result == OK)
+		result = EvaluateCondition();
+
+	DEBUGGER_STACK_POP()
+	ResumeUnderlyingThread(&global_saved, ErrorLevel_saved, true);
+
+	return result;
+}
 
 
 ResultType Line::PerformLoop(char **apReturnValue, bool &aContinueMainLoop, Line *&aJumpToLine
@@ -10314,6 +10532,55 @@ ResultType Line::PerformLoopReadFile(char **apReturnValue, bool &aContinueMainLo
 }
 
 
+// Lexikos: ACT_WHILE
+ResultType Line::PerformLoopWhile(char **apReturnValue, bool &aContinueMainLoop, Line *&aJumpToLine) /*LEXWHILE*/
+{
+	ResultType result;
+	Line *jump_to_line;
+	char *cp;
+	bool loop_condition;
+
+	for (;; ++g.mLoopIteration)
+	{
+		// Evaluate the expression only now that A_Index has been set.
+		result = ExpandArgs();
+		if (result != OK)
+			return result;
+
+		// See comments under ACT_IFEXPR in EvaluateCondition() for details about this section.
+		cp = ARG1;
+		if (!*cp)
+			loop_condition = false;
+		else if (!IsPureNumeric(cp, true, false, true))
+			loop_condition = true;
+		else
+			loop_condition = (ATOF(cp) != 0.0);
+
+		if (!loop_condition)
+			break;
+
+		// See comments in PerformLoop() for details about this section.
+		result = mNextLine->ExecUntil(ONLY_ONE_LINE, apReturnValue, &jump_to_line);
+		if (result == LOOP_BREAK || result == EARLY_RETURN || result == EARLY_EXIT || result == FAIL)
+		{
+			return result;
+		}
+		if (jump_to_line) // See comments in PerformLoop() about this section.
+		{
+			if (jump_to_line == this)
+				aContinueMainLoop = true;
+			else
+				aJumpToLine = jump_to_line;
+			break;
+		}
+
+	} // for()
+
+	// The script's loop is now over.
+	return OK;
+}
+
+
 
 __forceinline ResultType Line::Perform() // __forceinline() currently boosts performance a bit, though it's probably more due to the butterly effect and cache hits/misses.
 // Performs only this line's action.
@@ -10813,7 +11080,7 @@ __forceinline ResultType Line::Perform() // __forceinline() currently boosts per
 		return EnvGet(ARG2);
 
 	case ACT_ENVSET:
-		// MSDN: "If [the 2nd] parameter is NULL, the variable is deleted from the current process’s environment."
+		// MSDN: "If [the 2nd] parameter is NULL, the variable is deleted from the current processï¿½s environment."
 		// My: Though it seems okay, for now, just to set it to be blank if the user omitted the 2nd param or
 		// left it blank (AutoIt3 does this too).  Also, no checking is currently done to ensure that ARG2
 		// isn't longer than 32K, since future OSes may support longer env. vars.  SetEnvironmentVariable()
@@ -12593,7 +12860,7 @@ ResultType Script::ActionExec(char *aAction, char *aParams, char *aWorkingDir, b
 			// MSDN: "If [lpCurrentDirectory] is NULL, the new process is created with the same
 			// current drive and directory as the calling process." (i.e. since caller may have
 			// specified a NULL aWorkingDir).  Also, we pass NULL in for the first param so that
-			// it will behave the following way (hopefully under all OSes): "the first white-space – delimited
+			// it will behave the following way (hopefully under all OSes): "the first white-space ï¿½ delimited
 			// token of the command line specifies the module name. If you are using a long file name that
 			// contains a space, use quoted strings to indicate where the file name ends and the arguments
 			// begin (see the explanation for the lpApplicationName parameter). If the file name does not

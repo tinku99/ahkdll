@@ -21,6 +21,8 @@ GNU General Public License for more details.
 #include "script.h" // For the global script object and g_ErrorLevel
 #include "os_version.h" // For the global OS_Version object
 
+#include "Debugger.h"
+
 // Since at least some of some of these (e.g. g_modifiersLR_logical) should not
 // be kept in the struct since it's not correct to save and restore their
 // state, don't keep anything in the global_struct except those things
@@ -108,6 +110,13 @@ HotCriterionType g_HotCriterion = HOT_NO_CRITERION;
 char *g_HotWinTitle = ""; // In spite of the above being the primary indicator,
 char *g_HotWinText = "";  // these are initialized for maintainability.
 HotkeyCriterion *g_FirstHotCriterion = NULL, *g_LastHotCriterion = NULL;
+
+// Lexikos: Added global variables for #if (expression).
+int g_HotExprIndex = -1; // The index of the Line containing the expression defined by the most recent #if (expression) directive.
+Line **g_HotExprLines = NULL; // Array of pointers to expression lines, allocated when needed.
+int g_HotExprLineCount = 0; // Number of expression lines currently present.
+int g_HotExprLineCountMax = 0; // Current capacity of g_HotExprLines.
+UINT g_HotExprTimeout = 1000; // Timeout for #if (expression) evaluation, in milliseconds.
 
 MenuTypeType g_MenuIsVisible = MENU_TYPE_NONE;
 int g_nMessageBoxes = 0;
@@ -381,6 +390,7 @@ Action g_act[] =
 	, {"Return", 0, 1, 1, {1, 0}}
 	, {"Exit", 0, 1, 1, {1, 0}} // ExitCode
 	, {"Loop", 0, 4, 4, NULL} // Iteration Count or FilePattern or root key name [,subkey name], FileLoopMode, Recurse? (custom validation for these last two)
+	, {"While", 1, 1, 1, {1, 0}} // LoopCondition	// Lexikos: Added g_act entry for ACT_WHILE.
 	, {"Break", 0, 0, 0, NULL}, {"Continue", 0, 0, 0, NULL}
 	, {"{", 0, 0, 0, NULL}, {"}", 0, 0, 0, NULL}
 
@@ -673,6 +683,9 @@ modifier is specified along with it:
 // Custom/fake VKs for use by the mouse hook (supported only in WinNT SP3 and beyond?):
 , {"WheelDown", VK_WHEEL_DOWN}
 , {"WheelUp", VK_WHEEL_UP}
+// Lexikos: Added fake VKs for Vista-only horizontal scrolling support.
+, {"WheelLeft", VK_WHEEL_LEFT}
+, {"WheelRight", VK_WHEEL_RIGHT}
 
 , {"Browser_Back", VK_BROWSER_BACK}
 , {"Browser_Forward", VK_BROWSER_FORWARD}

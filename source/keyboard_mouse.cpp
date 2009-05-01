@@ -2005,6 +2005,17 @@ void MouseClick(vk_type aVK, int aX, int aY, int aRepeatCount, int aSpeed, KeyEv
 		MouseEvent(event_flags | MOUSEEVENTF_WHEEL, -(aRepeatCount * WHEEL_DELTA), aX, aY);
 		return;
 	}
+	// Lexikos: Vista-only support for horizontal scrolling.
+	else if (aVK == VK_WHEEL_LEFT)
+	{
+		MouseEvent(event_flags | MOUSEEVENTF_HWHEEL, -(aRepeatCount * WHEEL_DELTA), aX, aY);
+		return;
+	}
+	else if (aVK == VK_WHEEL_RIGHT)
+	{
+		MouseEvent(event_flags | MOUSEEVENTF_HWHEEL, aRepeatCount * WHEEL_DELTA, aX, aY);
+		return;
+	}
 	// Otherwise:
 
 	// Although not thread-safe, the following static vars seem okay because:
@@ -3952,7 +3963,8 @@ char *GetKeyName(vk_type aVK, sc_type aSC, char *aBuf, int aBufSize)
 	// Use 0x02000000 to tell it that we want it to give left/right specific info, lctrl/rctrl etc.
 	// Relies on short-circuit boolean order.  v1.0.43: WheelDown/Up store the notch/turn count in SC,
 	// so don't consider that to be a valid SC:
-	if (!aSC || aVK == VK_WHEEL_DOWN || aVK == VK_WHEEL_UP || !GetKeyNameText((long)(aSC) << 16, aBuf, (int)(aBufSize/sizeof(TCHAR))))
+	// Lexikos: Added checks for VK_WHEEL_LEFT and VK_WHEEL_RIGHT to support horizontal scrolling on Vista.
+	if (!aSC || aVK == VK_WHEEL_DOWN || aVK == VK_WHEEL_UP || aVK == VK_WHEEL_LEFT || aVK == VK_WHEEL_RIGHT || !GetKeyNameText((long)(aSC) << 16, aBuf, (int)(aBufSize/sizeof(TCHAR))))
 	{
 		int j;
 		for (j = 0; j < g_key_to_vk_count; ++j)
