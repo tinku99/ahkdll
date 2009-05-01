@@ -1,0 +1,31 @@
+* CHANGELOG
+** Revision 5 (04/22/2009) 
+   dynamically load #include scripts
+   addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)
+** Revision 4
+   dynamic expressions, lines, and functions (04/22/2009) 
+   deprecated for addfile in rev.5
+** Revision 3
+   Options such as /Debug are supported see Lexikos' Debugger
+   ahkdll(str fileName, str option, str parameter) 
+
+** Revision 2
+   Merged with AutoHotkey_1.0.48_L26
+   any string can now be passed as the second var to ahkdll(name, argv)
+** Revision 1
+*** dllmain()
+    change winmain() to oldwinmain()
+
+    hInstance is stored as a static variable 
+
+    ahkdll can now be embedded within ahk itself
+
+*** Project settings
+    changed compile type to dll
+
+*** exported functions
+    ahkgetvar(variableName)
+    ahkdll(filename, argv) 
+** org-mode settings
+#+STARTUP: overview
+#+STARTUP: hidestars
