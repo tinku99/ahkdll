@@ -151,13 +151,14 @@ int argc = 4;
 param = nameHinstanceP.argv ; // Naveen: v6.1 Script options in nameHinstanceP.name will be processed here
 // Naveen: v6.1 more relaxed parsing of script options
 // using strcasestr instead of stricmp, too lazy to use va_arg for now.  
-		 if (!strcasestr(param, "/R") || !strcasestr(param, "/restart"))
+/*		 if (!strcasestr(param, "/R") || !strcasestr(param, "/restart"))
 		    restart_mode = true;
 		 if (!strcasestr(param, "/F") || !strcasestr(param, "/force"))
 			g_ForceLaunch = true;
-		 if (!strcasestr(param, "/ErrorStdOut"))
-			g_script.mErrorStdOut = true;
 
+			if (!strcasestr(param, "/ErrorStdOut"))
+			g_script.mErrorStdOut = true;
+*/
 /*   // Naveen: v6.1 removed __argv parsing one by one
 		// Insist that switches be an exact match for the allowed values to cut down on ambiguity.
 		// For example, if the user runs "CompiledScript.exe /find", we want /find to be considered

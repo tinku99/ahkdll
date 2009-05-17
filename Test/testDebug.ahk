@@ -13,7 +13,7 @@ return
 F2::
 msgbox, Please make sure DebugClient is on before proceeding
 threadH := DllCall("AutoHotkey\ahkdll", "str", "dllclient.ahk", "str"
-, "/Debug", "str", "", "Cdecl Int")
+, "", "str", "", "Cdecl Int")
 return
 
 !q::
