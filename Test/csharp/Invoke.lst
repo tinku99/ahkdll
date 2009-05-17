@@ -1,0 +1,83 @@
+Microsoft (R) Macro Assembler Version 9.00.30729.01	    05/08/09 02:05:38
+Invoke.asm						     Page 1 - 1
+
+
+				; -------------------------------------------------------------
+				;
+				; InvokeFuncAsm - Invokes a function through a function pointer passed as
+				; the first argument. All other parameters are forwarded on, plus the return
+				; value of the function invoked is returned.
+				;
+				; Copyright (c) Richard Birkby, ThunderMain ltd, November 2001
+				;
+				; -------------------------------------------------------------
+
+				.386
+				.model flat
+
+				option prologue:none
+				option epilogue:none
+				option dotname
+
+
+ 00000000			.code
+				align DWORD
+ 00000000			DllMain     proc    stdcall public, instance:DWORD, reason:DWORD, reserved:DWORD
+ 00000000  B8 00000001		        mov     eax, 1  ; success
+ 00000005  C2 000C		        ret	12
+ 00000008			DllMain     endp
+
+
+				align DWORD
+ 00000008			InvokeFunc	proc	stdcall	public, funcptr:DWORD
+
+ 00000008  59				pop	ecx	; save return address
+ 00000009  5A				pop	edx	; Get function pointer
+ 0000000A  51				push	ecx	; Restore return address
+ 0000000B  FF E2			jmp	edx	; Transfer control to the function pointer
+ 0000000D			InvokeFunc	endp
+
+				end
+Microsoft (R) Macro Assembler Version 9.00.30729.01	    05/08/09 02:05:38
+Invoke.asm						     Symbols 2 - 1
+
+
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000000 DWord	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 0000000D DWord	  Public  'CODE'	
+
+
+Procedures, parameters, and locals:
+
+                N a m e                 Type     Value    Attr
+
+DllMain  . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000008 Public STDCALL
+  instance . . . . . . . . . . .	DWord	 bp + 00000008
+  reason . . . . . . . . . . . .	DWord	 bp + 0000000C
+  reserved . . . . . . . . . . .	DWord	 bp + 00000010
+InvokeFunc . . . . . . . . . . .	P Near	 00000008 _TEXT	Length= 00000005 Public STDCALL
+  funcptr  . . . . . . . . . . .	DWord	 bp + 00000008
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000000h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+
+	   1 Warnings
+	   0 Errors
