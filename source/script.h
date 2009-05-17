@@ -522,6 +522,7 @@ private:
 		if (sDerefBufSize > LARGE_DEREF_BUF_SIZE)\
 			--sLargeDerefBufs;\
 	}
+public:  // Naveen v0.62 export commands
 	static char *sDerefBuf;  // Buffer to hold the values of any args that need to be dereferenced.
 	static size_t sDerefBufSize;
 	static int sLargeDerefBufs;
@@ -672,7 +673,7 @@ private:
 
 	static ResultType SetToggleState(vk_type aVK, ToggleValueType &ForceLock, char *aToggleText);
 
-public:
+
 	// Keep any fields that aren't an even multiple of 4 adjacent to each other.  This conserves memory
 	// due to byte-alignment:
 	ActionTypeType mActionType; // What type of line this is.

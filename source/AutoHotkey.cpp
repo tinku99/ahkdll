@@ -448,7 +448,7 @@ unsigned __stdcall runScript( void* pArguments )
 // Naveen: v1. ahkdll() - load AutoHotkey script into dll
 // Naveen: v3. ahkdll(script, single command line option, script parameters)
 // options such as /Debug are supported, see Lexikos' Debugger 
-extern "C" EXPORT int ahkdll(char *fileName, char *argv, char *args)
+EXPORT int ahkdll(char *fileName, char *argv, char *args)
 {
  unsigned threadID;
  nameHinstanceP.name = fileName ;
@@ -460,7 +460,7 @@ extern "C" EXPORT int ahkdll(char *fileName, char *argv, char *args)
 }
 
 // Naveen: v1. ahkgetvar()
-extern "C" EXPORT char *ahkgetvar(char *name)
+EXPORT char *ahkgetvar(char *name)
 {
 	Var *ahkvar;
 	ahkvar = g_script.FindOrAddVar(name);
@@ -469,7 +469,7 @@ extern "C" EXPORT char *ahkgetvar(char *name)
 /*
 // Naveen v2. ahkclose() tobe implemented
 // Todo: proper cleanup: destructors for classes and windows
-extern "C" EXPORT int ahkclose(int thread)
+EXPORT int ahkclose(int thread)
 {
    CloseHandle( (HINSTANCE) thread );  // this is probably useless by itself
    return 1;
@@ -477,7 +477,7 @@ extern "C" EXPORT int ahkclose(int thread)
 */
 // Naveen: v4. createLine() - turns a line of text into a Line class instance
 // Todo: destructor for line 
-extern "C" EXPORT int createLine(char *line, ActionTypeType aActionType)
+EXPORT int createLine(char *line, ActionTypeType aActionType)
 {
 	g_script.ParseAndAddLine(line, aActionType);	// default = ACT_EXPRESSION, use ACT_INVALID for commands
     return (int)g_script.PreparseBlocks(g_script.mCurrLine);	
@@ -485,7 +485,7 @@ extern "C" EXPORT int createLine(char *line, ActionTypeType aActionType)
 
 // Naveen: v4.1 CreateFunction() - deprecated for addFile()
 // Todo: destructor for functions
-extern "C" EXPORT int createFunction(char *definition)
+EXPORT int createFunction(char *definition)
 {  // definition is only a function prototype line
    // deprecated for addFile, as you can do the whole function there
 	Var *func_exception_var[2000];
@@ -500,7 +500,7 @@ return (int) g->CurrentFunc;  // Naveen todo: test if this matches findfunc(func
 
 // Naveen: v6 addFile()
 // Todo: support for #Directives, and proper treatment of mIsReadytoExecute
-extern "C" EXPORT int addFile(char *fileName, bool aAllowDuplicateInclude, bool aIgnoreLoadFailure)
+EXPORT int addFile(char *fileName, bool aAllowDuplicateInclude, bool aIgnoreLoadFailure)
 {   // dynamically include a file into a script !!
 	// labels, hotkeys, functions.   
 	Line *oldLastLine = g_script.mLastLine;
