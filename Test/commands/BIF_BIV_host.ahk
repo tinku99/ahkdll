@@ -9,8 +9,10 @@ F1::
 start:
 ahkdll := DllCall("LoadLibrary", "str", "AutoHotkey.dll")
 sleep, 500
-threadH := DllCall("AutoHotkey\ahkdll", "str", "dllclient.ahk", "str"
+threadH := DllCall("AutoHotkey\ahkdll", "str", "exportclient.ahk", "str"
 , "", "str", "parameter1 parameter2", "Cdecl Int") 
+gosub biv
+gosub command
 return
 
 !r::
@@ -21,6 +23,7 @@ ExitApp
 
 
 F4::
+biv:
 VarSetCapacity(var, 2000)
 x = A_AhkVersion
 result := dllcall("AutoHotkey\EBIV_AhkVersion", "str", var
@@ -29,6 +32,7 @@ msgbox % ErrorLevel . " " . result . " " . var
 return
 
 F6::
+command:
 ACT_TOOLTIP = 40
 result := dllcall("AutoHotkey\EToolTip", "str", "40"
 , "str", "hello"
