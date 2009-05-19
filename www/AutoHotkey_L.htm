@@ -1,0 +1,208 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xml:lang="en-GB" xmlns="http://www.w3.org/1999/xhtml" lang="en-GB"><head>
+
+
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="description" content="Home page for Lexikos' custom build of AutoHotkey.">
+<title>AutoHotkey_L</title>
+<link href="AutoHotkey_L_files/style.css" rel="stylesheet" type="text/css" media="all">
+</head><body>
+  <h1>AutoHotkey_L</h1>
+  <h2 id="Introduction">Introduction</h2>
+  <span class="size110">
+  <p>AutoHotkey_L is a custom build of AutoHotkey maintained by <a href="http://www.autohotkey.com/forum/profile.php?mode=viewprofile&amp;u=3754">Lexikos</a>. Features include:</p>
+  <ul>
+    <li><a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/docs/commands/_If.htm">#if <em>expression</em></a> - Similar to <a href="http://www.autohotkey.com/docs/commands/_IfWinActive.htm">#IfWinActive</a>, but for arbitrary expressions.</li>
+    <li>Interactive <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/docs/Debugging_Features.htm">debugging features</a>, when used with a compatible debugging client.</li>
+    <li>Assign <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/docs/commands/MenuIcon.htm">icons</a> to menu items.</li>
+    <li><a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/docs/Misc.htm#icons">Improvements</a> to icon support.</li>
+    <li>Control <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/docs/Misc.htm#fontq">text rendering quality</a> (anti-aliasing) on an AutoHotkey Gui.</li>
+    <li>Regular expression <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/docs/RegExCallout.htm">callouts</a>.</li>
+    <li>Support for Send {U+xxxx}. Character codes can be looked up using Windows' Character Map.</li>
+  </ul>
+  <p>Features which have been incorporated into mainstream AutoHotkey as of v1.0.48 include:</p>
+  <ul>
+    <li><a href="http://www.autohotkey.com/docs/Hotkeys.htm#Wheel">WheelLeft and WheelRight</a> support in Send, Click and hotkeys; requires Windows Vista and a compatible mouse.</li>
+    <li><a href="http://www.autohotkey.com/docs/commands/While.htm">While, <em>expression</em></a> - Loop while a condition is true.</li>
+    <li>Changes to <a href="http://www.autohotkey.com/docs/Functions.htm#DynCall">dynamic function calling</a> which allow passing more parameters than defined by a parameter.</li>
+    <li><a href="http://www.autohotkey.com/docs/Functions.htm#IsFunc">IsFunc()</a> allows a script to determine if a function exists before dynamically calling it.</li>
+    <li><a href="http://www.autohotkey.com/docs/Functions.htm#AssumeStatic">Assume-static</a> mode for functions, allowing static arrays to be created.</li>
+    <li>New built-in variables: <a href="http://www.autohotkey.com/docs/Variables.htm#IsPaused">A_IsPaused</a>, <a href="http://www.autohotkey.com/docs/Variables.htm#IsCritical">A_IsCritical</a>.</li>
+  </ul>
+  <p>For a full list of changes, see <a href="#Version_History">Version History</a>.</p>
+  <p>Discuss AutoHotkey_L at the <a href="http://www.autohotkey.com/forum/viewtopic.php?t=34070">AutoHotkey Community Forums</a>.</p>
+  </span>
+  
+  <h2 id="Get_It">Get It</h2>
+  <p>The following files are available for the current revision:</p>
+  <p><a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/AutoHotkey_L.zip">AutoHotkey_L.zip</a> - release build<br>
+  <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/AutoHotkey_L_SC.zip">AutoHotkey_L_SC.zip</a> - AutoHotkeySC.bin for compiling scripts<br>
+  <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/AutoHotkey_L_Source.zip">AutoHotkey_L_Source.zip</a> - source code<br>
+  <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/AutoHotkey_L_Docs.zip">AutoHotkey_L_Docs.zip</a> - contains all of the documentation available from this page</p>
+  <p><b>Note:</b></p>
+    <ul>
+      <li><a href="http://www.microsoft.com/express/vc/">Visual C++ 2008 Express Edition</a> may be required to open the included Solution or Project files.</li>
+      <li>My changes and additions to the source code may be used in any way, without restriction.</li>
+    </ul>
+  
+  <h2 id="Version_History">Version History</h2>
+  <h3>Revision 29 - May 2, 2009</h3>
+  <ul>
+    <li>All
+supported image formats may now be used as menu icons. Currently it is
+necessary to specify "actual size" when setting the icon to preserve
+transparency on Windows Vista and later. For example:
+<pre>Menu, Icon, MenuItemName, Filename.png,, 0</pre></li>  </ul>
+  <h3>Revision 28 - May 2, 2009</h3>
+  <ul>
+    <li>Improved
+average-case performance of dynamic function calls by implementing
+binary search for function name look-ups. This change also applies to
+other areas, such as load-time resolution of function references in
+expressions and run-time resolution by OnMessage, RegisterCallback, etc.</li>  </ul>
+  <h3>Revision 27 - April 26, 2009</h3>
+  <ul>
+    <li>Updated from v1.0.48.00 to v1.0.48.02.</li>  </ul>
+  <h3>Revision 26 - April 11, 2009</h3>
+  <ul>
+    <li>Fixed: Menu icons were not drawn on items which have sub-menus if owner-drawing was in use.</li>
+    <li>Fixed: Menu icons were not freed if all menu items were deleted at once.</li>
+    <li>Changed (Source): Renamed AutoHotkey.sln to AutoHotkey_L.sln to allow VS window to be identified more easily.</li>  </ul>
+  <h3>Revision 25 - March 30, 2009</h3>
+  <ul>
+    <li>Fixed: Send {U+xxxx} correctly sets modifier key-state as with any normal key.</li>
+    <li>Fixed: Send {U+..xx} no longer triggers hotkey SCxx.</li>
+  </ul>
+  <h3>Revision 24 - March 30, 2009</h3>
+  <ul>
+    <li>Added:
+Support for Send {U+xxxx}. SendInput() is used where available for
+proper unicode support, otherwise falls back to Alt+Numpad.</li>
+  </ul>
+  <h3>Revision 23 - March 30, 2009</h3>
+  <ul>
+    <li>Fixed: GuiControl, Enable/Disable now only resets focus if the focused control was disabled.</li>  </ul>
+  <h3>Revision 22 - March 26, 2009</h3>
+  <ul>
+    <li>Optimized If var [not] in/contains MatchList, especially for long lists containing shorter fields.</li>  </ul>
+  <h3>Revision 21 - March 16, 2009</h3>
+  <ul>
+    <li>Minor optimizations to While. [thanks Chris]</li>
+    <li>Fixed (Debugger): Revisions 19 and 20 omitted timer threads from the call stack.</li>
+    <li>Fixed (Debugger): XML-reserved characters were not escaped in most situations.</li>
+    <li>Fixed (Debugger): Incorrect command and transaction_id were used in the final response before exiting the script.</li>  </ul>
+  <h3>Revision 20 - February 27, 2009</h3>
+  <ul>
+    <li>Changed: If an icon cannot be loaded with the new method, fall back to the old method.</li>
+  </ul>
+  <h3>Revision 19 - February 26, 2009</h3>
+  <ul>
+    <li>Added: Gui, Font, qN option to set font quality/control anti-aliasing, where N is between 0 and 5.</li>
+    <li>Fixed: IL_Add now loads icons at the most appropriate size when multiple sizes exist.</li>
+    <li>Merged
+with AutoHotkey v1.0.48, introducing bug fixes, optimizations and other
+changes by Chris. Some AutoHotkey_L features were integrated into the
+mainstream release; changes to these features since previous revisions
+are as follows:</li>
+    <ul>
+      <li>Legacy behaviour is no longer
+applied to While - e.g. "While %x%" is correctly interpreted as a
+double-deref rather than as "While x".</li>
+      <li>One-True-Brace style is now supported for While.</li>
+      <li>Static vars may now be declared and initialized in assume-static functions.</li>
+      <li>Passing too <em>few</em>
+parameters in a dynamic function call is no longer allowed, as it
+allows the function's caller to second-guess the function's designer,
+reduces the ability to detect script bugs at runtime, and may cause the
+application to crash if calling a built-in function.</li>
+    </ul>
+  </ul>
+  <h3>Revision 18 - February 21, 2009</h3>
+  <ul>
+    <li>Fixed:
+Incomplete bug-fix in previous revision causing concat followed by
+assignment to skip the rest of the expression in some cases.</li>
+  </ul>
+  <h3>Revision 17 - February 20, 2009</h3>
+  <ul>
+    <li>Added: Menu icons via Icon and NoIcon sub-commands of the Menu command.</li>
+    <li>Changed: Negative icon numbers can now be used to indicate a resource ID within an executable.</li>
+    <li>Changed: Set default style of menus to include MNS_CHECKORBMP.</li>
+    <li>Changed:
+Load both small and large versions of custom tray icons to allow the
+correct icons to be shown in the appropriate places.</li>
+    <li>Fixed: Loading of icons from executable files at sizes other than the system small/large.</li>
+  </ul>
+  <h3>Revision 16 - February 4, 2009</h3>
+  <ul>
+    <li>Fixed: Deleting a menu item partially deleted its associated sub-menu.</li>  </ul>
+  <h3>Revision 15 - February 1, 2009</h3>
+  <ul>
+    <li>Fixed:
+SetFormat's presence in a *compiled* script was not disabling binary
+number write-caching. SetFormat should now work correctly in compiled
+scripts.</li>
+  </ul>
+  <h3>Revision 14 - February 1, 2009</h3>
+  <ul>
+    <li>Numerous bug-fixes and optimizations by Chris (pre-v1.0.48 beta).</li>
+    <li>Added: Support for regex callouts and the auto-callout option 'C'.</li>
+    <li>Changed: A_AhkVersion now includes the revision number. For instance, this is 1.0.47.07.L14.</li>
+    <li>Fixed: HWND's/window ID's were sign-extended to 64-bit. For instance, 0xb482057e became 0xffffffffb482057e.</li>
+  </ul>
+  <h3>Revision 13 - November 29, 2008</h3>
+  <ul>
+    <li>Fixed: Invalid DllCall types were treated as INT in some build environments.</li>
+    <li>Added: Workaround for GuiEscape issue when disabling focused control.</li>
+    <li>Changed version info: InternalName, ProductName and FileDescription are now "AutoHotkey_L" instead of "AutoHotkey".</li>
+  </ul>
+  <h3>Revision 12 - September 6, 2008</h3>
+  <ul>
+    <li>Fixed: Potential access violation when using property_get on a built-in variable. -- DBGP</li>
+  </ul>
+  <h3>Revision 11 - September 5, 2008</h3>
+  <ul>
+    <li>Fixed: Remove checksum from AutoHotkeySC.bin via post-build script (AutoHotkey must be installed).</li>
+    <li>Added: .L suffix to A_AhkVersion.</li>
+    <li>Added: Preliminary support for DBGp (interactive debugging).</li>
+  </ul>
+  
+  <h3>Revision 10 - August 2, 2008</h3>
+  <ul>
+    <li>Fixed: WheelLeft/WheelRight support, which was broken in revision 9.</li>
+  </ul>
+  <h3>Revision 9 - July 29, 2008</h3>
+  <ul>
+    <li>Fixed: Allow Break/Continue in While.</li>
+    <li>Fixed: TrayTip in non-English Windows and possibly other side-effects of using Vista headers.</li>
+  </ul>
+  <h3>Revision 8 - July 27, 2008</h3>
+  <ul>
+    <li>Added: #IfTimeout directive to set the timeout for evaluation of #If expressions, in milliseconds. Default is 1000.</li>
+    <li>Added: Assume-static mode for functions. "Static" must precede any local/global variable declarations.</li>
+    <li>Added: One-true-brace support for While.</li>
+    <li>Changed: While now sets A_Index to the iteration about to begin.</li>
+  </ul>
+  <h3>Revision 7 - July 26, 2008</h3>
+  <ul>
+    <li>Added: IsFunc(FuncName) - Returns a non-zero number if FuncName exists in the script or as a built-in function.</li>
+  </ul>
+  <h3>Revision 5 - July 19, 2008</h3>
+  <ul>
+    <li>Cleaned up obsolete references to test scripts.</li>
+    <li>Added basic default test script.</li>
+  </ul>
+  <h3>Revision 4 - July 18, 2008</h3>
+  <ul>
+    <li>Added: #if (expression) - Similar to #IfWinActive, but for arbitrary expressions.</li>
+    <li>Added: WheelLeft, WheelRight - Support for WM_MOUSEHWHEEL, which was introduced with Windows Vista. (Requires Vista.)</li>
+    <li>Added: While, expression - Loop while a condition is true.</li>
+    <li>Added: A_IsPaused - True if the underlying thread is paused.</li>
+    <li>Added: A_IsCritical - True if the current thread has been marked uninterruptible by the "Critical" command.</li>
+    <li>Changed: Allow any number of parameters to be passed in dynamic function calls.</li>
+    <li>Fixed: Access Violation caused by WinGetClass and subclassed windows.</li>
+    <li>Fixed: Access Violation caused by empty dynamic function references.</li>
+  </ul>
+</body><script type="text/javascript"><!--
+function __RP_Callback_Helper(str, strCallbackEvent, splitSize, func){var event = null;if (strCallbackEvent){event = document.createEvent('Events');event.initEvent(strCallbackEvent, true, true);}if (str && str.length > 0){var splitList = str.split('|');var strCompare = str;if (splitList.length == splitSize)strCompare = splitList[splitSize-1];var pluginList = document.plugins;for (var count = 0; count < pluginList.length; count++){var sSrc = '';if (pluginList[count] && pluginList[count].src)sSrc = pluginList[count].src;if (strCompare.length >= sSrc.length){if (strCompare.indexOf(sSrc) != -1){func(str, count, pluginList, splitList);break;}}}}if (strCallbackEvent)document.body.dispatchEvent(event);}function __RP_Coord_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Coord_Callback = str;pluginList[index].__RP_Coord_Callback_Left = splitList[0];pluginList[index].__RP_Coord_Callback_Top = splitList[1];pluginList[index].__RP_Coord_Callback_Right = splitList[2];pluginList[index].__RP_Coord_Callback_Bottom = splitList[3];};__RP_Callback_Helper(str, 'rp-js-coord-callback', 5, func);}function __RP_Url_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Url_Callback = str;pluginList[index].__RP_Url_Callback_Vid = splitList[0];pluginList[index].__RP_Url_Callback_Parent = splitList[1];};__RP_Callback_Helper(str, 'rp-js-url-callback', 3, func);}function __RP_TotalBytes_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_TotalBytes_Callback = str;pluginList[index].__RP_TotalBytes_Callback_Bytes = splitList[0];};__RP_Callback_Helper(str, null, 2, func);}function __RP_Connection_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Connection_Callback = str;pluginList[index].__RP_Connection_Callback_Url = splitList[0];};__RP_Callback_Helper(str, null, 2, func);}
+//--></script></html>
