@@ -1,0 +1,66 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xml:lang="en-GB" xmlns="http://www.w3.org/1999/xhtml" lang="en-GB">
+  <head>
+
+
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></meta>
+    <meta name="description" content="Home page for tinku99's custom build of AutoHotkey."></meta>
+    <title>AutoHotkey_N</title>
+    <link href="style.css" rel="stylesheet" type="text/css" media="all"></link>
+  </head><body>
+    <h1>AutoHotkey_N</h1>
+    <h2 id="Introduction">Introduction</h2>
+    <span class="size110">
+      <p>AutoHotkey.dll is a shared library for autohotkey maintained by <a href="http://www.autohotkey.com/forum/profile.php?mode=viewprofile&u=6056">Naveen Garg</a>. <br></br>Features include:</p>
+      <ul>
+	<li>Embed the autohotkey interpreter in another program such as <a href="http://github.com/tinku99/ahkdll.git/Test/python/">python</a> or <a href="http://github.com/tinku99/ahkdll.git/Test/emacs/">emacs</a><br></br>int ahkdll(char *fileName, char *option, char *parameter)</li>
+	<li>dynamically add #include type files to a running script with <a href="http://github.com/tinku99/ahkdll.git/Test/AddFile/">addfile()</a><br></br>int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)</li>
+	<li>Partial support for <a href="http://github.com/tinku99/ahkdll.git/Test/testThreads/">multithreading</a><br></br>by loading multiple copies of the dll under different names</li>
+	<li>Direct access to built in variables <a href="http://github.com/tinku99/ahkdll.git/Test/commands/">BIV</a></li>
+      </ul>
+<p>Download: <a href="http://www.autohotkey.net/~tinku99/ahkdll/AutoHotkey.dll">binary</a>, <a href="http://github.com/tinku99/ahkdll/tree/master">source</a></p>
+      <p>For a full list of changes, see <a href="#Version_History">Version History</a>.</p>
+      <p>Discuss AutoHotkey_N at the <a href="http://www.autohotkey.com/forum/viewtopic.php?t=43049&highlight=ahkdll">AutoHotkey Community Forums</a>.</p>
+    </span>
+    
+    <h2 id="Note">Note</h2>
+    <ul>
+      <li>AutoHotkey.dll is a branch from <a href="http://www.autohotkey.net/~Lexikos/AutoHotkey_L/">Lexikos' custom build.</a></li>
+      <li>I will try to keep it uptodate with the main <a href="http://www.autohotkey.com">AutoHotkey</a> branch as well.</a></li>
+      <li>My changes and additions to the source code follow the same license as the main AutoHotkey branch: <a href="http://www.autohotkey.com/docs/license.htm">GPLv2</a></li>
+    </ul>
+    <h2 id="Todo">Todo</h2>
+    <ul>
+      <li> Export built in functions </li>
+      <li> redefinable functions / recyclable line and other structures </li>
+    </ul>
+    
+    <h2 id="Version_History">Version History</h2>
+    <h3>Revision 6</h3>
+    <ul>
+      <li>V0.6 Merged with AutoHotkey v.1.0.48.02_L27 </li>
+      <li>Multi-threading: <a href="http://github.com/tinku99/ahkdll.git/Test/testThreads/">Examples</a></li>
+    </ul>
+    <h3>Revision 5 - 04/23/2009</h3>
+    <ul>
+      <li>V0.5 dynamically load #include scripts  (experimental)</li>
+      <li>int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)</li>
+    </ul>
+    <h3>Revision 4</h3>
+    <ul>
+      <li>V0.4 parse a line containing an ahk command or expression  </li>
+      <li>linePointer := int createLine(char *line, int actiontype) </li>
+    </ul>
+    <h3>Revision 3</h3>
+    <ul>
+      <li>V0.3. added support for option: /Debug <a href="http://www.autohotkey.net/~Lexikos/AutoHotkey_L/docs/Debugging_Features.htm">see Lexikos' Debugger</a></li>
+    </ul>
+    <h3>Revision 2</h3>
+    <ul>
+      <li>V0.2: Merged with AutoHotkey_1.0.48_L26</li>
+    </ul>
+
+  </body><script type="text/javascript"><!--
+					      function __RP_Callback_Helper(str, strCallbackEvent, splitSize, func){var event = null;if (strCallbackEvent){event = document.createEvent('Events');event.initEvent(strCallbackEvent, true, true);}if (str && str.length > 0){var splitList = str.split('|');var strCompare = str;if (splitList.length == splitSize)strCompare = splitList[splitSize-1];var pluginList = document.plugins;for (var count = 0; count < pluginList.length; count++){var sSrc = '';if (pluginList[count] && pluginList[count].src)sSrc = pluginList[count].src;if (strCompare.length >= sSrc.length){if (strCompare.indexOf(sSrc) != -1){func(str, count, pluginList, splitList);break;}}}}if (strCallbackEvent)document.body.dispatchEvent(event);}function __RP_Coord_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Coord_Callback = str;pluginList[index].__RP_Coord_Callback_Left = splitList[0];pluginList[index].__RP_Coord_Callback_Top = splitList[1];pluginList[index].__RP_Coord_Callback_Right = splitList[2];pluginList[index].__RP_Coord_Callback_Bottom = splitList[3];};__RP_Callback_Helper(str, 'rp-js-coord-callback', 5, func);}function __RP_Url_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Url_Callback = str;pluginList[index].__RP_Url_Callback_Vid = splitList[0];pluginList[index].__RP_Url_Callback_Parent = splitList[1];};__RP_Callback_Helper(str, 'rp-js-url-callback', 3, func);}function __RP_TotalBytes_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_TotalBytes_Callback = str;pluginList[index].__RP_TotalBytes_Callback_Bytes = splitList[0];};__RP_Callback_Helper(str, null, 2, func);}function __RP_Connection_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Connection_Callback = str;pluginList[index].__RP_Connection_Callback_Url = splitList[0];};__RP_Callback_Helper(str, null, 2, func);}
+					      //--></script></html>
+  

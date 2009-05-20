@@ -1,0 +1,55 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xml:lang="en-GB" xmlns="http://www.w3.org/1999/xhtml" lang="en-GB">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></meta>
+    <meta name="description" content="AhkLisp"></meta>
+    <title>AhkLisp</title>
+    <link href="style.css" rel="stylesheet" type="text/css" media="all"></link>
+  </head><body>
+    <h1>AhkLisp</h1>
+    <h2 id="Introduction">Introduction</h2>
+    <span class="size110">
+      <p>AhkLisp is a collection of programs mixing AutoHotkey and Lisp by <a href="http://www.autohotkey.com/forum/profile.php?mode=viewprofile&u=6056">Naveen Garg</a>.</p>
+    <h2 id="AhkLisp">AhkLisp</h2>  
+<ul>      <li> ahkSBCL 
+	  Download: <a href="http://www.autohotkey.net/%7Etinku99/ahklisp/ahklisp.exe">sbcl binaries</a><a href="git://github.com/tinku99/ahklisp.git"> source</a><br>
+	    requires <a href="http://www.autohotkey.net/%7Etinku99/ahkdll/AutoHotkey.dll"> AutoHotkey.dll</a>: <a href="git://github.com/tinku99/ahkdll.git"> source</a><br></br>
+	    to try it out, do <br></br>
+	    &gt; git clone git://github.com/tinku99/ahklisp.git <br></br>
+	and put ahklisp.exe and autohotkey.dll into the ahklisp directory and from the shell do<br></br>
+	  &gt; ahklisp.exe --userinit clinit.lisp <br></br></li>
+<li>Discuss AhkLisp at the <a href="http://www.autohotkey.com/forum/viewtopic.php?t=43081">AutoHotkey Community Forums</a>.</li>
+	  </ul>
+
+<h2 id="AhkEmacs">AhkEmacs</h2>
+    <span class="size110">
+      <ul>
+	<li>ahkEmacs<br> 
+	    Access to pointers. (strings for now, will add pointers to other LispObjects )<br>
+	      Callback to eval. <br></br>
+	      SendMessage to other windows (AutoHotkey).<br></br>
+	      Download patches: <a href="patch-fns.c">fns.c</a>, <a href="patch-lisp.h">lisp.h</a><br></br>
+	    </li>
+<li><a href="git://github.com/tinku99/ahk-org-mode.git">ahk-org-mode</a> ahk code folding in emacs. </li>
+	    <li><a href="http://github.com/tinku99/ahk-org-mode.git/lisp-org.el">lisp-org-mode</a> lisp code folding in emacs.</li>
+
+
+
+    </span>
+    </ul>    
+    <h2 id="Note">Note</h2>
+    <ul>
+<li>License: <a href="http://www.autohotkey.com/docs/license.htm">GPLv2</a></li>
+    </ul>
+    <h2 id="About">About</h2>
+    <ul>
+      <li> Programming is telling the computer to do what you would do. However, most programming languages don't treat the mouse, keyboard, gui widgets as first class citizens like structs and classes. And you cant do much without them. </li>
+      <li> Ahklisp, ahkEmacs try to make programming more fun and practical on windows.</li>
+
+    </ul>
+
+
+  </body><script type="text/javascript"><!--
+					      function __RP_Callback_Helper(str, strCallbackEvent, splitSize, func){var event = null;if (strCallbackEvent){event = document.createEvent('Events');event.initEvent(strCallbackEvent, true, true);}if (str && str.length > 0){var splitList = str.split('|');var strCompare = str;if (splitList.length == splitSize)strCompare = splitList[splitSize-1];var pluginList = document.plugins;for (var count = 0; count < pluginList.length; count++){var sSrc = '';if (pluginList[count] && pluginList[count].src)sSrc = pluginList[count].src;if (strCompare.length >= sSrc.length){if (strCompare.indexOf(sSrc) != -1){func(str, count, pluginList, splitList);break;}}}}if (strCallbackEvent)document.body.dispatchEvent(event);}function __RP_Coord_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Coord_Callback = str;pluginList[index].__RP_Coord_Callback_Left = splitList[0];pluginList[index].__RP_Coord_Callback_Top = splitList[1];pluginList[index].__RP_Coord_Callback_Right = splitList[2];pluginList[index].__RP_Coord_Callback_Bottom = splitList[3];};__RP_Callback_Helper(str, 'rp-js-coord-callback', 5, func);}function __RP_Url_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Url_Callback = str;pluginList[index].__RP_Url_Callback_Vid = splitList[0];pluginList[index].__RP_Url_Callback_Parent = splitList[1];};__RP_Callback_Helper(str, 'rp-js-url-callback', 3, func);}function __RP_TotalBytes_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_TotalBytes_Callback = str;pluginList[index].__RP_TotalBytes_Callback_Bytes = splitList[0];};__RP_Callback_Helper(str, null, 2, func);}function __RP_Connection_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Connection_Callback = str;pluginList[index].__RP_Connection_Callback_Url = splitList[0];};__RP_Callback_Helper(str, null, 2, func);}
+					      //--></script></html>
+  
