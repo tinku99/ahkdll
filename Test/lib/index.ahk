@@ -43,7 +43,8 @@ forwardIndex(files, fileCount = 0)
     filename := RegExReplace(A_LoopFileName, "[^a-zA-Z_]", "_") 
     filename%A_Index% := filename
     %filename%full := A_LoopFileFullPath
-    FileRead, %filename%contents, %A_LoopFileFullPath%
+    FileRead, %filename%contents, %A_LoopFileFullPath% ; will be
+    ; overwritten 
     fileCount += 1
     if (mod(A_Index, 100) == 0)
       TrayTip, reading, reading file %A_Index% 
@@ -58,16 +59,16 @@ loop, % fileCount
     if (mod(A_Index, 100) == 0)
     TrayTip, %forwardindex%, forward indexing %A_Index% 
   }
-ForwardIndexTime := (A_TickCount - start) / 1000
+  ForwardIndexTime := (A_TickCount - start) / 1000
   return fileCount ; generated in wordsinfile
 }
 ;; wordsinfile(file)
-wordsIn(filename, ByRef contents)
+wordsIn(filename, contents)
 {
- contents := RegExReplace(contents, "S)[^a-zA-Z_]", "`n") 
+  contents := RegExReplace(contents, "S)[^a-zA-Z_]", "`n") 
   ; StringReplace, contents, contents, %A_Space%, `n, All ; default
- Sort contents, U     ; U : remove duplicates
- return contents
+  Sort contents, U     ; U : remove duplicates
+  return contents
 }
 ;; invertedindex(index)
 invertedIndex(index)
