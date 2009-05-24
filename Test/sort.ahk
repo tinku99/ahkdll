@@ -1,6 +1,7 @@
 #Persistent
-VarSetCapacity(x, 12, 0)
-x = blablablabl
-stringsplit, y, x
+VarSetCapacity(x, 24, 0)
+x = blablalskdjflaskfdjla
+oc := chr(1)
+stringsplit, y, x,,%oc%
 ListVars
 return
