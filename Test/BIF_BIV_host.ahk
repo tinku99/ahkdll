@@ -9,7 +9,7 @@ F1::
 start:
 ahkdll := DllCall("LoadLibrary", "str", "AutoHotkey.dll")
 sleep, 500
-threadH := DllCall("AutoHotkey\ahkdll", "str", "exportclient.ahk", "str"
+threadH := DllCall("AutoHotkey\ahkdll", "str", "sort.ahk", "str"
 , "", "str", "parameter1 parameter2", "Cdecl Int") 
 gosub biv
 gosub command

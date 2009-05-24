@@ -6880,6 +6880,25 @@ ResultType Line::StringSplit(char *aArrayName, char *aInputString, char *aDelimi
 
 	// Otherwise aDelimiterList is empty, so store each char of aInputString in its own array element.
 	char *cp, *dp;
+	for (cp = aInputString, next_element_number = 1; *cp; cp += 2)
+	{
+		for (dp = aOmitList; *dp; dp += 2)
+			if (*cp == *dp) // This char is a member of the omitted list, thus it is not included in the output array.
+				break;
+		if (*dp) // Omitted.
+			continue;
+		_ultoa(next_element_number, var_name_suffix, 10);
+		if (   !(next_element = g_script.FindOrAddVar(var_name, 0, always_use))   )
+			return FAIL;  // It will have already displayed the error.
+		if (!next_element->Assign(cp, 2))
+			return FAIL;
+		++next_element_number; // Only increment this if above didn't "continue".
+	}
+	return array0->Assign(next_element_number - 1); // Store the count of how many items were stored in the array.
+}
+/*
+// Otherwise aDelimiterList is empty, so store each char of aInputString in its own array element.
+	char *cp, *dp;
 	for (cp = aInputString, next_element_number = 1; *cp; ++cp)
 	{
 		for (dp = aOmitList; *dp; ++dp)
@@ -6894,9 +6913,7 @@ ResultType Line::StringSplit(char *aArrayName, char *aInputString, char *aDelimi
 			return FAIL;
 		++next_element_number; // Only increment this if above didn't "continue".
 	}
-	return array0->Assign(next_element_number - 1); // Store the count of how many items were stored in the array.
-}
-
+	*/
 
 
 ResultType Line::SplitPath(char *aFileSpec)
