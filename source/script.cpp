@@ -11659,6 +11659,7 @@ ResultType Line::PerformLoopParse(char **apReturnValue, bool &aContinueMainLoop,
 	if (space_needed <= LOOP_PARSE_BUF_SIZE)
 	{
 		stack_buf = (char *)_alloca(LOOP_PARSE_BUF_SIZE); // Helps performance.  See comments above.
+		memset (stack_buf, 0, LOOP_PARSE_BUF_SIZE);  // Naveen needed to detect end of array
 		buf = stack_buf;
 	}
 	else
@@ -11669,6 +11670,8 @@ ResultType Line::PerformLoopParse(char **apReturnValue, bool &aContinueMainLoop,
 			return LineError(ERR_OUTOFMEM, FAIL, ARG2);
 		stack_buf = NULL; // For comparison purposes later below.
 	}
+	
+
 	strcpy(buf, ARG2); // Make the copy.
 
 	// Make a copy of ARG3 and ARG4 in case either one's contents are in the deref buffer, which would
@@ -11693,6 +11696,14 @@ ResultType Line::PerformLoopParse(char **apReturnValue, bool &aContinueMainLoop,
 		else // Since no delimiters, every char in the input string is treated as a separate field.
 		{
 			// But exclude this char if it's in the omit_list:
+		field_end = field + *omit_list;
+				if (!*field_end) // The end of the string has been reached.
+					break;
+			
+		}
+/*  Naveen loop, array
+{
+			// But exclude this char if it's in the omit_list:
 			if (*omit_list && strchr(omit_list, *field))
 			{
 				++field; // Move on to the next char.
@@ -11703,6 +11714,7 @@ ResultType Line::PerformLoopParse(char **apReturnValue, bool &aContinueMainLoop,
 			field_end = field + 1;
 		}
 
+*/
 		saved_char = *field_end;  // In case it's a non-delimited list of single chars.
 		*field_end = '\0';  // Temporarily terminate so that GetLoopField() will see the correct substring.
 
