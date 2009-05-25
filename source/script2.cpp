@@ -12460,7 +12460,7 @@ void BIF_InStr(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamC
 		}
 	}
 
-	if (offset < -1)
+	if (offset < -1) // binary search by Naveen 
 	{
 		offset = -1 * offset ;
 		unsigned int right = strlen(haystack) / offset;
