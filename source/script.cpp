@@ -11668,6 +11668,7 @@ ResultType Line::PerformLoopParse(char **apReturnValue, bool &aContinueMainLoop,
 			// Probably best to consider this a critical error, since on the rare times it does happen, the user
 			// would probably want to know about it immediately.
 			return LineError(ERR_OUTOFMEM, FAIL, ARG2);
+		memset (buf, 0, space_needed);    // Naveen needed to detect end of array
 		stack_buf = NULL; // For comparison purposes later below.
 	}
 	

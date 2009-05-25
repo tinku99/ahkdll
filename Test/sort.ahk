@@ -1,5 +1,12 @@
 #Persistent
 VarSetCapacity(x, 30, 0)
+x = abcdefghijklmnopqrstuvwxyz
+msgbox % InStr(x, "pqr", true, -2)
+return
+
+
+testLoopArray:
+VarSetCapacity(x, 30, 0)
 x = abcdefghijk ; ghijklmnopqrst
 oc := chr(3)
 loop, parse, x, ,%oc%

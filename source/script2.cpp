@@ -6879,7 +6879,7 @@ ResultType Line::StringSplit(char *aArrayName, char *aInputString, char *aDelimi
 	}
 
 	// Otherwise aDelimiterList is empty, so store each char of aInputString in its own array element.
-	char *cp, *dp;
+	char *cp, *dp;  // make this dependent on delimiters being "array"
 	for (cp = aInputString, next_element_number = 1; *cp; cp += *aOmitList)
 	{
 		/*
@@ -12451,7 +12451,7 @@ void BIF_InStr(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamC
 		// Otherwise, offset is less than -1 or >= 0.
 		// Since InStr("", "") yields 1, it seems consistent for InStr("Red", "", 4) to yield
 		// 4 rather than 0.  The below takes this into account:
-		if (offset < 0 || offset > // ...greater-than the length of haystack calculated below.
+		if (offset > // ...greater-than the length of haystack calculated below.
 			(aParam[0]->symbol == SYM_VAR  // LengthIgnoreBinaryClip() is used because InStr() doesn't recognize/support binary-clip, so treat it as a normal string (i.e. find first binary zero via strlen()).
 				? aParam[0]->var->LengthIgnoreBinaryClip() : strlen(haystack)))
 		{
@@ -12459,10 +12459,55 @@ void BIF_InStr(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamC
 			return;
 		}
 	}
+
+	if (offset < -1)
+	{
+		offset = -1 * offset ;
+		unsigned int right = strlen(haystack) / offset;
+unsigned int needleSize = strlen(needle) ;
+char tempHay[100] = {0};
+	// Binary search:
+		unsigned int left, mid ;
+		int result;
+	for (left = 0; left <= right;) // "right" was already initialized above.
+	{
+		mid = (left + right) / 2 ;
+		strncpy(tempHay, haystack + (mid * offset), needleSize);
+		result = stricmp(needle, tempHay); // lstrcmpi() is not used: 1) avoids breaking exisitng scripts; 2) provides consistent behavior across multiple locales; 3) performance.
+		if (result > 0)
+			left = mid + 1;
+		else if (result < 0)
+			right = mid - 1;
+		else // Match found.
+		{
+			aResultToken.value_int64 = mid * offset;
+	break ; 
+		}
+		}
+
+	}
+	else
+	{
 	// Since above didn't return:
 	haystack += offset; // Above has verified that this won't exceed the length of haystack.
 	found_pos = strstr2(haystack, needle, string_case_sense);
 	aResultToken.value_int64 = found_pos ? (found_pos - haystack + offset + 1) : 0;
+	}
+	/*
+	// Binary search:
+	for (left = 0; left <= right;) // "right" was already initialized above.
+	{
+		mid = (left + right) / 2;
+		result = stricmp(var_name, var[mid]->mName); // lstrcmpi() is not used: 1) avoids breaking exisitng scripts; 2) provides consistent behavior across multiple locales; 3) performance.
+		if (result > 0)
+			left = mid + 1;
+		else if (result < 0)
+			right = mid - 1;
+		else // Match found.
+			return var[mid];
+	}
+*/
+
 }
 
 
