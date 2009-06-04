@@ -432,6 +432,18 @@ public:
 		return (mType == VAR_ALIAS) ? mAliasFor->mType : mType;
 	}
 
+#ifdef SCRIPT_DEBUG
+	__forceinline VarTypeType RealType()
+	{
+		return mType;
+	}
+
+	__forceinline bool IsStatic()
+	{
+		return (mAttrib & VAR_ATTRIB_STATIC);
+	}
+#endif
+
 	__forceinline bool IsLocal()
 	{
 		// Since callers want to know whether this variable is local, even if it's a local alias for a
@@ -608,7 +620,6 @@ public:
 		Var &var = *(mType == VAR_ALIAS ? mAliasFor : this);
 		if (var.mType == VAR_CLIPBOARD && g_clip.IsReadyForWrite())
 			return g_clip.Commit(); // Writes the new clipboard contents to the clipboard and closes it.
-
 		// The binary-clip attribute is also reset here for cases where a caller uses a variable without
 		// having called Assign() to resize it first, which can happen if the variable's capacity is already
 		// sufficient to hold the desired contents.  VAR_ATTRIB_CONTENTS_OUT_OF_DATE is also removed below

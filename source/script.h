@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #ifdef AUTOHOTKEYSC
 	#include "lib\exearc_read.h"
 #endif
+#include "Debugger.h"
 
 #include "os_version.h" // For the global OS_Version object
 EXTERN_OSVER; // For the access to the g_os version object without having to include globaldata.h
@@ -684,6 +685,11 @@ public:
 	Line *mPrevLine, *mNextLine; // The prev & next lines adjacent to this one in the linked list; NULL if none.
 	Line *mRelatedLine;  // e.g. the "else" that belongs to this "if"
 	Line *mParentLine; // Indicates the parent (owner) of this line.
+
+#ifdef SCRIPT_DEBUG
+	Breakpoint *mBreakpoint;
+#endif
+
 	// Probably best to always use ARG1 even if other things have supposedly verfied
 	// that it exists, since it's count-check should make the dereference of a NULL
 	// pointer (or accessing non-existent array elements) virtually impossible.
@@ -866,6 +872,7 @@ public:
 	char *ExpandExpression(int aArgIndex, ResultType &aResult, char *&aTarget, char *&aDerefBuf
 		, size_t &aDerefBufSize, char *aArgDeref[], size_t aExtraSize);
 	ResultType ExpressionToPostfix(ArgStruct &aArg);
+	ResultType EvaluateHotCriterionExpression(); // L4: Called by MainWindowProc to handle an AHK_HOT_IF_EXPR message.
 
 	ResultType Deref(Var *aOutputVar, char *aBuf);
 
@@ -1755,6 +1762,9 @@ public:
 		: mFileIndex(aFileIndex), mLineNumber(aFileLineNumber), mActionType(aActionType)
 		, mAttribute(ATTR_NONE), mArgc(aArgc), mArg(aArg)
 		, mPrevLine(NULL), mNextLine(NULL), mRelatedLine(NULL), mParentLine(NULL)
+#ifdef SCRIPT_DEBUG
+		, mBreakpoint(NULL)
+#endif
 		{}
 	void *operator new(size_t aBytes) {return SimpleHeap::Malloc(aBytes);}
 	void *operator new[](size_t aBytes) {return SimpleHeap::Malloc(aBytes);}
@@ -1798,10 +1808,12 @@ public:
 	{
 		Label *prev_label =g->CurrentLabel; // This will be non-NULL when a subroutine is called from inside another subroutine.
 		g->CurrentLabel = this;
+			DEBUGGER_STACK_PUSH(SE_Sub, mJumpToLine, sub, this)
 		// I'm pretty sure it's not valid for the following call to ExecUntil() to tell us to jump
 		// somewhere, because the called function, or a layer even deeper, should handle the goto
 		// prior to returning to us?  So the last parameter is omitted:
 		ResultType result = mJumpToLine->ExecUntil(UNTIL_RETURN); // The script loader has ensured that Label::mJumpToLine can't be NULL.
+			DEBUGGER_STACK_POP()
 		g->CurrentLabel = prev_label;
 		return result;
 	}
@@ -1841,7 +1853,7 @@ public:
 	Var **mVar, **mLazyVar; // Array of pointers-to-variable, allocated upon first use and later expanded as needed.
 	int mVarCount, mVarCountMax, mLazyVarCount; // Count of items in the above array as well as the maximum capacity.
 	int mInstances; // How many instances currently exist on the call stack (due to recursion or thread interruption).  Future use: Might be used to limit how deep recursion can go to help prevent stack overflow.
-	Func *mNextFunc; // Next item in linked list.
+	//Func *mNextFunc; // Next item in linked list. // L27: Replaced linked list with binary-searchable array Script::mFunc.
 
 	// Keep small members adjacent to each other to save space and improve perf. due to byte alignment:
 	UCHAR mDefaultVarType;
@@ -1887,7 +1899,25 @@ public:
 		// for a command that references A_Index in two of its args such as the following:
 		// ToolTip, O, ((cos(A_Index) * 500) + 500), A_Index
 		++mInstances;
+			DEBUGGER_STACK_PUSH(SE_Func, mJumpToLine, func, this)
 		ResultType result = mJumpToLine->ExecUntil(UNTIL_BLOCK_END, &aReturnValue);
+#ifdef SCRIPT_DEBUG
+		if (g_Debugger.IsConnected())
+		{
+			if (result == EARLY_RETURN)
+			{
+				// Find the end of this function.
+				Line *line;
+				for (line = mJumpToLine; line && (line->mActionType != ACT_BLOCK_END || !line->mAttribute); line = line->mNextLine);
+				// Give user the opportunity to inspect variables before returning.
+				if (line)
+					g_Debugger.PreExecLine(line);
+			}
+			g_Debugger.StackPop();
+		}
+		// Not used because function calls require extra work to allow the user to inspect variables before returning:
+		//DEBUGGER_STACK_POP()
+#endif
 		--mInstances;
 		// Restore the original value in case this function is called from inside another function.
 		// Due to the synchronous nature of recursion and recursion-collapse, this should keep
@@ -1901,7 +1931,7 @@ public:
 		, mBIF(NULL)
 		, mParam(NULL), mParamCount(0), mMinParams(0)
 		, mVar(NULL), mVarCount(0), mVarCountMax(0), mLazyVar(NULL), mLazyVarCount(0)
-		, mInstances(0), mNextFunc(NULL)
+		, mInstances(0) /*, mNextFunc(NULL)*/
 		, mDefaultVarType(VAR_DECLARE_NONE)
 		, mIsBuiltIn(aIsBuiltIn)
 	{}
@@ -2004,6 +2034,10 @@ public:
 	UINT GetSubmenuPos(HMENU ahMenu);
 	UINT GetItemPos(char *aMenuItemName);
 	bool ContainsMenu(UserMenu *aMenu);
+	// L17: Functions for menu icons.
+	ResultType SetItemIcon(UserMenuItem *aMenuItem, char *aFilename, int aIconNumber, int aWidth);
+	ResultType ApplyItemIcon(UserMenuItem *aMenuItem);
+	ResultType RemoveItemIcon(UserMenuItem *aMenuItem);
 };
 
 
@@ -2022,6 +2056,24 @@ public:
 	// due to byte-alignment:
 	bool mEnabled, mChecked;
 	UserMenuItem *mNextMenuItem;  // Next item in linked list
+	
+	union
+	{
+		// L17: Implementation of menu item icons is OS-dependent (g_os.IsWinVistaOrLater()).
+		
+		// Older versions of Windows do not support alpha channels in menu item bitmaps, so owner-drawing
+		// must be used for icons with transparent backgrounds to appear correctly. Owner-drawing also
+		// prevents the icon colours from inverting when the item is selected. DrawIcon() gives the best
+		// results, so we store the icon handle as is.
+		//
+		HICON mIcon;
+		
+		// Windows Vista and later support alpha channels via 32-bit bitmaps. Since owner-drawing prevents
+		// visual styles being applied to menus, we convert each icon to a 32-bit bitmap, calculating the
+		// alpha channel as necessary. This is done only once, when the icon is initially set.
+		//
+		HBITMAP mBitmap;
+	};
 
 	// Constructor:
 	UserMenuItem(char *aName, size_t aNameCapacity, UINT aMenuID, Label *aLabel, UserMenu *aSubmenu, UserMenu *aMenu);
@@ -2043,6 +2095,7 @@ struct FontType
 	bool strikeout;
 	int point_size; // Decided to use int vs. float to simplify the code in many places. Fractional sizes seem rarely needed.
 	int weight;
+	DWORD quality; // L19: Allow control over font quality (anti-aliasing, etc.).
 	HFONT hfont;
 };
 
@@ -2182,7 +2235,8 @@ public:
 	COLORREF mBackgroundColorCtl; // Background color for controls.
 	HBRUSH mBackgroundBrushCtl;   // Brush corresponding to the above.
 	HDROP mHdrop;                 // Used for drag and drop operations.
-	HICON mIconEligibleForDestruction; // The window's SysMenu icon, which can be destroyed when the window is destroyed if nothing else is using it.
+	HICON mIconEligibleForDestruction; // The window's icon, which can be destroyed when the window is destroyed if nothing else is using it.
+	HICON mIconEligibleForDestructionSmall; // L17: A window may have two icons: ICON_SMALL and ICON_BIG.
 	int mMarginX, mMarginY, mPrevX, mPrevY, mPrevWidth, mPrevHeight, mMaxExtentRight, mMaxExtentDown
 		, mSectionX, mSectionY, mMaxExtentRightSection, mMaxExtentDownSection;
 	LONG mMinWidth, mMinHeight, mMaxWidth, mMaxHeight;
@@ -2222,7 +2276,7 @@ public:
 		, mCurrentColor(CLR_DEFAULT)
 		, mBackgroundColorWin(CLR_DEFAULT), mBackgroundBrushWin(NULL)
 		, mBackgroundColorCtl(CLR_DEFAULT), mBackgroundBrushCtl(NULL)
-		, mHdrop(NULL), mIconEligibleForDestruction(NULL)
+		, mHdrop(NULL), mIconEligibleForDestruction(NULL), mIconEligibleForDestructionSmall(NULL)
 		, mMarginX(COORD_UNSPECIFIED), mMarginY(COORD_UNSPECIFIED) // These will be set when the first control is added.
 		, mPrevX(0), mPrevY(0)
 		, mPrevWidth(0), mPrevHeight(0) // Needs to be zero for first control to start off at right offset.
@@ -2240,7 +2294,7 @@ public:
 	}
 
 	static ResultType Destroy(GuiIndexType aWindowIndex);
-	static void DestroyIconIfUnused(HICON ahIcon);
+	static void DestroyIconsIfUnused(HICON ahIcon, HICON ahIconSmall); // L17: Renamed function and added parameter to also handle the window's small icon.
 	ResultType Create();
 	void SetLabels(char *aLabelPrefix);
 	static void UpdateMenuBars(HMENU aMenu);
@@ -2343,6 +2397,16 @@ class Script
 {
 private:
 	friend class Hotkey;
+#ifdef SCRIPT_DEBUG
+	friend class Debugger;
+#endif
+
+	Line *mFirstLine, *mLastLine;     // The first and last lines in the linked list.
+	UINT mLineCount;                  // The number of lines.
+	Label *mFirstLabel, *mLastLabel;  // The first and last labels in the linked list.
+	Func /**mFirstFunc,*/ *mLastFunc;     // The first and last functions in the linked list.
+	Func **mFunc; // L27: Use a binary-searchable array to speed up function searches (especially beneficial for dynamic function calls).
+	int mFuncCount, mFuncCountMax;
 	Var **mVar, **mLazyVar; // Array of pointers-to-variable, allocated upon first use and later expanded as needed.
 	int mVarCount, mVarCountMax, mLazyVarCount; // Count of items in the above array as well as the maximum capacity.
 	WinGroup *mFirstGroup, *mLastGroup;  // The first and last variables in the linked list.
@@ -2390,17 +2454,12 @@ private:
 	// if aStartingLine is allowed to be NULL (for recursive calls).  If they
 	// were member functions of class Line, a check for NULL would have to
 	// be done before dereferencing any line's mNextLine, for example:
+	Line *PreparseBlocks(Line *aStartingLine, bool aFindBlockEnd = false, Line *aParentLine = NULL);
 	Line *PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode = NORMAL_MODE, AttributeType aLoopTypeFile = ATTR_NONE
 		, AttributeType aLoopTypeReg = ATTR_NONE, AttributeType aLoopTypeRead = ATTR_NONE
 		, AttributeType aLoopTypeParse = ATTR_NONE);
 
 public:
-	Line *PreparseBlocks(Line *aStartingLine, bool aFindBlockEnd = false, Line *aParentLine = NULL);
-	Line *mFirstLine, *mLastLine;     // The first and last lines in the linked list.
-	UINT mLineCount;                  // The number of lines.
-	Label *mFirstLabel, *mLastLabel;  // The first and last labels in the linked list.
-	Func *mFirstFunc, *mLastFunc;     // The first and last functions in the linked list.
-	// Naveen moved from private above
 	Line *mCurrLine;     // Seems better to make this public than make Line our friend.
 	Label *mPlaceholderLabel; // Used in place of a NULL label to simplify code.
 	char mThisMenuItemName[MAX_MENU_NAME_LENGTH + 1];
@@ -2446,6 +2505,7 @@ public:
 	WCHAR *mRunAsUser, *mRunAsPass, *mRunAsDomain; // Memory is allocated at runtime, upon first use.
 
 	HICON mCustomIcon;  // NULL unless the script has loaded a custom icon during its runtime.
+	HICON mCustomIconSmall; // L17: Use separate big/small icons for best results.
 	char *mCustomIconFile; // Filename of icon.  Allocated on first use.
 	bool mIconFrozen; // If true, the icon does not change state when the state of pause or suspend changes.
 	char *mTrayIconTip;  // Custom tip text for tray icon.  Allocated on first use.
@@ -2476,8 +2536,8 @@ public:
 #ifndef AUTOHOTKEYSC
 	Func *FindFuncInLibrary(char *aFuncName, size_t aFuncNameLength, bool &aErrorWasShown);
 #endif
-	Func *FindFunc(char *aFuncName, size_t aFuncNameLength = 0);
-	Func *AddFunc(char *aFuncName, size_t aFuncNameLength, bool aIsBuiltIn);
+	Func *FindFunc(char *aFuncName, size_t aFuncNameLength = 0, int *apInsertPos = NULL); // L27: Added apInsertPos for binary-search.
+	Func *AddFunc(char *aFuncName, size_t aFuncNameLength, bool aIsBuiltIn, int aInsertPos); // L27: Added aInsertPos for binary-search.
 
 	#define ALWAYS_USE_DEFAULT  0
 	#define ALWAYS_USE_GLOBAL   1
@@ -2504,7 +2564,7 @@ public:
 	char *ListVars(char *aBuf, int aBufSize);
 	char *ListKeyHistory(char *aBuf, int aBufSize);
 
-	ResultType PerformMenu(char *aMenu, char *aCommand, char *aParam3, char *aParam4, char *aOptions);
+	ResultType PerformMenu(char *aMenu, char *aCommand, char *aParam3, char *aParam4, char *aOptions, char *aOptions2); // L17: Added aOptions2 for Icon sub-command (icon width). Arg was previously reserved/unused.
 	UserMenu *FindMenu(char *aMenuName);
 	UserMenu *AddMenu(char *aMenuName);
 	ResultType ScriptDeleteMenu(UserMenu *aMenu);
@@ -2514,6 +2574,15 @@ public:
 		for (UserMenu *m = mFirstMenu; m; m = m->mNextMenu)
 			for (mi = m->mFirstMenuItem; mi; mi = mi->mNextMenuItem)
 				if (mi->mMenuID == aID)
+					return mi;
+		return NULL;
+	}
+	UserMenuItem *FindMenuItemBySubmenu(HMENU aSubmenu) // L26: Used by WM_MEASUREITEM/WM_DRAWITEM to find the menu item with an associated submenu. Fixes icons on such items when owner-drawn menus are in use.
+	{
+		UserMenuItem *mi;
+		for (UserMenu *m = mFirstMenu; m; m = m->mNextMenu)
+			for (mi = m->mFirstMenuItem; mi; mi = mi->mNextMenuItem)
+				if (mi->mSubmenu && mi->mSubmenu->mMenu == aSubmenu)
 					return mi;
 		return NULL;
 	}

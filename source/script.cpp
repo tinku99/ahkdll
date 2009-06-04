@@ -43,7 +43,7 @@ Script::Script()
 	, mNextClipboardViewer(NULL), mOnClipboardChangeIsRunning(false), mOnClipboardChangeLabel(NULL)
 	, mOnExitLabel(NULL), mExitReason(EXIT_NONE)
 	, mFirstLabel(NULL), mLastLabel(NULL)
-	, mFirstFunc(NULL), mLastFunc(NULL)
+	, /*mFirstFunc(NULL),*/ mLastFunc(NULL), mFunc(NULL), mFuncCount(0), mFuncCountMax(0) // L27: Removed mFirstFunc, added mFunc, mFuncCount, mFuncCountMax.
 	, mFirstTimer(NULL), mLastTimer(NULL), mTimerEnabledCount(0), mTimerCount(0)
 	, mFirstMenu(NULL), mLastMenu(NULL), mMenuCount(0)
 	, mVar(NULL), mVarCount(0), mVarCountMax(0), mLazyVar(NULL), mLazyVarCount(0)
@@ -60,7 +60,7 @@ Script::Script()
 #endif
 	, mLinesExecutedThisCycle(0), mUninterruptedLineCountMax(1000), mUninterruptibleTime(15)
 	, mRunAsUser(NULL), mRunAsPass(NULL), mRunAsDomain(NULL)
-	, mCustomIcon(NULL) // Normally NULL unless there's a custom tray icon loaded dynamically.
+	, mCustomIcon(NULL), mCustomIconSmall(NULL) // Normally NULL unless there's a custom tray icon loaded dynamically.
 	, mCustomIconFile(NULL), mIconFrozen(false), mTrayIconTip(NULL) // Allocated on first use.
 	, mCustomIconNumber(0)
 {
@@ -165,7 +165,10 @@ Script::~Script() // Destructor.
 	// Above: Probably best to have removed icon from tray and destroyed any Gui/Splash windows that were
 	// using it prior to getting rid of the script's custom icon below:
 	if (mCustomIcon)
+	{
 		DestroyIcon(mCustomIcon);
+		DestroyIcon(mCustomIconSmall); // Should always be non-NULL if mCustomIcon is non-NULL.
+	}
 
 	// Since they're not associated with a window, we must free the resources for all popup menus.
 	// Update: Even if a menu is being used as a GUI window's menu bar, see note above for why menu
@@ -533,9 +536,9 @@ void Script::CreateTrayIcon()
 	mNIC.uCallbackMessage = AHK_NOTIFYICON;
 #ifdef AUTOHOTKEYSC
 	// i.e. don't override the user's custom icon:
-	mNIC.hIcon = mCustomIcon ? mCustomIcon : (HICON)LoadImage(g_hInstance, MAKEINTRESOURCE(mCompiledHasCustomIcon ? IDI_MAIN : g_IconTray), IMAGE_ICON, 0, 0, LR_SHARED);
-#else
-	mNIC.hIcon = mCustomIcon ? mCustomIcon : (HICON)LoadImage(g_hInstance, MAKEINTRESOURCE(g_IconTray), IMAGE_ICON, 0, 0, LR_SHARED); // Use LR_SHARED to conserve memory (since the main icon is loaded for so many purposes).
+	mNIC.hIcon = mCustomIconSmall ? mCustomIconSmall : (HICON)LoadImage(g_hInstance, MAKEINTRESOURCE(mCompiledHasCustomIcon ? IDI_MAIN : g_IconTray), IMAGE_ICON, 0, 0, LR_SHARED);
+#else // L17: Always use small icon for tray.
+	mNIC.hIcon = mCustomIconSmall ? mCustomIconSmall : (HICON)LoadImage(g_hInstance, MAKEINTRESOURCE(g_IconTray), IMAGE_ICON, 0, 0, LR_SHARED); // Use LR_SHARED to conserve memory (since the main icon is loaded for so many purposes).
 #endif
 	UPDATE_TIP_FIELD
 	// If we were called due to an Explorer crash, I don't think it's necessary to call
@@ -569,7 +572,7 @@ void Script::UpdateTrayIcon(bool aForceUpdate)
 		icon = g_IconTray;
 #endif
 	// Use the custom tray icon if the icon is normal (non-paused & non-suspended):
-	mNIC.hIcon = (mCustomIcon && (mIconFrozen || (!g->IsPaused && !g_IsSuspended))) ? mCustomIcon
+	mNIC.hIcon = (mCustomIconSmall && (mIconFrozen || (!g->IsPaused && !g_IsSuspended))) ? mCustomIconSmall // L17: Always use small icon for tray.
 		: (HICON)LoadImage(g_hInstance, MAKEINTRESOURCE(icon), IMAGE_ICON, 0, 0, LR_SHARED); // Use LR_SHARED for simplicity and performance more than to conserve memory in this case.
 	if (Shell_NotifyIcon(NIM_MODIFY, &mNIC))
 	{
@@ -645,7 +648,9 @@ ResultType Script::AutoExecSection()
 		mLastScriptRest = mLastPeekTime = GetTickCount();
 
 		++g_nThreads;
+			DEBUGGER_STACK_PUSH(SE_Thread, mFirstLine, desc, "auto-execute")
 		ExecUntil_result = mFirstLine->ExecUntil(UNTIL_RETURN); // Might never return (e.g. infinite loop or ExitApp).
+			DEBUGGER_STACK_POP()
 		--g_nThreads;
 		// Our caller will take care of setting g_default properly.
 
@@ -782,6 +787,9 @@ ResultType Script::ExitApp(ExitReasons aExitReason, char *aBuf, int aExitCode)
 		snprintf(buf, sizeof(buf), "Critical Error: %s\n\n" WILL_EXIT, aBuf);
 		// To avoid chance of more errors, don't use MsgBox():
 		MessageBox(g_hWnd, buf, g_script.mFileSpec, MB_OK | MB_SETFOREGROUND | MB_APPLMODAL);
+#ifdef SCRIPT_DEBUG
+		g_Debugger.Exit(aExitReason);
+#endif
 		TerminateApp(CRITICAL_ERROR); // Only after the above.
 	}
 
@@ -791,6 +799,10 @@ ResultType Script::ExitApp(ExitReasons aExitReason, char *aBuf, int aExitCode)
 	// condition should be added to the below if statement:
 	static bool sExitLabelIsRunning = false;
 	if (!mOnExitLabel || sExitLabelIsRunning)  // || !mIsReadyToExecute
+	{
+#ifdef SCRIPT_DEBUG
+		g_Debugger.Exit(aExitReason);
+#endif
 		// In the case of sExitLabelIsRunning == true:
 		// There is another instance of this function beneath us on the stack.  Since we have
 		// been called, this is a true exit condition and we exit immediately.
@@ -798,6 +810,7 @@ ResultType Script::ExitApp(ExitReasons aExitReason, char *aBuf, int aExitCode)
 		// extra thread for ExitApp() (which allows it to run even when MAX_THREADS_EMERGENCY has
 		// been reached).  See TOTAL_ADDITIONAL_THREADS.
 		TerminateApp(aExitCode);
+	}
 
 	// Otherwise, the script contains the special RunOnExit label that we will run here instead
 	// of exiting.  And since it does, we know that the script is in a ready-to-execute state
@@ -839,14 +852,26 @@ ResultType Script::ExitApp(ExitReasons aExitReason, char *aBuf, int aExitCode)
 	g_AllowInterruption = FALSE; // Mark the thread just created above as permanently uninterruptible (i.e. until it finishes and is destroyed).
 
 	sExitLabelIsRunning = true;
+	DEBUGGER_STACK_PUSH(SE_Thread, mOnExitLabel->mJumpToLine, desc, mOnExitLabel->mName)
 	if (mOnExitLabel->Execute() == FAIL)
+	{
+#ifdef SCRIPT_DEBUG
+		g_Debugger.Exit(EXIT_ERROR);
+#endif
 		// If the subroutine encounters a failure condition such as a runtime error, exit immediately.
 		// Otherwise, there will be no way to exit the script if the subroutine fails on each attempt.
 		TerminateApp(aExitCode);
+	}
+	DEBUGGER_STACK_POP()
 	sExitLabelIsRunning = false;  // In case the user wanted the thread to end normally (see above).
 
 	if (terminate_afterward)
+	{
+#ifdef SCRIPT_DEBUG
+		g_Debugger.Exit(aExitReason);
+#endif
 		TerminateApp(aExitCode);
+	}
 
 	// Otherwise:
 	ResumeUnderlyingThread(ErrorLevel_saved);
@@ -969,10 +994,33 @@ LineNumberType Script::LoadFromFile(bool aScriptWasNotspecified)
 	if (   !(mPlaceholderLabel = new Label(""))   ) // Not added to linked list since it's never looked up.
 		return LOADING_FAILED;
 
+	// L4: Changed this next section to support lines added for #if (expression).
+	// Each #if (expression) is pre-parsed *before* the main script in order for
+	// function library auto-inclusions to be processed correctly.
+
 	// Load the main script file.  This will also load any files it includes with #Include.
 	if (   LoadIncludedFile(mFileSpec, false, false) != OK
-		|| !AddLine(ACT_EXIT) // Fix for v1.0.47.04: Add an Exit because otherwise, a script that ends in an IF-statement will crash in PreparseBlocks() because PreparseBlocks() expects every IF-statements mNextLine to be non-NULL (helps loading performance too).
-		|| !PreparseBlocks(mFirstLine)   ) // Must preparse the blocks before preparsing the If/Else's further below because If/Else may rely on blocks.
+		|| !AddLine(ACT_EXIT)) // Fix for v1.0.47.04: Add an Exit because otherwise, a script that ends in an IF-statement will crash in PreparseBlocks() because PreparseBlocks() expects every IF-statements mNextLine to be non-NULL (helps loading performance too).
+		return LOADING_FAILED;
+
+	if (g_HotExprLineCount)
+	{	// Resolve function references on #if (expression) lines.
+		for (int expr_line_index = 0; expr_line_index < g_HotExprLineCount; ++expr_line_index)
+		{
+			Line *was_last_line = mLastLine;
+			Line *line = g_HotExprLines[expr_line_index];
+			// Since PreparseBlocks assumes mNextLine!=NULL for ACT_IFEXPR, temporarily change mActionType to something else.
+			line->mActionType = ACT_INVALID;
+			PreparseBlocks(line);
+			line->mActionType = ACT_IFEXPR;
+
+			// The above may have auto-included a file from the userlib/stdlib,
+			// in which case function references in the newly added code will be
+			// resolved with the rest of the script, below.
+		}
+	}
+
+	if (!PreparseBlocks(mFirstLine))
 		return LOADING_FAILED; // Error was already displayed by the above calls.
 	// ABOVE: In v1.0.47, the above may have auto-included additional files from the userlib/stdlib.
 	// That's why the above is done prior to adding the EXIT lines and other things below.
@@ -1767,8 +1815,11 @@ ResultType Script::LoadIncludedFile(char *aFileSpec, bool aAllowDuplicateInclude
 				if (!DefineFunc(pending_function, func_exception_var))
 					return CloseAndReturnFail(fp, script_buf);
 				if (pending_function_has_brace) // v1.0.41: Support one-true-brace for function def, e.g. fn() {
+				{
 					if (!AddLine(ACT_BLOCK_BEGIN))
 						return CloseAndReturnFail(fp, script_buf);
+					mCurrLine = NULL; // L30: Prevents showing misleading vicinity lines if the line after a OTB function def is a syntax error.
+				}
 			}
 			else // It's a function call on a line by itself, such as fn(x). It can't be if(..) because another section checked that.
 			{
@@ -2703,6 +2754,88 @@ inline ResultType Script::IsDirective(char *aBuf)
 		return CONDITION_TRUE;
 	}
 
+	// L4: Handle #if (expression) directive.
+	if (IS_DIRECTIVE_MATCH("#If"))
+	{
+		if (!parameter) // The omission of the parameter indicates that any existing criteria should be turned off.
+		{
+			g_HotCriterion = HOT_NO_CRITERION; // Indicate that no criteria are in effect for subsequent hotkeys.
+			g_HotWinTitle = ""; // Helps maintainability and some things might rely on it.
+			g_HotWinText = "";  //
+			g_HotExprIndex = -1;
+			return CONDITION_TRUE;
+		}
+
+		ResultType res;
+
+		Func *currentFunc = g->CurrentFunc;
+		bool nextLineIsFunctionBody = mNextLineIsFunctionBody;
+		Var **funcExceptionVar = mFuncExceptionVar;
+		Func *lastFunc = mLastFunc;
+		
+		// Set things up so:
+		//  a) Variable references are always global.
+		//  b) AddLine doesn't make our dummy line the body of a function in cases such as this:
+		//		function() {
+		//		#if expression
+		g->CurrentFunc = NULL;
+		mNextLineIsFunctionBody = false;
+		mFuncExceptionVar = NULL;
+		mLastFunc = NULL;
+
+		// ACT_IFEXPR vs ACT_EXPRESSION so EvaluateCondition() can be used. Also, ACT_EXPRESSION is designed to discard the result of the expression, since it normally would not be used.
+		if ((res = AddLine(ACT_IFEXPR, &parameter, 1)) != OK)
+			return res;
+		Line *hot_expr_line = mLastLine;
+
+		// Now undo the unwanted effects of AddLine:
+
+		// Ensure no labels were pointed to the newly added line.
+		for (Label *label = mLastLabel; label != NULL && label->mJumpToLine == mLastLine; label = label->mPrevLabel)
+			label->mJumpToLine = NULL;
+
+		// Remove the newly added line from the actual script.
+		if (mFirstLine == mLastLine)
+			mFirstLine = NULL;
+		mLastLine = mLastLine->mPrevLine;
+		if (mLastLine) // Will be NULL if no actual code precedes the #if.
+			mLastLine->mNextLine = NULL;
+		mCurrLine = mLastLine;
+		--mLineCount;
+
+		// Restore the properties we overrode earlier.
+		g->CurrentFunc = currentFunc;
+		mNextLineIsFunctionBody = nextLineIsFunctionBody;
+		mFuncExceptionVar = funcExceptionVar;
+		mLastFunc = lastFunc;
+
+		// Set the new criterion.
+		g_HotCriterion = HOT_IF_EXPR;
+		// Use the expression text to identify hotkey variants.
+		g_HotWinTitle = hot_expr_line->mArg[0].text;
+		g_HotWinText = "";
+
+		if (g_HotExprLineCount + 1 > g_HotExprLineCountMax)
+		{	// Allocate or reallocate g_HotExprLines.
+			g_HotExprLineCountMax += 100;
+			g_HotExprLines = (Line**)realloc(g_HotExprLines, g_HotExprLineCountMax * 4);
+		}
+		g_HotExprIndex = g_HotExprLineCount++;
+		g_HotExprLines[g_HotExprIndex] = hot_expr_line;
+		// VicinityToText() assumes lines are linked both ways, so clear mPrevLine in case an error occurs when this line is validated.
+		hot_expr_line->mPrevLine = NULL;
+		// The lines could be linked to simplify function resolution (i.e. allow calling PreparseBlocks() for all lines instead of once for each line) -- However, this would cause confusing/irrelevant vicinity lines to be shown if an error occurs.
+
+		return CONDITION_TRUE;
+	}
+	// L4: Allow #if timeout to be adjusted.
+	if (IS_DIRECTIVE_MATCH("#IfTimeout"))
+	{
+		if (parameter)
+			g_HotExprTimeout = ATOU(parameter);
+		return CONDITION_TRUE;
+	}
+
 	if (!strnicmp(aBuf, "#IfWin", 6))
 	{
 		bool invert = !strnicmp(aBuf + 6, "Not", 3);
@@ -2712,6 +2845,7 @@ inline ResultType Script::IsDirective(char *aBuf)
 			g_HotCriterion = invert ? HOT_IF_NOT_EXIST : HOT_IF_EXIST;
 		else // It starts with #IfWin but isn't Active or Exist: Don't alter g_HotCriterion.
 			return CONDITION_FALSE; // Indicate unknown directive since there are currently no other possibilities.
+		g_HotExprIndex = -1;	// L4: For consistency, don't allow mixing of #if and other #ifWin criterion.
 		if (!parameter) // The omission of the parameter indicates that any existing criteria should be turned off.
 		{
 			g_HotCriterion = HOT_NO_CRITERION; // Indicate that no criteria are in effect for subsequent hotkeys.
@@ -3470,7 +3604,7 @@ ResultType Script::ParseAndAddLine(char *aLineText, ActionTypeType aActionType, 
 						open_brace_was_added = true;
 					}
 					// Call Parse() vs. AddLine() because it detects and optimizes simple assignments into
-					// non-exprssions for faster runtime execution.
+					// non-expressions for faster runtime execution.
 					if (!ParseAndAddLine(line_to_add)) // For simplicity and maintainability, call self rather than trying to set things up properly to stay in self.
 						return FAIL; // Above already displayed the error.
 				}
@@ -6037,8 +6171,8 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 			switch(menu_cmd)
 			{
 			case MENU_CMD_TIP:
-			case MENU_CMD_ICON:
-			case MENU_CMD_NOICON:
+			//case MENU_CMD_ICON: // L17: Now valid for other menus, used to set menu item icons.
+			//case MENU_CMD_NOICON:
 			case MENU_CMD_MAINWINDOW:
 			case MENU_CMD_NOMAINWINDOW:
 			case MENU_CMD_CLICK:
@@ -6062,7 +6196,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 			case MENU_CMD_STANDARD:
 			case MENU_CMD_NOSTANDARD:
 			case MENU_CMD_DELETEALL:
-			case MENU_CMD_NOICON:
+			//case MENU_CMD_NOICON: // L17: Parameter #3 is now used to specify a menu item whose icon should be removed.
 			case MENU_CMD_MAINWINDOW:
 			case MENU_CMD_NOMAINWINDOW:
 				if (*new_raw_arg3 || *new_raw_arg4 || *NEW_RAW_ARG5 || *NEW_RAW_ARG6)
@@ -6081,6 +6215,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 			case MENU_CMD_DELETE:
 			case MENU_CMD_TIP:
 			case MENU_CMD_CLICK:
+			case MENU_CMD_NOICON: // Lexikos: See comment in section above.
 				if (   menu_cmd != MENU_CMD_RENAME && (*new_raw_arg4 || *NEW_RAW_ARG5 || *NEW_RAW_ARG6)   )
 					return ScriptError("Parameter #4 and beyond should be omitted in this case.", new_raw_arg4);
 				switch(menu_cmd)
@@ -6089,6 +6224,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 				case MENU_CMD_TIP:
 				case MENU_CMD_DEFAULT:
 				case MENU_CMD_DELETE:
+				case MENU_CMD_NOICON:
 					break;  // i.e. for commands other than the above, do the default below.
 				default:
 					if (!*new_raw_arg3)
@@ -6407,7 +6543,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, char *aArg[], ArgCountTyp
 		// It's only necessary to check mLastFunc, not the one(s) that come before it, to see if its
 		// mJumpToLine is NULL.  This is because our caller has made it impossible for a function
 		// to ever have been defined in the first place if it lacked its opening brace.  Search on
-		// "consecutive function" for more comments.  In addition, the following does not check
+  		// "consecutive function" for more comments.  In addition, the following does not check
 		// that mCurrentFuncOpenBlockCount is exactly 1, because: 1) Want to be able to support function
 		// definitions inside of other function definitions (to help script maintainability); 2) If
 		// mCurrentFuncOpenBlockCount is 0 or negative, that will be caught as a syntax error by PreparseBlocks(),
@@ -6537,8 +6673,9 @@ ResultType Script::DefineFunc(char *aBuf, Var *aFuncExceptionVar[])
 // declared as either local or global) within the body of the function.
 {
 	char *param_end, *param_start = strchr(aBuf, '('); // Caller has ensured that this will return non-NULL.
-
-	Func *found_func = FindFunc(aBuf, param_start - aBuf);
+	int insert_pos;
+	
+	Func *found_func = FindFunc(aBuf, param_start - aBuf, &insert_pos); // L27: Added insert_pos.
 	if (found_func)
 	{
 		if (!found_func->mIsBuiltIn)
@@ -6555,12 +6692,11 @@ ResultType Script::DefineFunc(char *aBuf, Var *aFuncExceptionVar[])
 	else
 		// The value of g->CurrentFunc must be set here rather than by our caller since AddVar(), which we call,
 		// relies upon it having been done.
-		if (   !(g->CurrentFunc = AddFunc(aBuf, param_start - aBuf, false))   )
+		if (   !(g->CurrentFunc = AddFunc(aBuf, param_start - aBuf, false, insert_pos))   )
 			return FAIL; // It already displayed the error.
 
 	mCurrentFuncOpenBlockCount = 0; // v1.0.48.01: Initializing this here makes function definions work properly when they're inside a block.
 	Func &func = *g->CurrentFunc; // For performance and convenience.
-	int insert_pos;
 	size_t param_length, value_length;
 	FuncParam param[MAX_FUNCTION_PARAMS];
 	int param_count = 0;
@@ -6887,12 +7023,15 @@ Func *Script::FindFuncInLibrary(char *aFuncName, size_t aFuncNameLength, bool &a
 
 
 
-Func *Script::FindFunc(char *aFuncName, size_t aFuncNameLength)
+Func *Script::FindFunc(char *aFuncName, size_t aFuncNameLength, int *apInsertPos) // L27: Added apInsertPos for binary-search.
 // Returns the Function whose name matches aFuncName (which caller has ensured isn't NULL).
 // If it doesn't exist, NULL is returned.
 {
 	if (!aFuncNameLength) // Caller didn't specify, so use the entire string.
 		aFuncNameLength = strlen(aFuncName);
+
+	if (apInsertPos) // L27: Set default for maintainability.
+		*apInsertPos = -1;
 
 	// For the below, no error is reported because callers don't want that.  Instead, simply return
 	// NULL to indicate that names that are illegal or too long are not found.  If the caller later
@@ -6907,9 +7046,26 @@ Func *Script::FindFunc(char *aFuncName, size_t aFuncNameLength)
 	strlcpy(func_name, aFuncName, aFuncNameLength + 1);  // +1 to convert length to size.
 
 	Func *pfunc;
+	/*
 	for (pfunc = mFirstFunc; pfunc; pfunc = pfunc->mNextFunc)
 		if (!stricmp(func_name, pfunc->mName)) // lstrcmpi() is not used: 1) avoids breaking exisitng scripts; 2) provides consistent behavior across multiple locales; 3) performance.
 			return pfunc; // Match found.
+	*/
+	// L27: Use binary search in array rather than linear search through a linked list.  Speeds up dynamic function calls (on average).
+	int left, right, mid, result;
+	for (left = 0, right = mFuncCount - 1; left <= right;)
+	{
+		mid = (left + right) / 2;
+		result = stricmp(func_name, mFunc[mid]->mName); // lstrcmpi() is not used: 1) avoids breaking exisitng scripts; 2) provides consistent behavior across multiple locales; 3) performance.
+		if (result > 0)
+			left = mid + 1;
+		else if (result < 0)
+			right = mid - 1;
+		else // Match found.
+			return mFunc[mid];
+	}
+	if (apInsertPos)
+		*apInsertPos = left;
 
 	// Since above didn't return, there is no match.  See if it's a built-in function that hasn't yet
 	// been added to the function list.
@@ -7184,7 +7340,7 @@ Func *Script::FindFunc(char *aFuncName, size_t aFuncNameLength)
 
 	// Since above didn't return, this is a built-in function that hasn't yet been added to the list.
 	// Add it now:
-	if (   !(pfunc = AddFunc(func_name, aFuncNameLength, true))   )
+	if (   !(pfunc = AddFunc(func_name, aFuncNameLength, true, left))   ) // L27: left contains the position within mFunc to insert the function.  Cannot use *apInsertPos as caller may have omitted it or passed NULL.
 		return NULL;
 
 	pfunc->mBIF = bif;
@@ -7196,7 +7352,7 @@ Func *Script::FindFunc(char *aFuncName, size_t aFuncNameLength)
 
 
 
-Func *Script::AddFunc(char *aFuncName, size_t aFuncNameLength, bool aIsBuiltIn)
+Func *Script::AddFunc(char *aFuncName, size_t aFuncNameLength, bool aIsBuiltIn, int aInsertPos) // L27: Added aInsertPos for binary-search.
 // This function should probably not be called by anyone except FindOrAddFunc, which has already done
 // the dupe-checking.
 // Returns the address of the new function or NULL on failure.
@@ -7259,11 +7415,34 @@ Func *Script::AddFunc(char *aFuncName, size_t aFuncNameLength, bool aIsBuiltIn)
 	// of functions.  This is because functions brought in dynamically from a library will then be at the
 	// beginning of the list, which allows the function lookup that immediately follows library-loading to
 	// find a match almost immediately.
-	if (!mFirstFunc) // The list is empty, so this will be the first and last item.
+	/*if (!mFirstFunc) // The list is empty, so this will be the first and last item.
 		mFirstFunc = the_new_func;
 	else
-		mLastFunc->mNextFunc = the_new_func;
-	// This must be done after the above:
+		mLastFunc->mNextFunc = the_new_func;*/
+	
+	// L27: Replaced linked list with binary-searchable array.
+	if (mFuncCount == mFuncCountMax)
+	{
+		// Allocate or expand function list.
+		int alloc_count = mFuncCountMax ? mFuncCountMax * 2 : 100;
+
+		Func **temp = (Func **)realloc(mFunc, alloc_count * sizeof(Func *)); // If passed NULL, realloc() will do a malloc().
+		if (!temp)
+		{
+			ScriptError(ERR_OUTOFMEM);
+			return NULL;
+		}
+		mFunc = temp;
+		mFuncCountMax = alloc_count;
+	}
+
+	if (aInsertPos != mFuncCount) // Need to make room at the indicated position for this variable.
+		memmove(mFunc + aInsertPos + 1, mFunc + aInsertPos, (mFuncCount - aInsertPos) * sizeof(Func *));
+	//else both are zero or the item is being inserted at the end of the list, so it's easy.
+	mFunc[aInsertPos] = the_new_func;
+	++mFuncCount;
+
+	// OBSOLETE COMMENT: This must be done after the above:
 	mLastFunc = the_new_func; // There's at least one spot in the code that relies on mLastFunc being the most recently added function.
 
 	return the_new_func;
@@ -8778,7 +8957,7 @@ Line *Script::PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode, Attribute
 			if (line->ArgHasDeref(1))
 				// Since the jump-point contains a deref, it must be resolved at runtime:
 				line->mRelatedLine = NULL;
-			else
+  			else
 			{
 				if (!line->GetJumpTarget(false))
 					return NULL; // Error was already displayed by called function.
@@ -8802,7 +8981,8 @@ Line *Script::PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode, Attribute
 
 		case ACT_HOTKEY:
 			if (   *line_raw_arg2 && !line->ArgHasDeref(2)
-				&& !line->ArgHasDeref(1) && strnicmp(line_raw_arg1, "IfWin", 5)   ) // v1.0.42: Omit IfWinXX from validation.
+				&& !line->ArgHasDeref(1) && strnicmp(line_raw_arg1, "IfWin", 5) // v1.0.42: Omit IfWinXX from validation.
+				&& strnicmp(line_raw_arg1, "If", 2)	)	// L4: Also omit If from validation - for #if (expression).
 				if (   !(line->mAttribute = FindLabel(line_raw_arg2))   )
 					if (!Hotkey::ConvertAltTab(line_raw_arg2, true))
 						return line->PreparseError(ERR_NO_LABEL);
@@ -10006,6 +10186,11 @@ ResultType Line::ExecUntil(ExecUntilMode aMode, char **apReturnValue, Line **apJ
 		// be run so that the time it takes to run will be reflected in the ListLines log.
         g_script.mCurrLine = line;  // Simplifies error reporting when we get deep into function calls.
 
+#ifdef SCRIPT_DEBUG
+		if (g_Debugger.IsConnected())
+			g_Debugger.PreExecLine(line);
+#endif
+
 		if (g.ListLinesIsEnabled)
 		{
 			// Maintain a circular queue of the lines most recently executed:
@@ -11052,6 +11237,38 @@ ResultType Line::EvaluateCondition() // __forceinline on this reduces benchmarks
 	return if_condition ? CONDITION_TRUE : CONDITION_FALSE;
 }
 
+// L4: Evaluate an expression used to define #if hotkey variant criterion.
+//	This is called by MainWindowProc when it receives an AHK_HOT_IF_EXPR message.
+ResultType Line::EvaluateHotCriterionExpression()
+{
+	// Initialize a new quasi-thread to evaluate the expression. This may not be necessary for simple
+	// expressions, but expressions which call user-defined functions may otherwise interfere with
+	// whatever quasi-thread is running when the hook thread requests that this expression be evaluated.
+	
+	// Based on parts of MsgMonitor(). See there for comments.
+
+	if (g_nThreads >= g_MaxThreadsTotal)
+		return CONDITION_FALSE;
+
+	// See MsgSleep() for comments about the following section.
+	char ErrorLevel_saved[ERRORLEVEL_SAVED_SIZE];
+	strlcpy(ErrorLevel_saved, g_ErrorLevel->Contents(), sizeof(ErrorLevel_saved));
+	// Critical seems to improve reliability, either because the thread completes faster (i.e. before the timeout) or because we check for messages less often.
+	InitNewThread(0, false, true, ACT_CRITICAL);
+	DEBUGGER_STACK_PUSH(SE_Thread, this, desc, "#If")
+
+	g_script.mLastScriptRest = g_script.mLastPeekTime = GetTickCount();
+
+	// EVALUATE THE EXPRESSION
+	ResultType result = ExpandArgs();
+	if (result == OK)
+		result = EvaluateCondition();
+
+	DEBUGGER_STACK_POP()
+	ResumeUnderlyingThread(ErrorLevel_saved);
+
+	return result;
+}
 
 
 ResultType Line::PerformLoop(char **apReturnValue, bool &aContinueMainLoop, Line *&aJumpToLine
@@ -13040,7 +13257,7 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		return FormatTime(ARG2, ARG3);
 
 	case ACT_MENU:
-		return g_script.PerformMenu(FIVE_ARGS);
+		return g_script.PerformMenu(SIX_ARGS); // L17: Changed from FIVE_ARGS to access previously "reserved" arg (for use by Menu,,Icon).
 
 	case ACT_GUI:
 		return g_script.PerformGui(FOUR_ARGS);
