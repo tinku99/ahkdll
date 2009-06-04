@@ -1,0 +1,2 @@
+Known Issues:
+* Unloading the dll is not supported. Must restart app. 

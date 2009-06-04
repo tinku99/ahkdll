@@ -1,0 +1,30 @@
+<h2 id="Version_History">Version History</h2>
+    <h3>Revision 7</h3>
+    <ul>
+      <li>Merged with AutoHotkey v.1.0.48.03_L30 </li>
+      <li>created AutoHotkey_N.exe with addFile() </li>
+    </ul>
+    <h3>Revision 6</h3>
+    <ul>
+      <li>V0.6 Merged with AutoHotkey v.1.0.48.02_L27 </li>
+      <li>Multi-threading: <a href="http://github.com/tinku99/ahkdll.git/Test/testThreads/">Examples</a></li>
+    </ul>
+    <h3>Revision 5 - 04/23/2009</h3>
+    <ul>
+      <li>V0.5 dynamically load #include scripts  (experimental)</li>
+      <li>int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)</li>
+    </ul>
+    <h3>Revision 4</h3>
+    <ul>
+      <li>V0.4 parse a line containing an ahk command or expression  </li>
+      <li>linePointer := int createLine(char *line, int actiontype) </li>
+    </ul>
+    <h3>Revision 3</h3>
+    <ul>
+      <li>V0.3. added support for option: /Debug <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/docs/Debugging_Features.htm">see Lexikos' Debugger</a></li>
+    </ul>
+    <h3>Revision 2</h3>
+    <ul>
+      <li>V0.2: Merged with AutoHotkey_1.0.48_L26</li>
+    </ul>
+
