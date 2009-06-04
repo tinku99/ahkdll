@@ -21,6 +21,6 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, bool aI
 	// labels, hotkeys, functions.   
 	Line *oldLastLine = g_script.mLastLine;
 	g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, aIgnoreLoadFailure);
-	g_script.PreparseBlocks(oldLastLine->mNextLine);
-	return (unsigned int) oldLastLine->mNextLine;
+	g_script.PreparseBlocks(oldLastLine->mNextLine); // 
+	return (unsigned int) oldLastLine->mNextLine;  // 
 }
