@@ -64,7 +64,10 @@ switch(fwdReason)
  case DLL_PROCESS_ATTACH:
 	 {
 	nameHinstanceP.hInstanceP = hInstance;	
-	break;
+#ifdef AUTODLL
+	ahkdll("autoload.ahk", "", "");	  // used for remoteinjection of dll 
+#endif
+	   break;
 	 }
  case DLL_THREAD_ATTACH:
 
