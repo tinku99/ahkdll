@@ -407,6 +407,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\source\exports.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\source\globaldata.cpp"
 				>
 			</File>

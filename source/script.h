@@ -2343,10 +2343,6 @@ class Script
 {
 private:
 	friend class Hotkey;
-	Line *mFirstLine, *mLastLine;     // The first and last lines in the linked list.
-	UINT mLineCount;                  // The number of lines.
-	Label *mFirstLabel, *mLastLabel;  // The first and last labels in the linked list.
-	Func *mFirstFunc, *mLastFunc;     // The first and last functions in the linked list.
 	Var **mVar, **mLazyVar; // Array of pointers-to-variable, allocated upon first use and later expanded as needed.
 	int mVarCount, mVarCountMax, mLazyVarCount; // Count of items in the above array as well as the maximum capacity.
 	WinGroup *mFirstGroup, *mLastGroup;  // The first and last variables in the linked list.
@@ -2394,12 +2390,17 @@ private:
 	// if aStartingLine is allowed to be NULL (for recursive calls).  If they
 	// were member functions of class Line, a check for NULL would have to
 	// be done before dereferencing any line's mNextLine, for example:
-	Line *PreparseBlocks(Line *aStartingLine, bool aFindBlockEnd = false, Line *aParentLine = NULL);
 	Line *PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode = NORMAL_MODE, AttributeType aLoopTypeFile = ATTR_NONE
 		, AttributeType aLoopTypeReg = ATTR_NONE, AttributeType aLoopTypeRead = ATTR_NONE
 		, AttributeType aLoopTypeParse = ATTR_NONE);
 
 public:
+	Line *PreparseBlocks(Line *aStartingLine, bool aFindBlockEnd = false, Line *aParentLine = NULL);
+	Line *mFirstLine, *mLastLine;     // The first and last lines in the linked list.
+	UINT mLineCount;                  // The number of lines.
+	Label *mFirstLabel, *mLastLabel;  // The first and last labels in the linked list.
+	Func *mFirstFunc, *mLastFunc;     // The first and last functions in the linked list.
+	// Naveen moved from private above
 	Line *mCurrLine;     // Seems better to make this public than make Line our friend.
 	Label *mPlaceholderLabel; // Used in place of a NULL label to simplify code.
 	char mThisMenuItemName[MAX_MENU_NAME_LENGTH + 1];
