@@ -1,11 +1,7 @@
 #include "stdafx.h" // pre-compiled headers
 #include "globaldata.h" // for access to many global vars
 #include "application.h" // for MsgSleep()
-
-// Naveen v1. #define EXPORT __declspec(dllexport) 
-#define EXPORT extern "C" __declspec(dllexport)
-
-
+#include "exports.h"
 // Naveen: v1. ahkgetvar()
 EXPORT VarSizeType ahkgetvar(char *name, char *output)
 {
