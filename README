@@ -10,7 +10,7 @@ Features include:
       int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)
     * Partial support for multithreading
       by loading multiple copies of the dll under different names
-    * Direct access to built in variables BIV
+    * Direct access to built in variables BIV (pending)
 
 Download: binary, source
 
