@@ -16627,8 +16627,20 @@ void BIF_Import(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 		aAllowDuplicateInclude = (bool)TokenToInt64(*aParam[1]); // The one-based starting position in haystack (if any).  Convert it to zero-based.
 	
 	if (aParamCount > 2)
-		aIgnoreLoadFailure = (bool)TokenToInt64(*aParam[2]) ;
+	{
+	__int64 clear = TokenToInt64(*aParam[2]) ;
+	if (clear > 1)  // if third param is > 1, reset all functions, labels, remove hotkeys
+	{
+		Hotkey::UnHook();  // remove hotkeys	
+		g_script.mFuncCount = 0;   
+		g_script.mFirstLabel = NULL ; 
+		g_script.mLastLabel = NULL ; 
+		g_script.mLastFunc = NULL ; 
 
-	aResultToken.value_int64 = (__int64)addFile(haystack, aAllowDuplicateInclude, aIgnoreLoadFailure);
+	}
+	else
+		aIgnoreLoadFailure = (bool)clear;
+	}	
+aResultToken.value_int64 = (__int64)addFile(haystack, aAllowDuplicateInclude, aIgnoreLoadFailure);
 	return;
 }

@@ -22,6 +22,9 @@ return
 F3::
 another:
 msgbox another
+second(3)
+x := "second"
+%x%(3)
 return
 
 

@@ -8,7 +8,6 @@ return
 fifth(z = "sixth")
 {
 msgbox fifth
-gosub label5
 return
 }
 
