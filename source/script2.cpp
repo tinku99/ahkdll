@@ -16621,6 +16621,7 @@ void BIF_Import(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 	if (aParamCount < 2)// Load-time validation has ensured that at least the first parameter is present:
 	{
 		aResultToken.value_int64 = (__int64)addFile(haystack, false, false);
+		//  Hotkey::HookUp() ; didn't work: see if we can remove dependence on having to suspend * 2 to enable hotkeys Nv8.
 		return;
 	}
 	else	

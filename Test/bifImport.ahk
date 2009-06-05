@@ -1,4 +1,5 @@
 Import("addfile.ahk")
+msgbox addfile1
 suspend  ; required to activate hotkey in imported file
 suspend
 gosub file1

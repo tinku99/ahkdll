@@ -27,4 +27,7 @@ x := "second"
 %x%(3)
 return
 
+::hook::
+msgbox hook
+return
 

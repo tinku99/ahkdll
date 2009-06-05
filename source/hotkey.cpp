@@ -433,6 +433,17 @@ HotkeyVariant *myvariant;
 	return;
 }
 
+void Hotkey::HookUp()  // used in Import(file, 0, n>1) 
+ {
+	HotkeyVariant *myvariant;
+	for (int i = 0; i < sHotkeyCount; ++i)
+    {	
+		myvariant = shk[i]->FindVariant() ;
+		myvariant->mEnabled = true ; 
+	}	
+	return;
+}
+
 void Hotkey::AllDestructAndExit(int aExitCode)
 {
 	// PostQuitMessage() might be needed to prevent hang-on-exit.  Once this is done, no message boxes or
