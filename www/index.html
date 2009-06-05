@@ -10,8 +10,9 @@
     <span class="size110">
       <p>AutoHotkey.dll is a shared library for autohotkey maintained by <a href="http://www.autohotkey.com/forum/profile.php?mode=viewprofile&amp;u=6056">Naveen Garg</a>. <br>Features include:</p>
       <ul>
-	<li>Embed the autohotkey interpreter in another program such as <a href="http://github.com/tinku99/ahkdll.git/Test/python/">python</a> or <a href="http://github.com/tinku99/ahkdll.git/Test/emacs/">emacs</a><br>int ahkdll(char *fileName, char *option, char *parameter)</li>
-	<li>dynamically add #include type files to a running script with <a href="http://github.com/tinku99/ahkdll.git/Test/AddFile/">addfile()</a><br>int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)</li>
+	<li>Embed the autohotkey interpreter in another program such as <a href="http://github.com/tinku99/ahkdll.git/Test/python/">python</a> or <a href="http://www.ahklisp.com">lisp</a><br>int ahkdll(char *fileName, char *option, char *parameter)</li>
+	<li>dynamically add #include type files to a running script with <a href="http://github.com/tinku99/ahkdll.git/Test/AddFile/">addfile()</a><br>_declspec(dllexport) int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)</li>
+<li>import new scripts or replace loaded script with import(file...) </li>
 	<li>Partial support for <a href="http://github.com/tinku99/ahkdll.git/Test/testThreads/">multithreading</a><br>by loading multiple copies of the dll under different names</li>
 	<li>Direct access to built in variables <a href="http://github.com/tinku99/ahkdll.git/Test/commands/">BIV</a></li>
       </ul>
@@ -23,20 +24,31 @@
     <h2 id="Note">Note</h2>
     <ul>
       <li>AutoHotkey.dll is a branch from <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/">Lexikos' custom build.</a></li>
-      <li>I will try to keep it uptodate with the main <a href="http://www.autohotkey.com/">AutoHotkey</a> branch as well.</li>
+      <li>I will try to track the main <a href="http://www.autohotkey.com/">AutoHotkey</a> branch as well: <a href="http://github.com/tinku99/ahkdll/tree/ahkcn">ahkcn</a></li>
       <li>My changes and additions to the source code follow the same license as the main AutoHotkey branch: <a href="http://www.autohotkey.com/docs/license.htm">GPLv2</a></li>
     </ul>
     <h2 id="Todo">Todo</h2>
     <ul>
-      <li> Export built in functions </li>
-      <li> redefinable functions / recyclable line and other structures </li>
+      <li> Export built in commands and functions </li>
+      <li> build application / webserver framework, possibly using <a href="http://www.autohotkey.com/forum/viewtopic.php?t=36047">sparrow</a>  </li>
+<li>Reclaim / reuse memory from ignored lines and functions from repeated use of import().</li>
     </ul>
     
     <h2 id="Version_History">Version History</h2>
     <h3>Revision 7</h3>
     <ul>
       <li>Merged with AutoHotkey v.1.0.48.03_L30 </li>
-      <li>created <a href="AutoHotkey_N.exe">AutoHotkey_N.exe</a> with addFile() </li>
+      <li>in addition to  <a href="AutoHotkey.dll">AutoHotkey.dll</a>, created <a href="AutoHotkey_N.exe">AutoHotkey_N.exe</a> with </li>
+<li>exported functions to access built in variables: <a href="http://github.com/tinku99/ahkdll.git/source/">ebiv.cpp</a></li>
+<li>added function: </li>
+<li>linepointer = Import(filename, aAllowDuplicateInclude = false, aIgnoreLoadFailure = false). </li>
+<li>linepointer is a pointer to the first line in the imported script </li>
+<li> If the 3rd parameter is > 1, then all currently loaded lines, functions, and labels are ignored starting now.  </li>
+<li>If you are going to reload particular hotkeys, use the Hotkey command rather than Hotkey labels.  </li>
+<li>i.e. </li>
+<li>Hotkey, F2, mylabel, on  ; this can be repeated in future import(script) calls</li>
+<li>not</li>
+<li>F2::msgbox ; this will crash the script if you import another script that uses the same hotkey label</li>
     </ul>
     <h3>Revision 6</h3>
     <ul>

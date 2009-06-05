@@ -4,13 +4,14 @@ Introduction
 AutoHotkey.dll is a shared library for autohotkey maintained by Naveen Garg.
 Features include:
 
-    * Embed the autohotkey interpreter in another program such as python or emacs
+    * Embed the autohotkey interpreter in another program such as python or lisp
       int ahkdll(char *fileName, char *option, char *parameter)
     * dynamically add #include type files to a running script with addfile()
-      int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)
+      _declspec(dllexport) int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)
+    * import new scripts or replace loaded script with import(file...)
     * Partial support for multithreading
       by loading multiple copies of the dll under different names
-    * Direct access to built in variables BIV (pending)
+    * Direct access to built in variables BIV
 
 Download: binary, source
 
@@ -20,19 +21,30 @@ Discuss AutoHotkey_N at the AutoHotkey Community Forums.
 Note
 
     * AutoHotkey.dll is a branch from Lexikos' custom build.
-    * I will try to keep it uptodate with the main AutoHotkey branch as well.
+    * I will try to track the main AutoHotkey branch as well: ahkcn
     * My changes and additions to the source code follow the same license as the main AutoHotkey branch: GPLv2
 
 Todo
 
-    * Export built in functions
-    * redefinable functions / recyclable line and other structures
+    * Export built in commands and functions
+    * build application / webserver framework, possibly using sparrow
+    * Reclaim / reuse memory from ignored lines and functions from repeated use of import().
 
 Version History
 Revision 7
 
     * Merged with AutoHotkey v.1.0.48.03_L30
-    * created AutoHotkey_N.exe with addFile()
+    * in addition to AutoHotkey.dll, created AutoHotkey_N.exe with
+    * exported functions to access built in variables: ebiv.cpp
+    * added function:
+    * linepointer = Import(filename, aAllowDuplicateInclude = false, aIgnoreLoadFailure = false).
+    * linepointer is a pointer to the first line in the imported script
+    * If the 3rd parameter is > 1, then all currently loaded lines, functions, and labels are ignored starting now.
+    * If you are going to reload particular hotkeys, use the Hotkey command rather than Hotkey labels.
+    * i.e.
+    * Hotkey, F2, mylabel, on ; this can be repeated in future import(script) calls
+    * not
+    * F2::msgbox ; this will crash the script if you import another script that uses the same hotkey label
 
 Revision 6
 
@@ -47,7 +59,7 @@ Revision 5 - 04/23/2009
 Revision 4
 
     * V0.4 parse a line containing an ahk command or expression
-    * linePointer := int createLine(char *line, int actiontype)
+    * linePointer := int createLine(char *line, int actiontype) removed in R7
 
 Revision 3
 

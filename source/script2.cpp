@@ -16632,7 +16632,8 @@ void BIF_Import(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 	__int64 clear = TokenToInt64(*aParam[2]) ;
 	if (clear > 1)  // if third param is > 1, reset all functions, labels, remove hotkeys
 	{
-		Hotkey::UnHook();  // remove hotkeys	
+		// Hotkey::UnHook();  // remove hotkeys	
+		// its better to just use the hotkey command to hook the hotkeys instead of hotkey '::' labels
 		g_script.mFuncCount = 0;   
 		g_script.mFirstLabel = NULL ; 
 		g_script.mLastLabel = NULL ; 
