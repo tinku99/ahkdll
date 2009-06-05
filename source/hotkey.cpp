@@ -414,13 +414,22 @@ void Hotkey::ManifestAllHotkeysHotstringsHooks()
 		SET_MAIN_TIMER
 }
 
-void Hotkey::UnHook()
-{
-	AddRemoveHooks(0); // Remove all hooks. By contrast, registered hotkeys are unregistered below.
-	if (g_PlaybackHook) // Would be unusual for this to be installed during exit, but should be checked for completeness.
+void Hotkey::UnHook()  // used in Import(file, 0, n>1) 
+ {
+HotkeyVariant *myvariant;
+	 AddRemoveHooks(0); // Remove all hooks. By contrast, registered hotkeys are unregistered below.
+	 if (g_PlaybackHook) // Would be unusual for this to be installed during exit, but should be checked for completeness.
 		UnhookWindowsHookEx(g_PlaybackHook);
-	for (int i = 0; i < sHotkeyCount; ++i)
-		delete shk[i]; // Unregisters before destroying.
+
+	 for (int i = 0; i < sHotkeyCount; ++i)
+	 {
+	myvariant = shk[i]->FindVariant() ;
+	myvariant->mEnabled = false ;
+	 
+	 }	
+	// shk[i]->UnHook();
+		// shk[i]->~Hotkey() ; // Unregisters before destroying.
+		// delete shk[i]; // Unregisters before destroying.
 	return;
 }
 
