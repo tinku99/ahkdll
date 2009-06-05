@@ -7230,6 +7230,12 @@ Func *Script::FindFunc(char *aFuncName, size_t aFuncNameLength, int *apInsertPos
 		min_params = 2;
 		max_params = 3;
 	}
+	else if (!stricmp(func_name, "Import"))  // addFile() Naveen v8.
+	{
+		bif = BIF_Import;
+		min_params = 1;
+		max_params = 3;
+	}
 	else if (!stricmp(func_name, "InStr"))
 	{
 		bif = BIF_InStr;

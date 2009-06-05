@@ -876,6 +876,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\source\ebiv.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\source\eCommands.ahk"
+				>
+			</File>
+			<File
 				RelativePath=".\source\exports.cpp"
 				>
 			</File>
@@ -893,6 +901,10 @@
 			</File>
 			<File
 				RelativePath=".\source\keyboard_mouse.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\source\lowlevelbif.cpp"
 				>
 			</File>
 			<File

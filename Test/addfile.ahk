@@ -16,9 +16,12 @@ return
 }
 
 test:
-msgbox label
+msgbox test
 return
 
+F3::
 another:
 msgbox another
 return
+
+

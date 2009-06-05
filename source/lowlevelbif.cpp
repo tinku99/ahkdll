@@ -1,3 +1,4 @@
+/*
 #define BETA // i.e. include allowances for binary number caching
 #define BIF(fun) MCODE_API void fun(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount)
 
@@ -82,3 +83,5 @@ BIF(__cacheEnable)
 			->mAttrib &= ~VAR_ATTRIB_CACHE_DISABLED;
 	}
 }
+
+*/
