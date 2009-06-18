@@ -13811,8 +13811,9 @@ void BIF_NumPut(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 			is_integer = FALSE; // Override the default set earlier.
 			// In the case of 'F', leave "size" at its default set earlier.
 			break;
-		// default: For any unrecognized values, keep "size" and is_integer at their defaults set earlier
-		// (for simplicity).
+		default:  // a numerical size was specified  // Naveen v9
+			size = (int)TokenToInt64(*aParam[3]); 
+
 		}
 	}
 
@@ -13847,8 +13848,11 @@ void BIF_NumPut(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 	case 2:
 		*(unsigned short *)target = (unsigned short)TokenToInt64(token_to_write);
 		break;
-	default: // size 1
+	case 1: // size 1
 		*(unsigned char *)target = (unsigned char)TokenToInt64(token_to_write);
+	default: // other sizes added Naveen v9.
+			if (token_to_write.symbol == SYM_STRING)
+ 				strncpy(target_token.var->mContents, token_to_write.marker, size);
 	}
 	if (target_token.symbol == SYM_VAR)
 		target_token.var->Close(); // This updates various attributes of the variable.
