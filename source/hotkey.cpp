@@ -781,10 +781,12 @@ void Hotkey::PerformInNewThreadMadeByCaller(HotkeyVariant &aVariant)
 	int display_warning;
 	if (!sTimePrev)
 		sTimePrev = GetTickCount();
-char *test;  // Naveen test funchook
+/*
+	char *test;  // Naveen test funchook
 	Func *hot = g_script.FindFunc("hotfunc");
-hot->Call(test);
-	++throttled_key_count;
+	hot->Call(test);
+*/
+++throttled_key_count;
 	sTimeNow = GetTickCount();
 	// Calculate the amount of time since the last reset of the sliding interval.
 	// Note: A tickcount in the past can be subtracted from one in the future to find

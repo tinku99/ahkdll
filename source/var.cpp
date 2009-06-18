@@ -135,7 +135,7 @@ ResultType Var::Assign(Var &aVar)
 		return target_var.AssignBinaryClip(source_var); // Caller wants a variable with binary contents assigned (copied) to another variable (usually VAR_CLIPBOARD).
 
 	// Otherwise:  // Naveen changed mSize to mCapacity to allow binary transfers of variables
-	return target_var.Assign(source_var.mContents, source_var.mLength); // Pass length to improve performance
+	return target_var.Assign(source_var.mContents, source_var.mCapacity); // Pass length to improve performance
 	//. It isn't necessary to call Contents()/Length() because they must be already up-to-date because there is no binary number to update them from (if there were, the above would have returned).  Also, caller ensured Type()==VAR_NORMAL.
 }
 
