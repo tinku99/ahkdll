@@ -13852,7 +13852,7 @@ void BIF_NumPut(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 		*(unsigned char *)target = (unsigned char)TokenToInt64(token_to_write);
 	default: // other sizes added Naveen v9.
 			if (token_to_write.symbol == SYM_STRING)
- 				strncpy(target_token.var->mContents +  (int)TokenToInt64(*aParam[2]), token_to_write.marker, size);
+ 				strncpy(target_token.var->mContents + (int)TokenToInt64(*aParam[2]), token_to_write.marker, size);
 	}
 	if (target_token.symbol == SYM_VAR)
 		target_token.var->Close(); // This updates various attributes of the variable.
