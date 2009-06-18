@@ -13703,8 +13703,10 @@ void BIF_NumGet(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 			aResultToken.symbol = SYM_FLOAT; // Override the default of SYM_INTEGER set by our caller.
 			// In the case of 'F', leave "size" at its default set earlier.
 			break;
-		// default: For any unrecognized values, keep "size" and aResultToken.symbol at their defaults set earlier
-		// (for simplicity).
+	
+		 default: // will just copy a string starting there 
+			size = (int)TokenToInt64(*aParam[2]); 
+
 		}
 	}
 
@@ -13745,11 +13747,15 @@ void BIF_NumGet(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 		else
 			aResultToken.value_int64 = *(unsigned short *)target;
 		break;
-	default: // size 1
-		if (is_signed) // Don't use ternary because that messes up type-casting.
+	case 1:
+		  if (is_signed) // Don't use ternary because that messes up type-casting.
 			aResultToken.value_int64 = *(char *)target;
 		else
 			aResultToken.value_int64 = *(unsigned char *)target;
+		break;
+      default: // other sizes
+			aResultToken.symbol = SYM_STRING;
+		aResultToken.marker = (char *)target;
 	}
 }
 
