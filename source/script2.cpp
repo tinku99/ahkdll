@@ -13755,7 +13755,11 @@ void BIF_NumGet(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 		break;
       default: // other sizes
 			aResultToken.symbol = SYM_STRING;
-		aResultToken.marker = (char *)target;
+			char *result;
+			result = (char *)malloc(size + 1);
+			strncpy(result, (char *)target, size);
+			*(result + size) = 0;
+			aResultToken.marker = result;
 	}
 }
 
