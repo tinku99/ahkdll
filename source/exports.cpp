@@ -13,16 +13,28 @@ EXPORT VarSizeType ahkgetvar(char *name, char *output)
 
 // Naveen: v6 addFile()
 // Todo: support for #Directives, and proper treatment of mIsReadytoExecute
-EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, bool aIgnoreLoadFailure)
+EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIgnoreLoadFailure)
 {   // dynamically include a file into a script !!
 	// labels, hotkeys, functions.   
+	
 	Line *oldLastLine = g_script.mLastLine;
-	g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, aIgnoreLoadFailure);
+	
+	if (aIgnoreLoadFailure > 1)  // if third param is > 1, reset all functions, labels, remove hotkeys
+	{
+		g_script.mFuncCount = 0;   
+		g_script.mFirstLabel = NULL ; 
+		g_script.mLastLabel = NULL ; 
+		g_script.mLastFunc = NULL ; 
+		g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, aIgnoreLoadFailure);
+	}
+	else 
+	{
+	g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, (bool) aIgnoreLoadFailure);
+	}
+	
 	g_script.PreparseBlocks(oldLastLine->mNextLine); // 
 	return (unsigned int) oldLastLine->mNextLine;  // 
 }
-
-
 
 
 void BIF_Import(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount) // Added in Nv8.
@@ -39,29 +51,14 @@ void BIF_Import(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 
 	if (aParamCount < 2)// Load-time validation has ensured that at least the first parameter is present:
 	{
-		aResultToken.value_int64 = (__int64)addFile(haystack, false, false);
+		aResultToken.value_int64 = (__int64)addFile(haystack, false, 0);
 		//  Hotkey::HookUp() ; didn't work: see if we can remove dependence on having to suspend * 2 to enable hotkeys Nv8.
 		return;
 	}
 	else	
 		aAllowDuplicateInclude = (bool)TokenToInt64(*aParam[1]); // The one-based starting position in haystack (if any).  Convert it to zero-based.
-	
-	if (aParamCount > 2)
-	{
-	__int64 clear = TokenToInt64(*aParam[2]) ;
-	if (clear > 1)  // if third param is > 1, reset all functions, labels, remove hotkeys
-	{
-		// Hotkey::UnHook();  // remove hotkeys	
-		// its better to just use the hotkey command to hook the hotkeys instead of hotkey '::' labels
-		g_script.mFuncCount = 0;   
-		g_script.mFirstLabel = NULL ; 
-		g_script.mLastLabel = NULL ; 
-		g_script.mLastFunc = NULL ; 
-
-	}
-	else
-		aIgnoreLoadFailure = (bool)clear;
-	}	
-aResultToken.value_int64 = (__int64)addFile(haystack, aAllowDuplicateInclude, aIgnoreLoadFailure);
+		__int64 clear = TokenToInt64(*aParam[2]) ;
+		
+aResultToken.value_int64 = (__int64)addFile(haystack, aAllowDuplicateInclude, clear);
 	return;
 }
