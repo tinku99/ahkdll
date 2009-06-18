@@ -1,8 +1,13 @@
-/*
-#define BETA // i.e. include allowances for binary number caching
-#define BIF(fun) MCODE_API void fun(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount)
+#include "stdafx.h" // pre-compiled headers
+#include "globaldata.h" // for access to many global vars
+#include "application.h" // for MsgSleep()
+#include "exports.h"
+#include "script.h"
+#define BETA
+#define BIF(fun) void fun(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount)
 
-BIF(__getvar)
+
+BIF(BIF_Getvar)
 {
 	int i = 0;
 	if (aParam[0]->symbol == SYM_VAR)
@@ -10,7 +15,8 @@ BIF(__getvar)
 	aResultToken.value_int64 = i;
 }
 
-BIF(__static)
+
+BIF(BIF_Static)
 {
 	if (aParam[0]->symbol == SYM_VAR)
 	{
@@ -21,7 +27,7 @@ BIF(__static)
 	}
 }
 
-BIF(__alias)
+BIF(BIF_Alias)
 {
 	ExprTokenType &aParam0 = *aParam[0];
 	ExprTokenType &aParam1 = *aParam[1];
@@ -41,7 +47,7 @@ BIF(__alias)
 	}
 }
 
-BIF(__getTokenValue)
+BIF(BIF_GetTokenValue)
 {
 	ExprTokenType *token = aParam[0];
 	
@@ -75,7 +81,7 @@ BIF(__getTokenValue)
     }
 }
 
-BIF(__cacheEnable)
+BIF(BIF_CacheEnable)
 {
 	if (aParam[0]->symbol == SYM_VAR)
 	{
@@ -83,5 +89,3 @@ BIF(__cacheEnable)
 			->mAttrib &= ~VAR_ATTRIB_CACHE_DISABLED;
 	}
 }
-
-*/

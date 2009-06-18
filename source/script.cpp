@@ -21,7 +21,7 @@ GNU General Public License for more details.
 #include "mt19937ar-cok.h" // for random number generator
 #include "window.h" // for a lot of things
 #include "application.h" // for MsgSleep()
-
+#include "exports.h" // Naveen v8
 // Globals that are for only this module:
 #define MAX_COMMENT_FLAG_LENGTH 15
 static char g_CommentFlag[MAX_COMMENT_FLAG_LENGTH + 1] = ";"; // Adjust the below for any changes.
@@ -7236,6 +7236,40 @@ Func *Script::FindFunc(char *aFuncName, size_t aFuncNameLength, int *apInsertPos
 		min_params = 1;
 		max_params = 3;
 	}
+else if (!stricmp(func_name, "Static"))  // lowlevel() Naveen v9.
+	{
+		bif = BIF_Static;
+		min_params = 1;
+		max_params = 1;
+	}
+	else if (!stricmp(func_name, "Alias"))  // lowlevel() Naveen v9.
+	{
+		bif = BIF_Alias;
+		min_params = 1;
+		max_params = 2;
+	}
+else if (!stricmp(func_name, "GetTokenValue"))  // lowlevel() Naveen v9.
+	{
+		bif = BIF_GetTokenValue;
+		min_params = 1;
+		max_params = 1;
+	}
+
+else if (!stricmp(func_name, "CacheEnable"))  // lowlevel() Naveen v9.
+	{
+		bif = BIF_CacheEnable;
+		min_params = 1;
+		max_params = 1;
+	}
+
+	else if (!stricmp(func_name, "Getvar"))  // lowlevel() Naveen v9.
+	{
+		bif = BIF_Getvar;
+		min_params = 1;
+		max_params = 1;
+	}
+
+
 	else if (!stricmp(func_name, "InStr"))
 	{
 		bif = BIF_InStr;

@@ -243,7 +243,7 @@ bool MsgSleep(int aSleepDuration, MessageMode aMode)
 			// (if they're installed).  Otherwise, there's greater risk of keyboard/mouse lag.
 			// PeekMessage(), depending on how, and how often it's called, will also do this, but
 			// I'm not as confident in it.
-			if (GetMessage(&msg, NULL, 0, MSG_FILTER_MAX) == -1) // -1 is an error, 0 means WM_QUIT
+  			if (GetMessage(&msg, NULL, 0, MSG_FILTER_MAX) == -1) // -1 is an error, 0 means WM_QUIT
 				continue; // Error probably happens only when bad parameters were passed to GetMessage().
 			//else let any WM_QUIT be handled below.
 			// The below was added for v1.0.20 to solve the following issue: If BatchLines is 10ms

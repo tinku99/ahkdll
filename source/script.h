@@ -2762,7 +2762,7 @@ void BIF_TV_Get(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 void BIF_IL_Create(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_IL_Destroy(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_IL_Add(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
-void BIF_Import(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
+
 
 BOOL LegacyResultToBOOL(char *aResult);
 BOOL LegacyVarToBOOL(Var &aVar);

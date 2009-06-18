@@ -89,7 +89,7 @@ struct VarBkp // This should be kept in sync with any changes to the Var class. 
 typedef VarSizeType (* BuiltInVarType)(char *aBuf, char *aVarName);
 class Var
 {
-private:
+public:
 	// Keep VarBkp (above) in sync with any changes made to the members here.
 	union // 64-bit members kept at the top of the struct to reduce the chance that they'll span 2 64-bit regions.
 	{
@@ -142,7 +142,7 @@ private:
 	// but even if it's not a fluke, it doesn't seem worth the increase in memory for scripts with many
 	// thousands of variables.
 
-	friend class Line; // For access to mBIV.
+// made everything public	friend class Line; // For access to mBIV.
 
 	void UpdateBinaryInt64(__int64 aInt64, VarAttribType aAttrib = VAR_ATTRIB_HAS_VALID_INT64)
 	// When caller doesn't include VAR_ATTRIB_CONTENTS_OUT_OF_DATE in aAttrib, CALLER MUST ENSURE THAT
@@ -223,7 +223,7 @@ private:
 		}
 	}
 
-public:
+
 	// Testing shows that due to data alignment, keeping mType adjacent to the other less-than-4-size member
 	// above it reduces size of each object by 4 bytes.
 	char *mName;    // The name of the var.

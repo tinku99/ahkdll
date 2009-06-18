@@ -192,7 +192,7 @@ public:
 	static bool sJoystickHasHotkeys[MAX_JOYSTICKS];
 	static DWORD sJoyHotkeyCount;
 	static void Hotkey::UnHook();  // used in Import(file) Nv8
-	static void Hotkey::HookUp(); 
+	static void Hotkey::HookUp();  // not really helping, will remove.
 	static void AllDestructAndExit(int exit_code);
 
 	#define HOTKEY_EL_BADLABEL           "1" // Set as strings so that SetFormat doesn't affect their appearance (for use with "If ErrorLevel in 5,6").
