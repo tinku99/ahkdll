@@ -8849,16 +8849,21 @@ ResultType Line::FileReadLine(char *aFilespec, char *aLineNumber)
 // kind of unexpected and more serious error occurs, such as variable-out-of-memory,
 // that will cause FAIL to be returned.
 {
+	FILE *fp;
 	Var &output_var = *OUTPUT_VAR; // Fix for v1.0.45.01: Must be resolved and saved before MsgSleep() (LONG_OPERATION) because that allows some other thread to interrupt and overwrite sArgVar[].
 
 	g_ErrorLevel->Assign(ERRORLEVEL_ERROR); // Set default ErrorLevel.
 	__int64 line_number = ATOI64(aLineNumber);
+	if(0 == strcmp(aFilespec, "stdin"))
+		fp = stdin ;
+	else
+	{
 	if (line_number < 1)
 		return OK;  // Return OK because g_ErrorLevel tells the story.
-	FILE *fp = fopen(aFilespec, "r");
+	fp = fopen(aFilespec, "r");
 	if (!fp)
 		return OK;  // Return OK because g_ErrorLevel tells the story.
-
+	}
 	// Remember that once the first call to MsgSleep() is done, a new hotkey subroutine
 	// may fire and suspend what we're doing here.  Such a subroutine might also overwrite
 	// the values our params, some of which may be in the deref buffer.  So be sure not
@@ -8868,6 +8873,10 @@ ResultType Line::FileReadLine(char *aFilespec, char *aLineNumber)
 	LONG_OPERATION_INIT
 
 	char buf[READ_FILE_LINE_SIZE];
+	if(0 == strcmp(aFilespec, "stdin"))
+		fgets(buf, sizeof(buf) - 1, fp);	 // Naveen
+	else
+	{
 	for (__int64 i = 0; i < line_number; ++i)
 	{
 		if (fgets(buf, sizeof(buf) - 1, fp) == NULL) // end-of-file or error
@@ -8878,7 +8887,7 @@ ResultType Line::FileReadLine(char *aFilespec, char *aLineNumber)
 		LONG_OPERATION_UPDATE
 	}
 	fclose(fp);
-
+	}
 	size_t buf_length = strlen(buf);
 	if (buf_length && buf[buf_length - 1] == '\n') // Remove any trailing newline for the user.
 		buf[--buf_length] = '\0';
@@ -8915,7 +8924,10 @@ ResultType Line::FileAppend(char *aFilespec, char *aBuf, LoopReadFileStruct *aCu
 		// Avoid puts() in case it bloats the code in some compilers. i.e. fputs() is already used,
 		// so using it again here shouldn't bloat it:
 		return g_ErrorLevel->Assign(fputs(aBuf, stdout) ? ERRORLEVEL_ERROR : ERRORLEVEL_NONE); // fputs() returns 0 on success.
-		
+	
+	if(0 == strcmp(aFilespec, "stderr")) // Naveen write to stderr
+		return g_ErrorLevel->Assign(fputs(aBuf, stderr) ? ERRORLEVEL_ERROR : ERRORLEVEL_NONE); // fputs() returns 0 on success.
+	
 	if (open_as_binary)
 		// Do not do this because it's possible for filenames to start with a space
 		// (even though Explorer itself won't let you create them that way):
