@@ -1,10 +1,11 @@
-; type testC.ahk | autohotkey pipes.ahk 2> error.txt
+; type pipes.ahk | pipes.exe 2> error.txt
 DllCall("AttachConsole", "int", -1)
 FileReadLine, in1, stdin, 1
 FileReadLine, in2, stdin, 1
 FileReadLine, in3, stdin, 1
-msgbox
+listvars
+msgbox % in1 . "`n" . in2 . "`n" . in3
 FileAppend, Goodbye`, World!, stderr
 Fileread, errors, out.txt
-listvars
+
 

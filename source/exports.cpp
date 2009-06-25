@@ -58,7 +58,8 @@ void BIF_Import(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 	else	
 		aAllowDuplicateInclude = (bool)TokenToInt64(*aParam[1]); // The one-based starting position in haystack (if any).  Convert it to zero-based.
 		__int64 clear = TokenToInt64(*aParam[2]) ;
-		
-aResultToken.value_int64 = (__int64)addFile(haystack, aAllowDuplicateInclude, clear);
+#ifndef AUTOHOTKEYSC		
+	aResultToken.value_int64 = (__int64)addFile(haystack, aAllowDuplicateInclude, clear);
+#endif
 	return;
 }
