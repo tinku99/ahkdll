@@ -16,7 +16,7 @@ ia = IntArray5(5, 1, 7, 33, 99)
 
 CMPFUNC = CFUNCTYPE(c_int, c_int)
 def py_cmp_func(a):
-     print("py_cmp_func", a)
+     print("recieved", a)
      return a
 
 
@@ -24,12 +24,14 @@ cmp_func = CMPFUNC(py_cmp_func)
 
 fx = create_string_buffer(str(cast(cmp_func, c_void_p).value))
 ahk.ahkdll(pyclient, "", fx)  
-
 time.sleep(1) #Synchronize
-
 hwnd = win32gui.FindWindowEx(0, 0, 0, "pyclient.ahk")
-win32api.SendMessage(hwnd, 800, cast(pyclient, c_void_p).value, 200) 
 
+def send_ahk(msg):
+     cmsg = create_string_buffer(msg)   # no unicode in ahk, use cstring
+     pcmsg = cast(cmsg, c_void_p).value   # sendmessage requires a pointer
+     value = win32api.SendMessage(hwnd, 800, pcmsg, 200) 
+     return cast(value, c_char_p).value  # get string back out
 
-
+print send_ahk("hello")
 
