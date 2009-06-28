@@ -6,6 +6,6 @@ FileReadLine, in3, stdin, 1
 listvars
 msgbox % in1 . "`n" . in2 . "`n" . in3
 FileAppend, Goodbye`, World!, stderr
-Fileread, errors, out.txt
+
 
 
