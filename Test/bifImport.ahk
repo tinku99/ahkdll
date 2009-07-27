@@ -1,5 +1,7 @@
-Import("addfile.ahk")
+line_ptr:= Import("addfile.ahk")
+MsgBox % line_ptr
 msgbox addfile1
+
 suspend  ; required to activate hotkey in imported file
 suspend
 gosub file1

@@ -40,7 +40,7 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIg
 void BIF_Import(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount) // Added in Nv8.
 {
 	// Set default return value in case of early return.
-	aResultToken.symbol = SYM_STRING;
+	aResultToken.symbol = SYM_INTEGER ;
 	aResultToken.marker = "";
 	bool aIgnoreLoadFailure = false ;
 	bool aAllowDuplicateInclude = false ;

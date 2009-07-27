@@ -8,8 +8,6 @@ import time
 from ctypes import *
 
 ahk = cdll.AutoHotkey
-pyclient = create_string_buffer("pyclient.ahk")   # no unicode in ahk
-
 
 IntArray5 = c_int * 5
 ia = IntArray5(5, 1, 7, 33, 99)
@@ -21,8 +19,9 @@ def py_cmp_func(a):
 
 
 cmp_func = CMPFUNC(py_cmp_func)
+fx = create_string_buffer(str(cast(cmp_func, c_void_p).value))  # int to cstring
 
-fx = create_string_buffer(str(cast(cmp_func, c_void_p).value))
+pyclient = create_string_buffer("pyclient.ahk")   # no unicode in ahk
 ahk.ahkdll(pyclient, "", fx)  
 time.sleep(1) #Synchronize
 hwnd = win32gui.FindWindowEx(0, 0, 0, "pyclient.ahk")
@@ -30,7 +29,7 @@ hwnd = win32gui.FindWindowEx(0, 0, 0, "pyclient.ahk")
 def send_ahk(msg):
      cmsg = create_string_buffer(msg)   # no unicode in ahk, use cstring
      pcmsg = cast(cmsg, c_void_p).value   # sendmessage requires a pointer
-     value = win32api.SendMessage(hwnd, 800, pcmsg, 200) 
+     value = win32api.SendMessage(hwnd, 800, pcmsg, 200)   # 800 is arbitrarily chosen
      return cast(value, c_char_p).value  # get string back out
 
 print send_ahk("hello")
