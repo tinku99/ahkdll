@@ -1,0 +1,12 @@
+y := fx()
+ListVars
+msgbox % chr(numget(y, 28, "char") )
+return
+
+fx()
+{
+VarSetCapacity(x, 100, 28)
+numput(0, x, 20, "char")
+return x
+}  
+

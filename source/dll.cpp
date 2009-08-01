@@ -13,11 +13,14 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#ifndef DLLN
+
+#ifdef DLLN
 #include "stdafx.h" // pre-compiled headers
 #include "globaldata.h" // for access to many global vars
 #include "application.h" // for MsgSleep()
 #include "window.h" // For MsgBox() & SetForegroundLockTimeout()
+
+#include "exports.h"
 
 // General note:
 // The use of Sleep() should be avoided *anywhere* in the code.  Instead, call MsgSleep().
@@ -26,8 +29,32 @@ GNU General Public License for more details.
 // (GetMessage() or PeekMessage()) is the only means by which events are ever sent to the
 // hook functions.
 
+// Naveen: v1. #Include process.h for begin threadx 
+#include <process.h>  
 
-int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+// Naveen: v3. struct nameHinstance 
+// carries startup paramaters for script
+// Todo: change name to something more intuitive
+static struct nameHinstance
+     {
+       HINSTANCE hInstanceP;
+       char *name;
+	   char *argv;
+	   char *args;
+     } nameHinstanceP ;
+
+// Naveen v1. HANDLE hThread
+// Todo: move this to struct nameHinstance
+static 	HANDLE hThread;
+
+// Naveen v1. hThread2 and threadCount
+// Todo: remove these as multithreading was implemented 
+//       with multiple loading of the dll under separate names.
+static int threadCount = 1 ; 
+static 	HANDLE hThread2;
+
+
+int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 	// Init any globals not in "struct g" that need it:
 	g_hInstance = hInstance;
@@ -59,7 +86,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		//char *script_filespec = "C:\\A-Source\\AutoHotkey\\Ref\\ImageSearch\\TEST SUITE\\MAIN.ahk";
 		char *script_filespec = "C:\\A-Source\\AutoHotkey\\Test\\New Text Document.ahk";
 	#else
-		char *script_filespec = NULL; // Set default as "unspecified/omitted".
+		char *script_filespec = lpCmdLine ; // Naveen changed from NULL;
 	#endif
 #endif
 
@@ -81,47 +108,26 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	bool switch_processing_is_complete = false;
 	int script_param_num = 1;
 
-	for (int i = 1; i < __argc; ++i) // Start at 1 because 0 contains the program name.
-	{
-		param = __argv[i]; // For performance and convenience.
-		if (switch_processing_is_complete) // All args are now considered to be input parameters for the script.
-		{
+
+char *args[4];
+args[0] = __argv[0];   //      name of host program
+args[1] = nameHinstanceP.argv;  // 1 option such as /Debug  /R /F /STDOUT
+args[2] = nameHinstanceP.name;  // name of script to launch
+args[3] = nameHinstanceP.args;  // script parameters, all in one string (* char)
+int argc = 4;
+
+	for (int i = 1; i < argc; ++i)  //	Naveen changed from:  for (int i = 1; i < __argc; ++i) see above
+	{  // Naveen: v6.1 put options in script variables as well
+		param = args[i]; // Naveen changed from: __argv[i]; see above
 			if (   !(var = g_script.FindOrAddVar(var_name, sprintf(var_name, "%d", script_param_num)))   )
 				return CRITICAL_ERROR;  // Realistically should never happen.
 			var->Assign(param);
 			++script_param_num;
-		}
-		// Insist that switches be an exact match for the allowed values to cut down on ambiguity.
-		// For example, if the user runs "CompiledScript.exe /find", we want /find to be considered
-		// an input parameter for the script rather than a switch:
-		else if (!stricmp(param, "/R") || !stricmp(param, "/restart"))
-			restart_mode = true;
-		else if (!stricmp(param, "/F") || !stricmp(param, "/force"))
-			g_ForceLaunch = true;
-		else if (!stricmp(param, "/ErrorStdOut"))
-			g_script.mErrorStdOut = true;
-#ifndef AUTOHOTKEYSC // i.e. the following switch is recognized only by AutoHotkey.exe (especially since recognizing new switches in compiled scripts can break them, unlike AutoHotkey.exe).
-		else if (!stricmp(param, "/iLib")) // v1.0.47: Build an include-file so that ahk2exe can include library functions called by the script.
-		{
-			++i; // Consume the next parameter too, because it's associated with this one.
-			if (i >= __argc) // Missing the expected filename parameter.
-				return CRITICAL_ERROR;
-			// For performance and simplicity, open/crease the file unconditionally and keep it open until exit.
-			if (   !(g_script.mIncludeLibraryFunctionsThenExit = fopen(__argv[i], "w"))   ) // Can't open the temp file.
-				return CRITICAL_ERROR;
-		}
-#endif
-		else // since this is not a recognized switch, the end of the [Switches] section has been reached (by design).
-		{
-			switch_processing_is_complete = true;  // No more switches allowed after this point.
-#ifdef AUTOHOTKEYSC
-			--i; // Make the loop process this item again so that it will be treated as a script param.
-#else
-			script_filespec = param;  // The first unrecognized switch must be the script filespec, by design.
-#endif
-		}
-	}
+		
+	}   // Naveen: v6.1 only argv needs special processing
+	    //              script will do its own parameter parsing
 
+param = nameHinstanceP.argv ; // Naveen: v6.1 Script options in nameHinstanceP.name will be processed here
 #ifndef AUTOHOTKEYSC
 	if (script_filespec)// Script filename was explicitly specified, so check if it has the special conversion flag.
 	{
@@ -140,6 +146,16 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	if (   !(var = g_script.FindOrAddVar("0"))   )
 		return CRITICAL_ERROR;  // Realistically should never happen.
 	var->Assign(script_param_num - 1);
+
+	// Naveen v6.1 added script vars: A_ScriptParams and A_ScriptOptions
+	// 
+	Var *A_ScriptParams;
+	A_ScriptParams = g_script.FindOrAddVar("A_ScriptParams");	
+	A_ScriptParams->Assign(nameHinstanceP.args);
+
+	Var *A_ScriptOptions;
+	A_ScriptOptions = g_script.FindOrAddVar("A_ScriptOptions");	
+	A_ScriptOptions->Assign(nameHinstanceP.argv);
 
 	global_init(*g);  // Set defaults prior to the below, since below might override them for AutoIt2 scripts.
 
@@ -301,4 +317,73 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	MsgSleep(SLEEP_INTERVAL, WAIT_FOR_MESSAGES);
 	return 0; // Never executed; avoids compiler warning.
 }
+
+// Naveen: v1. runscript() - runs the script in a separate thread compared to host application.
+unsigned __stdcall runScript( void* pArguments )
+{
+	struct nameHinstance a =  *(struct nameHinstance *)pArguments;
+	HINSTANCE hInstance = a.hInstanceP;
+	char *fileName = a.name;
+	OldWinMain(hInstance, 0, fileName, 0);	
+	_endthreadex( 0 );  
+    return 0;
+}
+
+// Naveen: v1. ahkdll() - load AutoHotkey script into dll
+// Naveen: v3. ahkdll(script, single command line option, script parameters)
+// options such as /Debug are supported, see Lexikos' Debugger 
+EXPORT int ahkdll(char *fileName, char *argv, char *args)
+{
+ unsigned threadID;
+ nameHinstanceP.name = fileName ;
+ nameHinstanceP.argv = argv ;
+ nameHinstanceP.args = args ;
+ hThread = (HANDLE)_beginthreadex( NULL, 0, &runScript, &nameHinstanceP, 0, &threadID );
+ WaitForSingleObject( hThread, 500 );
+ return (int)hThread;
+}
+
+
+// General note:
+// The use of Sleep() should be avoided *anywhere* in the code.  Instead, call MsgSleep().
+// The reason for this is that if the keyboard or mouse hook is installed, a straight call
+// to Sleep() will cause user keystrokes & mouse events to lag because the message pump
+// (GetMessage() or PeekMessage()) is the only means by which events are ever sent to the
+// hook functions.
+
+// Naveen v1. DllMain() - puts hInstance into struct nameHinstanceP 
+//                        so it can be passed to OldWinMain()
+// hInstance is required for script initialization 
+// probably for window creation
+// Todo: better cleanup in DLL_PROCESS_DETACH: windows, variables, no exit from script
+
+BOOL WINAPI DllMain(HINSTANCE hInstance,DWORD fwdReason, LPVOID lpvReserved)
+ {
+switch(fwdReason)
+ {
+ case DLL_PROCESS_ATTACH:
+	 {
+	nameHinstanceP.hInstanceP = hInstance;	
+#ifdef AUTODLL
+	ahkdll("autoload.ahk", "", "");	  // used for remoteinjection of dll 
 #endif
+	   break;
+	 }
+ case DLL_THREAD_ATTACH:
+
+ break;
+
+ case DLL_PROCESS_DETACH:
+	 {
+		 CloseHandle( hThread ); // need better cleanup: windows, variables, no exit from script
+		 break;
+	 }
+ case DLL_THREAD_DETACH:
+ break;
+ }
+
+ return(TRUE); // a FALSE will abort the DLL attach
+ }
+
+#endif
+

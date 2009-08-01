@@ -1,0 +1,1 @@
+run, cmd /k testC.ahk | autohotkey.exe %1%

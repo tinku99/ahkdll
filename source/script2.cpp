@@ -8776,16 +8776,21 @@ ResultType Line::FileReadLine(char *aFilespec, char *aLineNumber)
 // kind of unexpected and more serious error occurs, such as variable-out-of-memory,
 // that will cause FAIL to be returned.
 {
+	FILE *fp;
 	Var &output_var = *OUTPUT_VAR; // Fix for v1.0.45.01: Must be resolved and saved before MsgSleep() (LONG_OPERATION) because that allows some other thread to interrupt and overwrite sArgVar[].
 
 	g_ErrorLevel->Assign(ERRORLEVEL_ERROR); // Set default ErrorLevel.
 	__int64 line_number = ATOI64(aLineNumber);
+	if(0 == strcmp(aFilespec, "stdin"))
+		fp = stdin ;
+	else
+	{
 	if (line_number < 1)
 		return OK;  // Return OK because g_ErrorLevel tells the story.
-	FILE *fp = fopen(aFilespec, "r");
+	fp = fopen(aFilespec, "r");
 	if (!fp)
 		return OK;  // Return OK because g_ErrorLevel tells the story.
-
+	}
 	// Remember that once the first call to MsgSleep() is done, a new hotkey subroutine
 	// may fire and suspend what we're doing here.  Such a subroutine might also overwrite
 	// the values our params, some of which may be in the deref buffer.  So be sure not
@@ -8795,6 +8800,10 @@ ResultType Line::FileReadLine(char *aFilespec, char *aLineNumber)
 	LONG_OPERATION_INIT
 
 	char buf[READ_FILE_LINE_SIZE];
+	if(0 == strcmp(aFilespec, "stdin"))
+		fgets(buf, sizeof(buf) - 1, fp);	 // Naveen
+	else
+	{
 	for (__int64 i = 0; i < line_number; ++i)
 	{
 		if (fgets(buf, sizeof(buf) - 1, fp) == NULL) // end-of-file or error
@@ -8805,7 +8814,7 @@ ResultType Line::FileReadLine(char *aFilespec, char *aLineNumber)
 		LONG_OPERATION_UPDATE
 	}
 	fclose(fp);
-
+	}
 	size_t buf_length = strlen(buf);
 	if (buf_length && buf[buf_length - 1] == '\n') // Remove any trailing newline for the user.
 		buf[--buf_length] = '\0';
@@ -8819,6 +8828,7 @@ ResultType Line::FileReadLine(char *aFilespec, char *aLineNumber)
 			return FAIL;
 	return g_ErrorLevel->Assign(ERRORLEVEL_NONE); // Indicate success.
 }
+
 
 
 
@@ -8842,7 +8852,10 @@ ResultType Line::FileAppend(char *aFilespec, char *aBuf, LoopReadFileStruct *aCu
 		// Avoid puts() in case it bloats the code in some compilers. i.e. fputs() is already used,
 		// so using it again here shouldn't bloat it:
 		return g_ErrorLevel->Assign(fputs(aBuf, stdout) ? ERRORLEVEL_ERROR : ERRORLEVEL_NONE); // fputs() returns 0 on success.
-		
+	
+	if(0 == strcmp(aFilespec, "stderr")) // Naveen write to stderr
+		return g_ErrorLevel->Assign(fputs(aBuf, stderr) ? ERRORLEVEL_ERROR : ERRORLEVEL_NONE); // fputs() returns 0 on success.
+	
 	if (open_as_binary)
 		// Do not do this because it's possible for filenames to start with a space
 		// (even though Explorer itself won't let you create them that way):
@@ -8916,7 +8929,6 @@ ResultType Line::FileAppend(char *aFilespec, char *aBuf, LoopReadFileStruct *aCu
 
 	return OK;
 }
-
 
 
 ResultType Line::WriteClipboardToFile(char *aFilespec)
@@ -13430,8 +13442,10 @@ void BIF_NumGet(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 			aResultToken.symbol = SYM_FLOAT; // Override the default of SYM_INTEGER set by our caller.
 			// In the case of 'F', leave "size" at its default set earlier.
 			break;
-		// default: For any unrecognized values, keep "size" and aResultToken.symbol at their defaults set earlier
-		// (for simplicity).
+	
+		 default: // will just copy a string starting there 
+			size = (int)TokenToInt64(*aParam[2]); 
+
 		}
 	}
 
@@ -13472,11 +13486,19 @@ void BIF_NumGet(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 		else
 			aResultToken.value_int64 = *(unsigned short *)target;
 		break;
-	default: // size 1
-		if (is_signed) // Don't use ternary because that messes up type-casting.
+	case 1:
+		  if (is_signed) // Don't use ternary because that messes up type-casting.
 			aResultToken.value_int64 = *(char *)target;
 		else
 			aResultToken.value_int64 = *(unsigned char *)target;
+		break;
+      default: // other sizes  Naveen
+			aResultToken.symbol = SYM_STRING;
+			char *result;
+			result = (char *)malloc(size + 1);
+			strncpy(result, (char *)target, size);
+			*(result + size) = 0;
+			aResultToken.marker = result;
 	}
 }
 
@@ -13528,8 +13550,9 @@ void BIF_NumPut(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 			is_integer = FALSE; // Override the default set earlier.
 			// In the case of 'F', leave "size" at its default set earlier.
 			break;
-		// default: For any unrecognized values, keep "size" and is_integer at their defaults set earlier
-		// (for simplicity).
+		default:  // a numerical size was specified  // Naveen v9
+			size = (int)TokenToInt64(*aParam[3]); 
+
 		}
 	}
 
@@ -13564,14 +13587,20 @@ void BIF_NumPut(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 	case 2:
 		*(unsigned short *)target = (unsigned short)TokenToInt64(token_to_write);
 		break;
-	default: // size 1
+	case 1: // size 1
 		*(unsigned char *)target = (unsigned char)TokenToInt64(token_to_write);
+	default: // other sizes added Naveen v9.
+			if (token_to_write.symbol == SYM_STRING)
+ 				strncpy(target_token.var->mContents + (int)TokenToInt64(*aParam[2]), token_to_write.marker, size);
+			else if (token_to_write.symbol == SYM_VAR)
+ 				strncpy(target_token.var->mContents + (int)TokenToInt64(*aParam[2]), token_to_write.var->mContents, size);	
 	}
 	if (target_token.symbol == SYM_VAR)
 		target_token.var->Close(); // This updates various attributes of the variable.
 	//else the target was an raw address.  If that address is inside some variable's contents, the above
 	// attributes would already have been removed at the time the & operator was used on the variable.
 }
+
 
 
 

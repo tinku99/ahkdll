@@ -89,7 +89,7 @@ struct VarBkp // This should be kept in sync with any changes to the Var class. 
 typedef VarSizeType (* BuiltInVarType)(char *aBuf, char *aVarName);
 class Var
 {
-private:
+public: // Naveen
 	// Keep VarBkp (above) in sync with any changes made to the members here.
 	union // 64-bit members kept at the top of the struct to reduce the chance that they'll span 2 64-bit regions.
 	{
@@ -223,7 +223,7 @@ private:
 		}
 	}
 
-public:
+// Naveen moved up public:
 	// Testing shows that due to data alignment, keeping mType adjacent to the other less-than-4-size member
 	// above it reduces size of each object by 4 bytes.
 	char *mName;    // The name of the var.

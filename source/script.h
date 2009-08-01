@@ -16,7 +16,6 @@ GNU General Public License for more details.
 
 #ifndef script_h
 #define script_h
-
 #include "stdafx.h" // pre-compiled headers
 #include "defines.h"
 #include "SimpleHeap.h" // for overloaded new/delete operators.
@@ -25,6 +24,7 @@ GNU General Public License for more details.
 #include "WinGroup.h" // for a script's Window Groups.
 #include "Util.h" // for FileTimeToYYYYMMDD(), strlcpy()
 #include "resources\resource.h"  // For tray icon.
+#include "exports.h"  // Naveen for addfile in script2.cpp
 #ifdef AUTOHOTKEYSC
 	#include "lib\exearc_read.h"
 #endif
@@ -2343,17 +2343,6 @@ class Script
 {
 private:
 	friend class Hotkey;
-	Line *mFirstLine, *mLastLine;     // The first and last lines in the linked list.
-	UINT mLineCount;                  // The number of lines.
-	Label *mFirstLabel, *mLastLabel;  // The first and last labels in the linked list.
-	Func *mFirstFunc, *mLastFunc;     // The first and last functions in the linked list.
-	Var **mVar, **mLazyVar; // Array of pointers-to-variable, allocated upon first use and later expanded as needed.
-	int mVarCount, mVarCountMax, mLazyVarCount; // Count of items in the above array as well as the maximum capacity.
-	WinGroup *mFirstGroup, *mLastGroup;  // The first and last variables in the linked list.
-	int mCurrentFuncOpenBlockCount; // While loading the script, this is how many blocks are currently open in the current function's body.
-	bool mNextLineIsFunctionBody; // Whether the very next line to be added will be the first one of the body.
-	Var **mFuncExceptionVar;   // A list of variables declared explicitly local or global.
-	int mFuncExceptionVarCount; // The number of items in the array.
 
 	// These two track the file number and line number in that file of the line currently being loaded,
 	// which simplifies calls to ScriptError() and LineError() (reduces the number of params that must be passed).
@@ -2379,7 +2368,7 @@ private:
 	size_t GetLine(char *aBuf, int aMaxCharsToRead, int aInContinuationSection, FILE *fp);
 #endif
 	ResultType IsDirective(char *aBuf);
-
+public:  // Naveen made bunch of stuff public
 	ResultType ParseAndAddLine(char *aLineText, ActionTypeType aActionType = ACT_INVALID
 		, ActionTypeType aOldActionType = OLD_INVALID, char *aActionName = NULL
 		, char *aEndMarker = NULL, char *aLiteralMap = NULL, size_t aLiteralMapLength = 0);
@@ -2399,7 +2388,19 @@ private:
 		, AttributeType aLoopTypeReg = ATTR_NONE, AttributeType aLoopTypeRead = ATTR_NONE
 		, AttributeType aLoopTypeParse = ATTR_NONE);
 
-public:
+
+	Line *mFirstLine, *mLastLine;     // The first and last lines in the linked list.
+	UINT mLineCount;                  // The number of lines.
+	Label *mFirstLabel, *mLastLabel;  // The first and last labels in the linked list.
+	Func *mFirstFunc, *mLastFunc;     // The first and last functions in the linked list.
+	Var **mVar, **mLazyVar; // Array of pointers-to-variable, allocated upon first use and later expanded as needed.
+	int mVarCount, mVarCountMax, mLazyVarCount; // Count of items in the above array as well as the maximum capacity.
+	WinGroup *mFirstGroup, *mLastGroup;  // The first and last variables in the linked list.
+	int mCurrentFuncOpenBlockCount; // While loading the script, this is how many blocks are currently open in the current function's body.
+	bool mNextLineIsFunctionBody; // Whether the very next line to be added will be the first one of the body.
+	Var **mFuncExceptionVar;   // A list of variables declared explicitly local or global.
+	int mFuncExceptionVarCount; // The number of items in the array.
+
 	Line *mCurrLine;     // Seems better to make this public than make Line our friend.
 	Label *mPlaceholderLabel; // Used in place of a NULL label to simplify code.
 	char mThisMenuItemName[MAX_MENU_NAME_LENGTH + 1];
