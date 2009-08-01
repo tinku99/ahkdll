@@ -13765,7 +13765,7 @@ void BIF_NumGet(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 		else
 			aResultToken.value_int64 = *(unsigned char *)target;
 		break;
-      default: // other sizes
+      default: // other sizes  Naveen
 			aResultToken.symbol = SYM_STRING;
 			char *result;
 			result = (char *)malloc(size + 1);

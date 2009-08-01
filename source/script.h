@@ -29,7 +29,7 @@ GNU General Public License for more details.
 	#include "lib\exearc_read.h"
 #endif
 #include "Debugger.h"
-#include "exports.h"  // for addfile in script2.cpp
+#include "exports.h"  // Naveen for addfile in script2.cpp
 #include "os_version.h" // For the global OS_Version object
 EXTERN_OSVER; // For the access to the g_os version object without having to include globaldata.h
 EXTERN_G;

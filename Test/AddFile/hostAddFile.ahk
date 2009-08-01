@@ -1,5 +1,4 @@
 start:
-FileCopy %A_ScriptDir%\..\AutoHotkey.dll, AutoHotkey.dll
 ahkdll := DllCall("LoadLibrary", "str", "AutoHotkey.dll")
 sleep, 500
 threadH := DllCall("AutoHotkey.dll\ahkdll", "str", "dllAddFile.ahk", "str"

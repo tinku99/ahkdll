@@ -16,15 +16,17 @@
 	<li>Partial support for <a href="http://github.com/tinku99/ahkdll.git/Test/testThreads/">multithreading</a><br>by loading multiple copies of the dll under different names</li>
 	<li>Direct access to built in variables <a href="http://github.com/tinku99/ahkdll.git/Test/commands/">BIV</a></li>
       </ul>
-<p>Download: <a href="http://www.autohotkey.net/%7Etinku99/ahkdll/AutoHotkey.dll">binary</a>, <a href="http://github.com/tinku99/ahkdll/tree/master">source</a></p>
+<p>Download: binary <a href="http://www.autohotkey.net/%7Etinku99/ahkdll/AutoHotkey.dll">ahkdll</a>, <a href="AutoHotkey_N.exe">AutoHotkey_N.exe</a> <a href="http://github.com/tinku99/ahkdll/tree/master">source</a></p>
+<p>based on Chris' main branch: <a href="http://www.autohotkey.net/%7Etinku99/ahkdll/ahkdllcn/ahkdllcn.zip">ahkdllcn.zip</a> <a href="http://github.com/tinku99/ahkdll/tree/ahkcndll-483N8">source</a></p>
+
       <p>For a full list of changes, see <a href="#Version_History">Version History</a>.</p>
       <p>Discuss AutoHotkey_N at the <a href="http://www.autohotkey.com/forum/viewtopic.php?t=43049&amp;highlight=ahkdll">AutoHotkey Community Forums</a>.</p>
     </span>
     
     <h2 id="Note">Note</h2>
     <ul>
-      <li>AutoHotkey.dll is a branch from <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/">Lexikos' custom build.</a></li>
-      <li>I will try to track the main <a href="http://www.autohotkey.com/">AutoHotkey</a> branch as well: <a href="http://github.com/tinku99/ahkdll/tree/ahkcn">ahkcn</a></li>
+      <li>AutoHotkey_N is a branch from <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/">Lexikos' custom build.</a></li>
+      <li>I will try to track the main <a href="http://www.autohotkey.com/">AutoHotkey</a> branch as well.</li>
       <li>My changes and additions to the source code follow the same license as the main AutoHotkey branch: <a href="http://www.autohotkey.com/docs/license.htm">GPLv2</a></li>
     </ul>
     <h2 id="Todo">Todo</h2>
@@ -35,6 +37,16 @@
     </ul>
     
     <h2 id="Version_History">Version History</h2>
+    <h3>Revision 8</h3>
+    <ul>
+      <li>modified fileappend, to send output to stderr, with "stderr" is specified as filename. </li>
+      <li>modified FileReadLine, to accept stdin for file. see <a href="http://www.autohotkey.com/forum/viewtopic.php?t=43049&postdays=0&postorder=asc&start=38">this post</a></li>
+      <li>fixed import(...) to return a line pointer to the first newly added line</li>
+      <li>modified numget and numput to take numerical arguments for type in addition to the dllcall types. (number != dlltypesize) </li>
+      <li>made Lexikos' LowLevel machine code functions builtins: see <a href="http://www.autohotkey.com/forum/viewtopic.php?t=43049&postdays=0&postorder=asc&start=44">this post</a></li>
+      <li>modified project file with compile settings for dll and exe for easier merging with main branch and AutoHotkey_L. </li>
+    </ul>
+
     <h3>Revision 7</h3>
     <ul>
       <li>Merged with AutoHotkey v.1.0.48.03_L30 </li>
