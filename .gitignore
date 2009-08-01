@@ -1,0 +1,16 @@
+Release
+ReleaseDll
+Debug
+DebugDll
+*.manifest
+*.lib
+*.exe
+*.dll
+*~
+*.ncb
+UpgradeLog.XML
+_UpgradeReport_Files
+*.idb
+*.obj
+*.ilk
+*.exp
