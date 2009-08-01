@@ -5,6 +5,7 @@
 EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIgnoreLoadFailure);
 EXPORT int ahkdll(char *fileName, char *argv, char *args);
 void BIF_Import(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
+void BIF_FindFunc(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_Getvar(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 
 BIF(BIF_Static) ;

@@ -4,6 +4,26 @@
 #include "exports.h"
 #include "script.h"
 // Naveen: v1. ahkgetvar()
+
+EXPORT unsigned int ahkFindFunc(char *funcname)
+{
+return (unsigned int)g_script.FindFunc(funcname);
+}
+
+void BIF_FindFunc(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount) // Added in Nv8.
+{
+	// Set default return value in case of early return.
+	aResultToken.symbol = SYM_INTEGER ;
+	aResultToken.marker = "";
+	// Get the first arg, which is the string used as the source of the extraction. Call it "findfunc" for clarity.
+	char funcname_buf[MAX_NUMBER_SIZE]; // A separate buf because aResultToken.buf is sometimes used to store the result.
+	char *funcname = TokenToString(*aParam[0], funcname_buf); // Remember that aResultToken.buf is part of a union, though in this case there's no danger of overwriting it since our result will always be of STRING type (not int or float).
+	int funcname_length = (int)EXPR_TOKEN_LENGTH(aParam[0], funcname);
+	aResultToken.value_int64 = (__int64)ahkFindFunc(funcname);
+	return;
+}
+
+
 EXPORT VarSizeType ahkgetvar(char *name, char *output)
 {
 	Var *ahkvar = g_script.FindOrAddVar(name);
@@ -59,7 +79,7 @@ void BIF_Import(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 		aAllowDuplicateInclude = (bool)TokenToInt64(*aParam[1]); // The one-based starting position in haystack (if any).  Convert it to zero-based.
 		__int64 clear = TokenToInt64(*aParam[2]) ;
 #ifndef AUTOHOTKEYSC		
-	aResultToken.value_int64 = (__int64)addFile(haystack, aAllowDuplicateInclude, clear);
+	aResultToken.value_int64 = (__int64)addFile(haystack, aAllowDuplicateInclude, (int)clear);
 #endif
 	return;
 }
