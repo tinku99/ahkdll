@@ -12,13 +12,17 @@ DllCall(A_ScriptDir . "\AutoHotkey.dll\addFile", "str", "clean.ahk", "uchar", 1
 msgbox hostcleanexe
 return
 
-
-F4::
+F3::
 DllCall(A_ScriptDir . "\AutoHotkey.dll\addFile", "str", "clean.ahk", "uchar", 1
 ,"uchar" , 2, "Cdecl UInt")
-msgbox hostcleanexe
+msgbox hostcleanexe clean
 return
 
+F4::
+DllCall(A_ScriptDir . "\AutoHotkey.dll\addFile", "str", "clean2.ahk", "uchar", 1
+,"uchar" , 2, "Cdecl UInt")
+msgbox hostcleanexe clean2
+return
 
 !r::
 Reload

@@ -1,14 +1,24 @@
 #Persistent
+msgbox run
 return
 
-f5::
+F5:: 
+msgbox cleanhostdll
+return
+
+F7::
 fx = fxclean
 %fx%()
 return
 
-f6::
-fx = fxclean2
-%fx%()
+F8::
+fx2 = fxclean2
+%fx2%()
+return
+
+foo:
+fx3 = fxclean2
+%fx3%()
 return
 
 

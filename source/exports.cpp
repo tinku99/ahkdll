@@ -49,7 +49,9 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIg
 	    g_script.mFirstLine = NULL ; 
 		g_script.mLastLine = NULL ;
 		 g_script.mCurrLine = NULL ; 
- g_script.mPlaceholderLabel = NULL ; 
+
+/*
+		 g_script.mPlaceholderLabel = NULL ; 
 
  g_script.mLineCount = 0 ; 
 	
@@ -122,6 +124,7 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIg
  g_script.mIsRestart = false ; 
  g_script.mIsAutoIt2 = false ; 
  g_script.mErrorStdOut = false ; 
+*/
 		if (filesAdded == 0)
 			{
 			SimpleHeap::sBlockCount = 0 ;
@@ -147,7 +150,7 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIg
 	
 	g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, (bool) aIgnoreLoadFailure);
 	g_script.PreparseBlocks(g_script.mFirstLine); // 
-	g_script.mFirstLine->ExecUntil(UNTIL_RETURN); // Might never return (e.g. infinite loop or ExitApp).
+//	g_script.mFirstLine->ExecUntil(UNTIL_RETURN); // Might never return (e.g. infinite loop or ExitApp).
 			filesAdded += 1;
 	}
 	else

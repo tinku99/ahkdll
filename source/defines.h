@@ -35,7 +35,7 @@ GNU General Public License for more details.
 #define NAME_P "AutoHotkey"
 #ifndef NAME_L_REVISION
 #ifdef DLLN
-#define NAME_L_REVISION ".dllN9Clean" // L14: Added .Ln for AutoHotkey_L revision n.
+#define NAME_L_REVISION ".dllN9last" // L14: Added .Ln for AutoHotkey_L revision n.
 #else
 #define NAME_L_REVISION ".L30N9" // L14: Added .Ln for AutoHotkey_L revision n.
 #endif
