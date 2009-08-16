@@ -50,7 +50,7 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIg
 		g_script.mLastLine = NULL ;
 		 g_script.mCurrLine = NULL ; 
 
-/*
+ // this didn't seem to be necessary
 		 g_script.mPlaceholderLabel = NULL ; 
 
  g_script.mLineCount = 0 ; 
@@ -124,7 +124,7 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIg
  g_script.mIsRestart = false ; 
  g_script.mIsAutoIt2 = false ; 
  g_script.mErrorStdOut = false ; 
-*/
+
 		if (filesAdded == 0)
 			{
 			SimpleHeap::sBlockCount = 0 ;
