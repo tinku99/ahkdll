@@ -30,7 +30,7 @@ EXPORT VarSizeType ahkgetvar(char *name, char *output)
 	return ahkvar->Get(output);  // var.getText() added in V1. 
 }	
 
-
+#ifdef DLLN
 // Naveen: v6 addFile()
 // Todo: support for #Directives, and proper treatment of mIsReadytoExecute
 EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIgnoreLoadFailure)
@@ -50,81 +50,6 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIg
 		g_script.mLastLine = NULL ;
 		 g_script.mCurrLine = NULL ; 
 
- // this didn't seem to be necessary
-		 g_script.mPlaceholderLabel = NULL ; 
-
- g_script.mLineCount = 0 ; 
-	
- g_script.mThisHotkeyName = "" ; 
- g_script.mPriorHotkeyName = "" ; 
- g_script.mThisHotkeyStartTime = 0 ; 
- g_script.mPriorHotkeyStartTime = 0 ; 
-	
- g_script.mEndChar = 0 ; 
- g_script.mThisHotkeyModifiersLR = 0 ; 
-	
- g_script.mNextClipboardViewer = NULL ; 
-
- g_script.mOnClipboardChangeIsRunning = false ; 
- g_script.mOnClipboardChangeLabel = NULL ; 
-
-	
- g_script.mOnExitLabel = NULL ; 
-
- g_script.mExitReason = EXIT_NONE ; 
-	
- g_script.mFirstLabel = NULL ; 
-
- g_script.mLastLabel = NULL ; 
-
-		
- g_script.mFirstTimer = NULL ; 
-
- g_script.mLastTimer = NULL ; 
-
- g_script.mTimerEnabledCount = 0 ; 
- g_script.mTimerCount = 0 ; 
-	
- g_script.mFirstMenu = NULL ; 
-
- g_script.mLastMenu = NULL ; 
-
- g_script.mMenuCount = 0 ; 
-	
- g_script.mVar = NULL ; 
-
- g_script.mVarCount = 0 ; 
- g_script.mVarCountMax = 0 ; 
- g_script.mLazyVar = NULL ; 
-
- g_script.mLazyVarCount = 0 ; 
-	
- g_script.mCurrentFuncOpenBlockCount = 0 ; 
- g_script.mNextLineIsFunctionBody = false ; 
-	
- g_script.mFuncExceptionVar = NULL ; 
-
- g_script.mFuncExceptionVarCount = 0 ; 
-	
- g_script.mCurrFileIndex = 0 ; 
- g_script.mCombinedLineNumber = 0 ; 
- g_script.mNoHotkeyLabels = true ; 
- g_script.mMenuUseErrorLevel = false ; 
-	
- g_script.mFileSpec = "" ; 
- g_script.mFileDir = "" ; 
- g_script.mFileName = "" ; 
- g_script.mOurEXE = "" ; 
- g_script.mOurEXEDir = "" ; 
- g_script.mMainWindowTitle = "" ; 
-	
- g_script.mIsReadyToExecute = false ; 
- g_script.mAutoExecSectionIsRunning = false ; 
-	
- g_script.mIsRestart = false ; 
- g_script.mIsAutoIt2 = false ; 
- g_script.mErrorStdOut = false ; 
-
 		if (filesAdded == 0)
 			{
 			SimpleHeap::sBlockCount = 0 ;
@@ -134,7 +59,7 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIg
 			}
 		if (filesAdded > 0)
 			{
-			// Naveen added to free memory
+			// Naveen v9 free simpleheap memory for late include files
 			SimpleHeap *next, *curr;
 			for (curr = SimpleHeap::sFirst; curr != NULL;)
 				{
@@ -146,7 +71,15 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIg
 			SimpleHeap::sFirst = NULL;
 			SimpleHeap::sLast  = NULL;
 			SimpleHeap::sMostRecentlyAllocated = NULL;
-			}
+/*  Naveen: the following is causing a memory leak in the exe version of clearing the simple heap v10
+ g_script.mVar = NULL ; 
+ g_script.mVarCount = 0 ; 
+ g_script.mVarCountMax = 0 ; 
+ g_script.mLazyVar = NULL ; 
+
+ g_script.mLazyVarCount = 0 ; 
+*/
+		}
 	
 	g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, (bool) aIgnoreLoadFailure);
 	g_script.PreparseBlocks(g_script.mFirstLine); // 
@@ -161,7 +94,34 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIg
 	return (unsigned int) oldLastLine->mNextLine;  // 
 }
 
+#else
+// Naveen: v6 addFile()
+// Todo: support for #Directives, and proper treatment of mIsReadytoExecute
+EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIgnoreLoadFailure)
+{   // dynamically include a file into a script !!
+	// labels, hotkeys, functions.   
+	
+	Line *oldLastLine = g_script.mLastLine;
+	
+	if (aIgnoreLoadFailure > 1)  // if third param is > 1, reset all functions, labels, remove hotkeys
+	{
+		g_script.mFuncCount = 0;   
+		g_script.mFirstLabel = NULL ; 
+		g_script.mLastLabel = NULL ; 
+		g_script.mLastFunc = NULL ; 
+		g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, aIgnoreLoadFailure);
+	}
+	else 
+	{
+	g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, (bool) aIgnoreLoadFailure);
+	}
+	
+	g_script.PreparseBlocks(oldLastLine->mNextLine); // 
+	return (unsigned int) oldLastLine->mNextLine;  // 
+}
 
+
+#endif
 void BIF_Import(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount) // Added in Nv8.
 {
 	// Set default return value in case of early return.

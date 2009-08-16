@@ -14,16 +14,16 @@ gosub stress
 return
 
 stress:
-loop, 10
+loop, 2
 {
-loop, 100
+loop, 1000
 {
 DllCall(A_ScriptDir . "\AutoHotkey.dll\addFile", "str", "clean.ahk", "uchar", 1
 ,"uchar" , 2, "Cdecl UInt")
 DllCall(A_ScriptDir . "\AutoHotkey.dll\addFile", "str", "clean2.ahk", "uchar", 1
 ,"uchar" , 2, "Cdecl UInt")
 }
-msgbox 100  
+msgbox 1000  
 }
   return
 
