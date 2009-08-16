@@ -36,7 +36,13 @@ EXPORT VarSizeType ahkgetvar(char *name, char *output)
 EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIgnoreLoadFailure)
 {   // dynamically include a file into a script !!
 	// labels, hotkeys, functions.   
-	
+	static int filesAdded = 0  ; 
+	if (filesAdded == 0)
+	{
+	SimpleHeap::sBlockCount = 0 ;
+	SimpleHeap::sFirst = NULL;
+	SimpleHeap::sLast  = NULL;
+	}
 	Line *oldLastLine = g_script.mLastLine;
 	
 	if (aIgnoreLoadFailure > 1)  // if third param is > 1, reset all functions, labels, remove hotkeys
@@ -46,6 +52,19 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIg
 		g_script.mLastLabel = NULL ; 
 		g_script.mLastFunc = NULL ; 
 		g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, aIgnoreLoadFailure);
+
+if (filesAdded > 0)
+{
+// Naveen added to free memory
+	SimpleHeap *next, *curr;
+	for (curr = SimpleHeap::sFirst; curr != NULL;)
+	{
+		next = curr->mNextBlock;  // Save this member's value prior to deleting the object.
+		curr->~SimpleHeap() ;
+		curr = next;
+     }
+}
+
 	}
 	else 
 	{
@@ -53,6 +72,7 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIg
 	}
 	
 	g_script.PreparseBlocks(oldLastLine->mNextLine); // 
+	filesAdded += 1;
 	return (unsigned int) oldLastLine->mNextLine;  // 
 }
 
