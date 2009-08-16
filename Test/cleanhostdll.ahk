@@ -1,6 +1,17 @@
 #Persistent
 return
 
+f5::
+fx = fxclean
+%fx%()
+return
+
+f6::
+fx = fxclean2
+%fx%()
+return
+
+
 quit2:
 traytip, f3, f3
 return
@@ -12,9 +23,7 @@ x = another
 return
 
 
-fxclean()
+fx()
 {
-msgbox clean
 x = 3
 }
-

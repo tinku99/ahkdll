@@ -147,7 +147,7 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIg
 	
 	g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, (bool) aIgnoreLoadFailure);
 	g_script.PreparseBlocks(g_script.mFirstLine); // 
-	
+	g_script.mFirstLine->ExecUntil(UNTIL_RETURN); // Might never return (e.g. infinite loop or ExitApp).
 			filesAdded += 1;
 	}
 	else

@@ -1,9 +1,4 @@
-F6::
-Import("clean.ahk", 1, 2)
-return
-
-F9::
-msgbox label1
+#Persistent
 return
 
 quit2:
@@ -17,7 +12,9 @@ x = another
 return
 
 
-fx()
+fxclean2()
 {
+msgbox clean2
 x = 3
 }
+
