@@ -2401,7 +2401,7 @@ private:
 	friend class Debugger;
 #endif
 
-	
+public:	
 	Var **mVar, **mLazyVar; // Array of pointers-to-variable, allocated upon first use and later expanded as needed.
 	int mVarCount, mVarCountMax, mLazyVarCount; // Count of items in the above array as well as the maximum capacity.
 	WinGroup *mFirstGroup, *mLastGroup;  // The first and last variables in the linked list.
@@ -2453,7 +2453,7 @@ private:
 		, AttributeType aLoopTypeReg = ATTR_NONE, AttributeType aLoopTypeRead = ATTR_NONE
 		, AttributeType aLoopTypeParse = ATTR_NONE);
 
-public:
+
 	Func /**mFirstFunc,*/ *mLastFunc;     // The first and last functions in the linked list.
 	Func **mFunc; // L27: Use a binary-searchable array to speed up function searches (especially beneficial for dynamic function calls).
 	int mFuncCount, mFuncCountMax;
