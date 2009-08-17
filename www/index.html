@@ -2,43 +2,63 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-GB" lang="en-GB"><head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="description" content="Home page for tinku99's custom build of AutoHotkey.">
-    <title>AutoHotkey_N</title>
+    <title>AutoHotkey_N, AutoHotkey.dll</title>
     <link href="index_files/style.css" rel="stylesheet" type="text/css" media="all">
   </head><body>
-    <h1>AutoHotkey_N</h1>
+    <h1>AutoHotkey_N, AutoHotkey.dll</h1>
     <h2 id="Introduction">Introduction</h2>
     <span class="size110">
-      <p>AutoHotkey.dll is a shared library for autohotkey maintained by <a href="http://www.autohotkey.com/forum/profile.php?mode=viewprofile&amp;u=6056">Naveen Garg</a>. <br>Features include:</p>
-      <ul>
+<ul>
+<li>AutoHotkey.dll is a shared library for AutoHotkey and <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/">AutoHotkey_L</a> maintained by <a href="http://www.autohotkey.com/forum/profile.php?mode=viewprofile&amp;u=6056">Naveen Garg</a>. <li>AutoHotkey_N is a custom build of AutoHotkey incorporating the changes introduced by the dll.</li> 
+<li>For a full list of changes, see <a href="#Version_History">Version History</a></li><li>
+    Discuss AutoHotkey_N at the <a href="http://www.autohotkey.com/forum/viewtopic.php?t=43049&amp;highlight=ahkdll">AutoHotkey Community Forums</a></li> 
+<li>Thanks to Chris Mallett, <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/">Lexikos</a>, Titan, and the autohotkey community. </ul>        <h2 id="Features">Features</h2>
+</span>    <span class="size110">
+<ul>
 	<li>Embed the autohotkey interpreter in another program such as <a href="http://github.com/tinku99/ahkdll.git/Test/python/">python</a> or <a href="http://www.ahklisp.com">lisp</a><br>int ahkdll(char *fileName, char *option, char *parameter)</li>
 	<li>dynamically add #include type files to a running script with <a href="http://github.com/tinku99/ahkdll.git/Test/AddFile/">addfile()</a><br>_declspec(dllexport) int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)</li>
 <li>import new scripts or replace loaded script with import(file...) </li>
-	<li>Partial support for <a href="http://github.com/tinku99/ahkdll.git/Test/testThreads/">multithreading</a><br>by loading multiple copies of the dll under different names</li>
+	<li><a href="http://github.com/tinku99/ahkdll.git/Test/testThreads/">Multithreading</a><br>by loading multiple copies of the dll under different names.  Also, see HotkeyIt's <a href="http://www.autohotkey.com/forum/viewtopic.php?t=47347>work</a></li>
 	<li>Direct access to built in variables <a href="http://github.com/tinku99/ahkdll.git/Test/commands/">BIV</a></li>
+      <li> make application / webserver frameworks possibe using apache modules such as <a href="http://www.autohotkey.com/forum/viewtopic.php?p=288980">modpython</a> </li>
       </ul>
-<p>Download: </p><ul>
-<li>based on Lexikos' V1.0.48.3L30: <a href="http://www.autohotkey.net/%7Etinku99/ahkdll/release/AutoHotkeyC48L30N8.zip">AutoHotkey48L30N8.zip</a>, <a href="http://github.com/tinku99/ahkdll/tree/master">source</a></li>
-<li>based on Chris' main branch: V1.0.48.3<a href="http://www.autohotkey.net/%7Etinku99/ahkdll/release/AutoHotkeyC48N8.zip">AutoHotkeyC48N8.zip</a> <a href="http://github.com/tinku99/ahkdll/tree/ahkcndll-483N8">source</a></li>
-<li>based on AutoHotkeyV1.0.46L13 <a href="http://www.autohotkey.net/~tinku99/ahkdll/release/AutoHotkeyL13N6.zip">AutoHotkeyL13N6.zip</a> <a href="http://github.com/tinku99/ahkdll/tree/http://github.com/tinku99/ahkdll/tree/ahk46L13N6">source</a></li></ul
+    <h2 id="Download">Download</h2></span>
+    <span class="size110">
 
-      <p>For a full list of changes, see <a href="#Version_History">Version History</a>.</p>
-      <p>Discuss AutoHotkey_N at the <a href="http://www.autohotkey.com/forum/viewtopic.php?t=43049&amp;highlight=ahkdll">AutoHotkey Community Forums</a>.</p>
+<ul>
+<li>Latest, V9: <a href="http://www.autohotkey.net/%7Etinku99/ahkdll/release/AutoHotkeyC48L30N9.zip">AutoHotkey48L30N9.zip</a>, <a href="http://github.com/tinku99/ahkdll/tree/master">source</a></li>
+<li>V8, based on Lexikos' V1.0.48.3L30: <a href="http://www.autohotkey.net/%7Etinku99/ahkdll/release/AutoHotkeyC48L30N8.zip">AutoHotkey48L30N8.zip</a>, <a href="http://github.com/tinku99/ahkdll/tree/ahkdll-8">source</a></li>
+<li>based on Chris' main branch: V1.0.48.3<a href="http://www.autohotkey.net/%7Etinku99/ahkdll/release/AutoHotkeyC48N8.zip">AutoHotkeyC48N8.zip</a> <a href="http://github.com/tinku99/ahkdll/tree/ahkcndll-483N8">source</a></li>
+<li>based on AutoHotkeyV1.0.46L13 <a href="http://www.autohotkey.net/~tinku99/ahkdll/release/AutoHotkeyL13N6.zip">AutoHotkeyL13N6.zip</a> <a href="http://github.com/tinku99/ahkdll/tree/http://github.com/tinku99/ahkdll/tree/ahk46L13N6">source</a></li></ul>
     </span>
     
     <h2 id="Note">Note</h2>
     <ul>
-      <li>AutoHotkey_N is a branch from <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/">Lexikos' custom build.</a></li>
-      <li>I will try to track the main <a href="http://www.autohotkey.com/">AutoHotkey</a> branch as well.</li>
-      <li>My changes and additions to the source code follow the same license as the main AutoHotkey branch: <a href="http://www.autohotkey.com/docs/license.htm">GPLv2</a></li>
+      <li>License: <a href="http://www.autohotkey.com/docs/license.htm">GPLv2</a></li>
+      <li> No Warranty.  Like all free software, use at your own risk</li>
     </ul>
     <h2 id="Todo">Todo</h2>
     <ul>
-      <li> Export built in commands and functions </li>
-      <li> build application / webserver framework, possibly using <a href="http://www.autohotkey.com/forum/viewtopic.php?t=36047">sparrow</a>  </li>
-<li>Reclaim / reuse memory from ignored lines and functions from repeated use of import().</li>
+      <li> Allow Hotkeys to take functions (and pointers to functions) in addition to labels as targets </li><li>
+HTML Help file </li>
+<li> self hosting parser</li>
+<li> linux port </li>
     </ul>
     
     <h2 id="Version_History">Version History</h2>
+    <h3>Revision 9</h3>
+    <ul>
+<li>created versions based on Chris' main branch 1.0.48.3 as well as the old 1.0.46L13 branch</li>
+<li>
+ Added builtin FindFunc() to facilitate use of Lexikos' LowLevel.ahk and code.ahk, see <a href="http://www.autohotkey.com/forum/viewtopic.php?t=26300&start=122">here</a></li>
+<li>Updated addfile(), so when called with 2 as the 3rd parameter.<br>
+For ex. addfile("somefile.ahk", 1, 2)<br>
+simpleheap memory used by late included files upto this point is freed. Hotkeys, labels, and functions from the first call to addfile are retained.<br>
+If you want to create hotkeys in later include files that have already been defined, use a dynamic function call with the Hotkey command:<br>
+Hotkey, label, hotkey </li>
+<li>also see <a href="http://www.autohotkey.com/forum/viewtopic.php?p=288980">post</a>
+
+    </ul>
     <h3>Revision 8</h3>
     <ul>
       <li>modified fileappend, to send output to stderr, with "stderr" is specified as filename. </li>
