@@ -24,7 +24,3 @@ DebugDll
 *.manifest
 AutoDll
 Debug
-*old
-Release
-_UpgradeReport_Files
-
