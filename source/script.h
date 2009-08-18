@@ -2459,6 +2459,9 @@ public:
 	int mFuncCount, mFuncCountMax;
 	Line *PreparseBlocks(Line *aStartingLine, bool aFindBlockEnd = false, Line *aParentLine = NULL);
 	Line *mFirstLine, *mLastLine;     // The first and last lines in the linked list.
+	Line *mTempLine; // for use with dll Execute # Naveen N9
+	Label *mTempLabel; // for use with dll Execute # Naveen N9
+	Func *mTempFunc; // for use with dll Execute # Naveen N9
 	UINT mLineCount;                  // The number of lines.
 	Label *mFirstLabel, *mLastLabel;  // The first and last labels in the linked list.
 	// Naveen moved above from private

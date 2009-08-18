@@ -42,7 +42,7 @@ GNU General Public License for more details.
 
 
 #endif
-#define NAME_VERSION "1.0.48.03" NAME_L_REVISION
+#define NAME_VERSION "1.0.48.03N9" NAME_L_REVISION
 #define NAME_PV NAME_P " v" NAME_VERSION
 
 // Window class names: Changing these may result in new versions not being able to detect any old instances

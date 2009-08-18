@@ -628,6 +628,18 @@ bool MsgSleep(int aSleepDuration, MessageMode aMode)
 			if (msg.hwnd && msg.hwnd != g_hWnd) // v1.0.44: It's wasn't sent by our code; perhaps by a common control's code.
 				break; // Dispatch it vs. discarding it, in case it's for a control.
 			//ELSE FALL THROUGH:
+		case AHK_EXECUTE:   // sent from dll host # Naveen N9 
+			 g_script.mTempLine = (Line *)msg.wParam ;
+			 g_script.mTempLine->ExecUntil(UNTIL_RETURN); 
+			 break;
+		case AHK_EXECUTE_LABEL: 
+			g_script.mTempLabel = (Label *)msg.wParam ;
+			g_script.mTempLabel->Execute();
+			break;
+		case AHK_EXECUTE_FUNCTION: 
+			g_script.mTempFunc = (Func *)msg.wParam ;
+			g_script.mTempFunc->Call((char *&)msg.lParam);
+			break;
 		case AHK_GUI_ACTION:   // The user pressed a button on a GUI window, or some other actionable event. Listed before the below for performance.
 		case WM_HOTKEY:        // As a result of this app having previously called RegisterHotkey(), or from TriggerJoyHotkeys().
 		case AHK_USER_MENU:    // The user selected a custom menu item.

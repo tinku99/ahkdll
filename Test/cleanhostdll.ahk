@@ -1,10 +1,7 @@
 #Persistent
-msgbox run
-return
-
-F5:: 
 msgbox cleanhostdll
 return
+
 
 F7::
 fx = fxclean

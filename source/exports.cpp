@@ -30,6 +30,17 @@ EXPORT VarSizeType ahkgetvar(char *name, char *output)
 	return ahkvar->Get(output);  // var.getText() added in V1. 
 }	
 
+
+EXPORT int ahkLabel(char *aLabelName)
+{
+	Label *aLabel = g_script.FindLabel(aLabelName) ;
+	return (int) PostMessage(g_hWnd, AHK_EXECUTE_LABEL, (LPARAM)aLabel, (LPARAM)aLabel);
+}
+EXPORT int ahkFunction(char *func, char *param1)
+{
+Func *aFunc = g_script.FindFunc(func) ;
+return (int) PostMessage(g_hWnd, AHK_EXECUTE_FUNCTION, (WPARAM)aFunc, (LPARAM)param1);
+}
 #ifdef DLLN
 // Naveen: v6 addFile()
 // Todo: support for #Directives, and proper treatment of mIsReadytoExecute
@@ -80,18 +91,20 @@ EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIg
  g_script.mLazyVarCount = 0 ; 
 */
 		}
-	
+
 	g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, (bool) aIgnoreLoadFailure);
-	g_script.PreparseBlocks(g_script.mFirstLine); // 
-//	g_script.mFirstLine->ExecUntil(UNTIL_RETURN); // Might never return (e.g. infinite loop or ExitApp).
-			filesAdded += 1;
+	g_script.PreparseBlocks(g_script.mFirstLine); 
+	PostMessage(g_hWnd, AHK_EXECUTE, (WPARAM)g_script.mFirstLine, (LPARAM)g_script.mFirstLine);
+	filesAdded += 1;
+	return (unsigned int) g_script.mFirstLine;
 	}
 	else
 	{
 	g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, (bool) aIgnoreLoadFailure);
 	g_script.PreparseBlocks(oldLastLine->mNextLine); // 
-	}
 	return (unsigned int) oldLastLine->mNextLine;  // 
+	}
+return 0;  // never reached
 }
 
 #else

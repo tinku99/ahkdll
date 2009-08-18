@@ -4,10 +4,11 @@
 
 EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIgnoreLoadFailure);
 EXPORT int ahkdll(char *fileName, char *argv, char *args);
+EXPORT int ahkLabel(char *aLabelName);
+EXPORT int ahkFunction(char *func, char *param1);
 void BIF_Import(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_FindFunc(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_Getvar(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
-
 BIF(BIF_Static) ;
 BIF(BIF_Alias) ;
 BIF(BIF_CacheEnable) ;

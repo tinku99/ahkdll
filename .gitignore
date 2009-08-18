@@ -27,4 +27,13 @@ Debug
 *old
 Release
 _UpgradeReport_Files
-
+*.lib
+*.exp
+*.ncb
+*.suo
+release
+*.exp
+*.bin
+DebugDll
+*.dep
+BuildLog.htm

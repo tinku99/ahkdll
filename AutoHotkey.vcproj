@@ -68,6 +68,7 @@
 				AdditionalDependencies="wsock32.lib winmm.lib version.lib comctl32.lib"
 				OutputFile="$(OutDir)/../Test/AutoHotkey.exe"
 				LinkIncremental="2"
+				IgnoreDefaultLibraryNames="MSVCrt"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)/AutoHotkey.pdb"
 				SubSystem="2"
