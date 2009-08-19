@@ -464,4 +464,24 @@ EXPORT int ahkdll(char *fileName, char *argv, char *args)
  return (int)hThread;
 }
 
+EXPORT int ahkTerminate()
+{
+return (int) TerminateThread(hThread, (DWORD)EARLY_RETURN);
+}
+
+unsigned __stdcall ContinueScript( void* pArguments )
+{
+	MsgSleep(SLEEP_INTERVAL, WAIT_FOR_MESSAGES); ;
+	_endthreadex( 0 );  
+    return 0;
+} 
+EXPORT int ahkContinue()
+{
+	 unsigned threadID;
+	hThread = (HANDLE)_beginthreadex( NULL, 0, &ContinueScript, &nameHinstanceP, 0, &threadID );
+ WaitForSingleObject( hThread, 500 );
+ return (int)hThread;
+}
+
+
 #endif
