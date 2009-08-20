@@ -2,10 +2,10 @@
 msgbox clean
 return
 
-fxclean()
+fxclean(x, y)
 {
-msgbox fxclean
-return 9
+msgbox % "running fxclean`n" . x . "`n" . y
+return "hello from fxclean"
 }
 
 

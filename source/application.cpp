@@ -20,7 +20,7 @@ GNU General Public License for more details.
 #include "window.h" // for serveral MsgBox and window functions
 #include "util.h" // for strlcpy()
 #include "resources\resource.h"  // For ID_TRAY_OPEN.
-
+#include "exports.h" // for callFunc # Naveen N10
 
 bool MsgSleep(int aSleepDuration, MessageMode aMode)
 // Returns true if it launched at least one thread, and false otherwise.
@@ -637,8 +637,7 @@ bool MsgSleep(int aSleepDuration, MessageMode aMode)
 			g_script.mTempLabel->Execute();
 			break;
 		case AHK_EXECUTE_FUNCTION: 
-			g_script.mTempFunc = (Func *)msg.wParam ;
-			g_script.mTempFunc->Call((char *&)msg.lParam);
+			callFunc(msg.hwnd, msg.message, msg.wParam, msg.lParam, &msg, msg_reply);
 			break;
 		case AHK_GUI_ACTION:   // The user pressed a button on a GUI window, or some other actionable event. Listed before the below for performance.
 		case WM_HOTKEY:        // As a result of this app having previously called RegisterHotkey(), or from TriggerJoyHotkeys().
