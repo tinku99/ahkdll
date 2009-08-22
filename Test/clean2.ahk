@@ -1,21 +1,14 @@
 #Persistent
-
-return
-
-quit2:
-traytip, f3, f3
-return
-
-file1:
-x := "second"
-x = test
-x = another
-return
-
-
-fxclean2()
-{
 msgbox clean2
-x = 3
+return
+
+clean2:
+msgbox clean2 label
+return
+
+fxclean2(ab)
+{
+ab = 3
+msgbox "fxclean2" . ab
 }
 
