@@ -13,4 +13,9 @@ hotkey, F12, working
 return "hello from fxclean"
 }
 
+ 
+clean:
+msgbox clean
+return
+
 

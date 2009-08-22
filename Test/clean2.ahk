@@ -3,12 +3,16 @@ msgbox clean2
 return
 
 clean2:
-msgbox clean2 label
+msgbox clean2 
 return
 
-fxclean2(x)
+fxclean2(ab)
 {
-x = 3
-msgbox "fxclean2" . x
+ab = 3
+hotkey, f8, clean2, on
+msgbox "fxclean2" . ab
 }
 
+clean22:
+msgbox clean22
+return

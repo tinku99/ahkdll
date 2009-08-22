@@ -178,9 +178,9 @@ else
 	return -1; 
 }
 
-bool callFunc(HWND aWnd, UINT aMsg, WPARAM awParam, LPARAM alParam, MSG *apMsg, LRESULT &aMsgReply)
+bool callFunc(WPARAM awParam, LPARAM alParam)
 {
-	Func &func = *g_script.mTempFunc ;   
+	Func &func = *(Func *)g_script.mTempFunc ;   
 	if (!INTERRUPTIBLE_IN_EMERGENCY)
 		return false;
 
@@ -242,13 +242,14 @@ bool callFunc(HWND aWnd, UINT aMsg, WPARAM awParam, LPARAM alParam, MSG *apMsg, 
 
 	// Fix for v1.0.47: Must handle return_value BEFORE calling FreeAndRestoreFunctionVars() because return_value
 	// might be the contents of one of the function's local variables (which are about to be free'd).
-	bool block_further_processing = *return_value; // No need to check the following because they're implied for *return_value!=0: result != EARLY_EXIT && result != FAIL;
+/*	bool block_further_processing = *return_value; // No need to check the following because they're implied for *return_value!=0: result != EARLY_EXIT && result != FAIL;
 	if (block_further_processing)
 		aMsgReply = (LPARAM)ATOI64(return_value); // Use 64-bit in case it's an unsigned number greater than 0x7FFFFFFF, in which case this allows it to wrap around to a negative.
 	//else leave aMsgReply uninitialized because we'll be returning false later below, which tells our caller
 	// to ignore aMsgReply.
+*/
 	Var::FreeAndRestoreFunctionVars(func, var_backup, var_backup_count);
 	ResumeUnderlyingThread(ErrorLevel_saved);
 	
-	return block_further_processing; // If false, the caller will ignore aMsgReply and process this message normally. If true, aMsgReply contains the reply the caller should immediately send for this message.
+	return 0 ; // block_further_processing; // If false, the caller will ignore aMsgReply and process this message normally. If true, aMsgReply contains the reply the caller should immediately send for this message.
 }

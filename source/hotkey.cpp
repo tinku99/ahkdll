@@ -2198,7 +2198,7 @@ char *Hotkey::ToText(char *aBuf, int aBufSize, bool aAppendNewline)
 	HotkeyVariant *vp;
 	int existing_threads;
 	for (existing_threads = 0, vp = mFirstVariant; vp; vp = vp->mNextVariant)
-		existing_threads += vp->mExistingThreads;
+ 		existing_threads += vp->mExistingThreads;
 
 	char existing_threads_str[128];
 	if (existing_threads)
