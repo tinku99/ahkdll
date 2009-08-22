@@ -1,11 +1,11 @@
 #Persistent
+; Thread, interrupt, 0   
 msgbox cleanhostdll
 return
 
 
 F7::
-fx = fxclean
-%fx%()
+msgbox % "hello" . " there"
 return
 
 F8::

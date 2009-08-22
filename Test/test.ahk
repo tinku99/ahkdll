@@ -12,17 +12,13 @@ return
 
 
 F3::
-Thread, priority, 99
 DllCall(A_ScriptDir . "\AutoHotkey.dll\addFile", "str", "clean.ahk", "uchar", 1
 ,"uchar" , 2, "Cdecl UInt")
-Thread, priority, 0
 return
 
 F4::
-Thread, priority, 99
 DllCall(A_ScriptDir . "\AutoHotkey.dll\addFile", "str", "clean2.ahk", "uchar", 1
 ,"uchar" , 2, "Cdecl UInt")
-Thread, priority, 0
 return
 
 

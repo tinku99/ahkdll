@@ -6,9 +6,9 @@ clean2:
 msgbox clean2 label
 return
 
-fxclean2(ab)
+fxclean2(x)
 {
-ab = 3
-msgbox "fxclean2" . ab
+x = 3
+msgbox "fxclean2" . x
 }
 
