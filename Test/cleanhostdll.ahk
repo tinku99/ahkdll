@@ -3,20 +3,16 @@ msgbox cleanhostdll
 return
 
 
+F6::
+clean = clean
+hotkey, f8, %clean%, on
+return
+
 F7::
-fx = fxclean
-%fx%()
+clean = clean22
+hotkey, f12, %clean%, on
 return
 
-F8::
-fx2 = fxclean2
-%fx2%()
-return
-
-foo:
-fx3 = fxclean2
-%fx3%()
-return
 
 
 quit2:

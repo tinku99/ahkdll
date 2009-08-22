@@ -26,7 +26,7 @@ GNU General Public License for more details.
 
 #define PCRE_STATIC             // For RegEx. PCRE_STATIC tells PCRE to declare its functions for normal, static
 #include "lib_pcre/pcre/pcre.h" // linkage rather than as functions inside an external DLL.
-
+#include "exports.h" // for callFunc # Naveen N10
 
 ////////////////////
 // Window related //
@@ -5269,6 +5269,18 @@ LRESULT CALLBACK MainWindowProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 	case AHK_HOT_IF_EXPR: // L4: HotCriterionAllowsFiring uses this to ensure expressions are evaluated only on the main thread.
 		if ((int)wParam > -1 && (int)wParam < g_HotExprLineCount)
 			return g_HotExprLines[(int)wParam]->EvaluateHotCriterionExpression();
+		return 0;
+
+	case AHK_EXECUTE:   // sent from dll host # Naveen N9 
+		 g_script.mTempLine = (Line *)wParam ;
+		 g_script.mTempLine->ExecUntil(UNTIL_RETURN); 
+		 return 0;
+	case AHK_EXECUTE_LABEL: 
+		g_script.mTempLabel = (Label *)wParam ;
+		g_script.mTempLabel->Execute();
+		return 0;
+	case AHK_EXECUTE_FUNCTION: 
+		callFunc(wParam, lParam);
 		return 0;
 
 	case WM_MEASUREITEM: // L17: Measure menu icon. Not used on Windows Vista or later.
