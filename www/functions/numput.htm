@@ -1,0 +1,63 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<title>numput and numget</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<link href="../css/commands.css" rel="stylesheet" type="text/css">
+<link href="../css/print.css" rel="stylesheet" type="text/css" media="print">
+</head>
+<body>
+
+<h1>numput() <span class="small65">[AutoHotkey.dll or AutoHotkey_N]</span></h1>
+<hr size="2">
+<p></p>
+
+<p class="CommandSyntax">address := NumPut(object, VarOrAddress [, Offset = 0, Type = "UInt"])   </p>
+<p class="CommandSyntax">value := NumGet(VarOrAddress [, Offset = 0, Type = "UInt"])   </p>
+
+<h4>Parameters</h4>
+<table border="1" width="100%" cellspacing="0" cellpadding="3" bordercolor="#C0C0C0">
+  <tr>
+    <td>address</td>
+    <td>the address to the right of the item just written.</td>
+  </tr>
+<tr>
+<td>object</td>
+<td>the value to store</td>
+</tr>
+  <tr>
+    <td>type</td>
+    <td>For Type, specify UInt, Int, Int64, Short, UShort, Char, UChar, Double, or Float, or a the number of bytes in your type. (named types enclosed in parentheses) for details see DllCall Types. If an integer is too large to fit in the specified Type, its most significant bytes are ignored; e.g. NumPut(257, var, 0, "Char") would store the number 1.  For arbitrary sizes, use a size that is not already included in the named types</td>
+  </tr>
+  <tr>
+    <td>VarOrAddress</td>
+    <td>For VarOrAddress, passing MyVar is equivalent to passing &MyVar. However, omitting the "&" performs better and ensures that the target address is valid (invalid addresses return ""). By contrast, anything other than a naked variable passed to VarOrAddress is treated as a raw address; consequently, specifying MyVar+0 forces the number in MyVar to be used instead of the address of MyVar itself. 
+</td>
+  </tr>
+
+ </table>
+<h4>Remarks</h4>
+someday will rename these functions to "put" and "get", as storing strings is now permitted. 
+<h4>Examples</h4>
+<pre class="NoIndent">
+varsetcapacity(a, 10000, 0)
+a = a
+element = element%A_Index%
+numput("element0", a, 0, 10)
+loop, 10
+{
+element = element%A_Index%
+numput(element, a, 10 * A_Index, 10)
+}
+
+msgbox % a
+loop, 10
+{
+ListVars
+msgbox % el := numget(a, 10 * A_Index, 10)
+}
+return
+</pre>
+</body>
+</html>
