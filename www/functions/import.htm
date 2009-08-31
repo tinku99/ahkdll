@@ -1,0 +1,47 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<title>Import</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<link href="../css/commands.css" rel="stylesheet" type="text/css">
+<link href="../css/print.css" rel="stylesheet" type="text/css" media="print">
+</head>
+<body>
+
+<h1>Import() <span class="small65">[AutoHotkey_NL30N7+]</span></h1>
+<hr size="2">
+<p>loads and compiles additional script files dynamically</p>
+
+<p class="CommandSyntax">LinePointer := Import(filename, [aAllowDuplicateInclude = 0, aIgnoreLoadFailure = 0])</p>
+<h4>Parameters</h4>
+<table border="1" width="100%" cellspacing="0" cellpadding="3" bordercolor="#C0C0C0">
+  <tr>
+    <td width="15%">LinePointer</td>
+    <td width="85%">Import() returns a pointer to the first line in the imported script.</td>
+  </tr>
+  <tr>
+    <td>filename</td>
+    <td>name of script to be imported</td>
+  </tr>
+  <tr>
+    <td>aAllowDuplicateInclude</td>
+    <td>see <a href="../commands/_Include.htm">Include</a> command<br>
+     0 = if a script named %filename% is already loaded, ignore<br>
+      1 = load it again</td>
+  </tr>
+  <tr>
+    <td><span class="CommandSyntax">aIgnoreLoadFailure</span></td><td>
+    see <a href="../commands/_Include.htm">Include</a> command again<br>
+    0 = signal an error if there was problem importing filename<br>
+    1 = ignore error<br>
+    2 = remove script lines added by previous calls to Import()</td>
+     </tr>
+ </table>
+<h4>Examples</h4>
+<pre class="NoIndent">linePointer := Import(&quot;filename&quot;)  <span class="CodeCom">; adds a new include file named filename, and returns linepointer</span>
+linePointer := Import(&quot;filename&quot;, 1, 2)  <span class="CodeCom">; clears all loaded functions and labels, then adds a new include file named filename, and returns linepointer</span>
+</pre>
+
+</body>
+</html>
