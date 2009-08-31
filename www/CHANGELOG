@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-GB" lang="en-GB"><head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="description" content="Home page for tinku99's custom build of AutoHotkey.">
+    <title>AutoHotkey_N, AutoHotkey.dll CHANGELOG</title>
+    <link href="css/style.css" rel="stylesheet" type="text/css" media="all">
+  </head><body>
+	<h1 id="CHANGELOG">CHANGELOG</h1>
+    <h2>Revision 9</h2>
+    <ul>
+<li>created versions based on Chris' main branch 1.0.48.3 as well as the old 1.0.46L13 branch</li>
+<li>
+ Added builtin FindFunc() to facilitate use of Lexikos' LowLevel.ahk and code.ahk, see <a href="http://www.autohotkey.com/forum/viewtopic.php?t=26300&start=122">here</a></li>
+<li>Updated addfile(), so when called with 2 as the 3rd parameter.<br>
+For ex. addfile("somefile.ahk", 1, 2)<br>
+simpleheap memory used by late included files upto this point is freed. Hotkeys, labels, and functions from the first call to addfile are retained.<br>
+If you want to create hotkeys in later include files that have already been defined, use a dynamic function call with the Hotkey command:<br>
+Hotkey, label, hotkey </li>
+<li>also see <a href="http://www.autohotkey.com/forum/viewtopic.php?p=288980">post</a>
+
+    </ul>
+    <h2>Revision 8</h2>
+    <ul>
+      <li>modified fileappend, to send output to stderr, with "stderr" is specified as filename. </li>
+      <li>modified FileReadLine, to accept stdin for file. see <a href="http://www.autohotkey.com/forum/viewtopic.php?t=43049&postdays=0&postorder=asc&start=38">this post</a></li>
+      <li>fixed import(...) to return a line pointer to the first newly added line</li>
+      <li>modified numget and numput to take numerical arguments for type in addition to the dllcall types. (number != dlltypesize) </li>
+      <li>made Lexikos' LowLevel machine code functions builtins: see <a href="http://www.autohotkey.com/forum/viewtopic.php?t=43049&postdays=0&postorder=asc&start=44">this post</a></li>
+      <li>modified project file with compile settings for dll and exe for easier merging with main branch and AutoHotkey_L. </li>
+    </ul>
+
+    <h2>Revision 7</h2>
+    <ul>
+      <li>Merged with AutoHotkey v.1.0.48.03_L30 </li>
+      <li>in addition to  <a href="AutoHotkey.dll">AutoHotkey.dll</a>, created <a href="AutoHotkey_N.exe">AutoHotkey_N.exe</a> with </li>
+<li>exported functions to access built in variables: <a href="http://github.com/tinku99/ahkdll.git/source/">ebiv.cpp</a></li>
+<li>added function: </li>
+<li>linepointer = Import(filename, aAllowDuplicateInclude = false, aIgnoreLoadFailure = false). </li>
+<li>linepointer is a pointer to the first line in the imported script </li>
+<li> If the 3rd parameter is > 1, then all currently loaded lines, functions, and labels are ignored starting now.  </li>
+<li>If you are going to reload particular hotkeys, use the Hotkey command rather than Hotkey labels.  </li>
+<li>i.e. </li>
+<li>Hotkey, F2, mylabel, on  ; this can be repeated in future import(script) calls</li>
+<li>not</li>
+<li>F2::msgbox ; this will crash the script if you import another script that uses the same hotkey label</li>
+    </ul>
+    <h2>Revision 6</h2>
+    <ul>
+      <li>V0.6 Merged with AutoHotkey v.1.0.48.02_L27 </li>
+      <li>Multi-threading: <a href="http://github.com/tinku99/ahkdll.git/Test/testThreads/">Examples</a></li>
+    </ul>
+    <h2>Revision 5</h2>
+    <ul>
+      <li>V0.5 dynamically load #include scripts  (experimental)</li>
+      <li>int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)</li>
+    </ul>
+    <h2>Revision 4</h2>
+    <ul>
+      <li>V0.4 parse a line containing an ahk command or expression  </li>
+      <li>linePointer := int createLine(char *line, int actiontype) removed in R7 </li>
+    </ul>
+    <h2>Revision 3</h2>
+    <ul>
+      <li>V0.3. added support for option: /Debug <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/docs/Debugging_Features.htm">see Lexikos' Debugger</a></li>
+    </ul>
+    <h2>Revision 2</h2>
+    <ul>
+      <li>V0.2: Merged with AutoHotkey_1.0.48_L26</li>
+    </ul>

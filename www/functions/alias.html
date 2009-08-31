@@ -1,0 +1,46 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <title>LowLevel - alias</title>
+<link href="../css/commands.css" rel="stylesheet" type="text/css">
+<link href="../css/print.css" rel="stylesheet" type="text/css" media="print">
+</head>
+<body>
+  <h1>alias</h1>
+  <p>Turns a variable into an alias for another variable, or a non-alias.</p>
+  <p class="CommandSyntax">alias(alias, alias_for)</p>
+  <h2>Parameters</h2>
+<table border="1" width="100%" cellspacing="0" cellpadding="3" bordercolor="#C0C0C0">
+    <tr>
+      <td width="15%">alias</td>
+      <td width="85%">A reference to a local variable or function parameter. </td>
+    </tr>
+    <tr>
+      <td>alias_for</td>
+      <td>A reference to or the address of a user-defined variable. </td>
+    </tr>
+  </table>
+  <h2>Remarks</h2>
+code from Lexikos, for compatibility with his <a href=
+"http://www.autohotkey.com/forum/viewtopic.php?t=26300">lowlevel</a> functions. <p>
+  <p> An alias is akin to a ByRef function parameter. However, an optional ByRef parameter is not an alias when it is omitted from a function call.</p>
+  <h2>Examples</h2>
+  <pre>Loop, 10 {
+    alias(item, item%A_Index%)
+    if item = 1         <em>; Compare the value of item%A_Index%.</em>
+        item = one      <em>; Set the value of item%A_Index%.</em>
+    else if item = 2
+        item = two
+    <em>;...</em>
+    alias(item, 0)    <em>; Reset item to a non-alias.</em>
+}
+</pre>
+<pre><em>; Make "var" an alias for the Var structure which var_ptr contains a pointer to.</em>
+<em>; Without +0, this would create an alias to the var_ptr variable itself.</em>
+alias(var, var_ptr+0)
+</pre>
+
+</body>
+</html>

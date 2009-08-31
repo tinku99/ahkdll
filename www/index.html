@@ -3,25 +3,45 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="description" content="Home page for tinku99's custom build of AutoHotkey.">
     <title>AutoHotkey_N, AutoHotkey.dll</title>
-    <link href="index_files/style.css" rel="stylesheet" type="text/css" media="all">
+    <link href="css/style.css" rel="stylesheet" type="text/css" media="all">
   </head><body>
     <h1>AutoHotkey_N, AutoHotkey.dll</h1>
     <h2 id="Introduction">Introduction</h2>
     <span class="size110">
 <ul>
 <li>AutoHotkey.dll is a shared library for AutoHotkey and <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/">AutoHotkey_L</a> maintained by <a href="http://www.autohotkey.com/forum/profile.php?mode=viewprofile&amp;u=6056">Naveen Garg</a>. <li>AutoHotkey_N is a custom build of AutoHotkey incorporating the changes introduced by the dll.</li> 
-<li>For a full list of changes, see <a href="#Version_History">Version History</a></li><li>
+<li>For a full list of changes, see <a href="CHANGELOG">Changelog</a></li><li>
     Discuss AutoHotkey_N at the <a href="http://www.autohotkey.com/forum/viewtopic.php?t=43049&amp;highlight=ahkdll">AutoHotkey Community Forums</a></li> 
-<li>Thanks to Chris Mallett, <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/">Lexikos</a>, Titan, and the autohotkey community. </ul>        <h2 id="Features">Features</h2>
+<li>Thanks to Chris Mallett, <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/">Lexikos</a>, Titan, and the autohotkey community. </ul>        
+
+<h2 id="Features">Features</h2>
 </span>    <span class="size110">
 <ul>
 	<li>Embed the autohotkey interpreter in another program such as <a href="http://github.com/tinku99/ahkdll.git/Test/python/">python</a> or <a href="http://www.ahklisp.com">lisp</a><br>int ahkdll(char *fileName, char *option, char *parameter)</li>
-	<li>dynamically add #include type files to a running script with <a href="http://github.com/tinku99/ahkdll.git/Test/AddFile/">addfile()</a><br>_declspec(dllexport) int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)</li>
+	<li>dynamically add #include files in the dll with <a href="functions/addfile.htm">addfile()</a><br>_declspec(dllexport) int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)</li>
 <li>import new scripts or replace loaded script with <a href="functions/import.htm">import(file...)</a> </li>
-	<li><a href="http://github.com/tinku99/ahkdll.git/Test/testThreads/">Multithreading</a><br>by loading multiple copies of the dll under different names.  Also, see HotkeyIt's <a href="http://www.autohotkey.com/forum/viewtopic.php?t=47347>work</a></li>
+	<li><a href="http://github.com/tinku99/ahkdll.git/Test/testThreads/">Multithreading</a> by loading multiple copies of the dll under different names.  Also, see HotkeyIt's <a href="http://www.autohotkey.net/~HotKeyIt/DDB/Thread.htm">work</a></li>
 	<li>Direct access to built in variables <a href="http://github.com/tinku99/ahkdll.git/Test/commands/">BIV</a></li>
       <li> make application / webserver frameworks possibe using apache modules such as <a href="http://www.autohotkey.com/forum/viewtopic.php?p=288980">modpython</a> </li>
       </ul>
+
+<h2 id="Functions">Functions</h2>
+<ul>
+<li><a href="functions/addfile.htm">addfile</a></li>
+<li><a href="functions/ahkFunction.htm">ahkFunction</a></li>
+<li><a href="functions/ahkLabel.htm">ahkLabel</a></li>
+<li><a href="functions/ahkdll.htm">ahkdll</a></li>
+<li><a href="functions/ahkgetvar.htm">ahkgetvar</a></li>
+<li><a href="functions/alias.html">alias</a></li>
+<li><a href="functions/cacheEnable.html">cacheEnable</a></li>
+<li><a href="functions/fileappend.htm">fileappend</a></li>
+<li><a href="functions/filereadline.htm">filereadline</a></li>
+<li><a href="functions/findfunc.htm">findfunc</a></li>
+<li><a href="functions/getTokenValue.html">getTokenValue</a></li>
+<li><a href="functions/getVar.html">getVar</a></li>
+<li><a href="functions/import.htm">import</a></li>
+<li><a href="functions/static.html">static</a></li>
+</ul>
     <h2 id="Download">Download</h2></span>
     <span class="size110">
 
@@ -45,71 +65,4 @@ HTML Help file </li>
 <li> linux port </li>
     </ul>
     
-    <h2 id="Version_History">Version History</h2>
-    <h3>Revision 9</h3>
-    <ul>
-<li>created versions based on Chris' main branch 1.0.48.3 as well as the old 1.0.46L13 branch</li>
-<li>
- Added builtin FindFunc() to facilitate use of Lexikos' LowLevel.ahk and code.ahk, see <a href="http://www.autohotkey.com/forum/viewtopic.php?t=26300&start=122">here</a></li>
-<li>Updated addfile(), so when called with 2 as the 3rd parameter.<br>
-For ex. addfile("somefile.ahk", 1, 2)<br>
-simpleheap memory used by late included files upto this point is freed. Hotkeys, labels, and functions from the first call to addfile are retained.<br>
-If you want to create hotkeys in later include files that have already been defined, use a dynamic function call with the Hotkey command:<br>
-Hotkey, label, hotkey </li>
-<li>also see <a href="http://www.autohotkey.com/forum/viewtopic.php?p=288980">post</a>
-
-    </ul>
-    <h3>Revision 8</h3>
-    <ul>
-      <li>modified fileappend, to send output to stderr, with "stderr" is specified as filename. </li>
-      <li>modified FileReadLine, to accept stdin for file. see <a href="http://www.autohotkey.com/forum/viewtopic.php?t=43049&postdays=0&postorder=asc&start=38">this post</a></li>
-      <li>fixed import(...) to return a line pointer to the first newly added line</li>
-      <li>modified numget and numput to take numerical arguments for type in addition to the dllcall types. (number != dlltypesize) </li>
-      <li>made Lexikos' LowLevel machine code functions builtins: see <a href="http://www.autohotkey.com/forum/viewtopic.php?t=43049&postdays=0&postorder=asc&start=44">this post</a></li>
-      <li>modified project file with compile settings for dll and exe for easier merging with main branch and AutoHotkey_L. </li>
-    </ul>
-
-    <h3>Revision 7</h3>
-    <ul>
-      <li>Merged with AutoHotkey v.1.0.48.03_L30 </li>
-      <li>in addition to  <a href="AutoHotkey.dll">AutoHotkey.dll</a>, created <a href="AutoHotkey_N.exe">AutoHotkey_N.exe</a> with </li>
-<li>exported functions to access built in variables: <a href="http://github.com/tinku99/ahkdll.git/source/">ebiv.cpp</a></li>
-<li>added function: </li>
-<li>linepointer = Import(filename, aAllowDuplicateInclude = false, aIgnoreLoadFailure = false). </li>
-<li>linepointer is a pointer to the first line in the imported script </li>
-<li> If the 3rd parameter is > 1, then all currently loaded lines, functions, and labels are ignored starting now.  </li>
-<li>If you are going to reload particular hotkeys, use the Hotkey command rather than Hotkey labels.  </li>
-<li>i.e. </li>
-<li>Hotkey, F2, mylabel, on  ; this can be repeated in future import(script) calls</li>
-<li>not</li>
-<li>F2::msgbox ; this will crash the script if you import another script that uses the same hotkey label</li>
-    </ul>
-    <h3>Revision 6</h3>
-    <ul>
-      <li>V0.6 Merged with AutoHotkey v.1.0.48.02_L27 </li>
-      <li>Multi-threading: <a href="http://github.com/tinku99/ahkdll.git/Test/testThreads/">Examples</a></li>
-    </ul>
-    <h3>Revision 5 - 04/23/2009</h3>
-    <ul>
-      <li>V0.5 dynamically load #include scripts  (experimental)</li>
-      <li>int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)</li>
-    </ul>
-    <h3>Revision 4</h3>
-    <ul>
-      <li>V0.4 parse a line containing an ahk command or expression  </li>
-      <li>linePointer := int createLine(char *line, int actiontype) removed in R7 </li>
-    </ul>
-    <h3>Revision 3</h3>
-    <ul>
-      <li>V0.3. added support for option: /Debug <a href="http://www.autohotkey.net/%7ELexikos/AutoHotkey_L/docs/Debugging_Features.htm">see Lexikos' Debugger</a></li>
-    </ul>
-    <h3>Revision 2</h3>
-    <ul>
-      <li>V0.2: Merged with AutoHotkey_1.0.48_L26</li>
-    </ul>
-
-  <script type="text/javascript"><!--
-					      function __RP_Callback_Helper(str, strCallbackEvent, splitSize, func){var event = null;if (strCallbackEvent){event = document.createEvent('Events');event.initEvent(strCallbackEvent, true, true);}if (str && str.length > 0){var splitList = str.split('|');var strCompare = str;if (splitList.length == splitSize)strCompare = splitList[splitSize-1];var pluginList = document.plugins;for (var count = 0; count < pluginList.length; count++){var sSrc = '';if (pluginList[count] && pluginList[count].src)sSrc = pluginList[count].src;if (strCompare.length >= sSrc.length){if (strCompare.indexOf(sSrc) != -1){func(str, count, pluginList, splitList);break;}}}}if (strCallbackEvent)document.body.dispatchEvent(event);}function __RP_Coord_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Coord_Callback = str;pluginList[index].__RP_Coord_Callback_Left = splitList[0];pluginList[index].__RP_Coord_Callback_Top = splitList[1];pluginList[index].__RP_Coord_Callback_Right = splitList[2];pluginList[index].__RP_Coord_Callback_Bottom = splitList[3];};__RP_Callback_Helper(str, 'rp-js-coord-callback', 5, func);}function __RP_Url_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Url_Callback = str;pluginList[index].__RP_Url_Callback_Vid = splitList[0];pluginList[index].__RP_Url_Callback_Parent = splitList[1];};__RP_Callback_Helper(str, 'rp-js-url-callback', 3, func);}function __RP_TotalBytes_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_TotalBytes_Callback = str;pluginList[index].__RP_TotalBytes_Callback_Bytes = splitList[0];};__RP_Callback_Helper(str, null, 2, func);}function __RP_Connection_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Connection_Callback = str;pluginList[index].__RP_Connection_Callback_Url = splitList[0];};__RP_Callback_Helper(str, null, 2, func);}
-					      //--></script></body><script type="text/javascript"><!--
-function __RP_Callback_Helper(str, strCallbackEvent, splitSize, func){var event = null;if (strCallbackEvent){event = document.createEvent('Events');event.initEvent(strCallbackEvent, true, true);}if (str && str.length > 0){var splitList = str.split('|');var strCompare = str;if (splitList.length == splitSize)strCompare = splitList[splitSize-1];var pluginList = document.plugins;for (var count = 0; count < pluginList.length; count++){var sSrc = '';if (pluginList[count] && pluginList[count].src)sSrc = pluginList[count].src;if (strCompare.length >= sSrc.length){if (strCompare.indexOf(sSrc) != -1){func(str, count, pluginList, splitList);break;}}}}if (strCallbackEvent)document.body.dispatchEvent(event);}function __RP_Coord_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Coord_Callback = str;pluginList[index].__RP_Coord_Callback_Left = splitList[0];pluginList[index].__RP_Coord_Callback_Top = splitList[1];pluginList[index].__RP_Coord_Callback_Right = splitList[2];pluginList[index].__RP_Coord_Callback_Bottom = splitList[3];};__RP_Callback_Helper(str, 'rp-js-coord-callback', 5, func);}function __RP_Url_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Url_Callback = str;pluginList[index].__RP_Url_Callback_Vid = splitList[0];pluginList[index].__RP_Url_Callback_Parent = splitList[1];};__RP_Callback_Helper(str, 'rp-js-url-callback', 3, func);}function __RP_TotalBytes_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_TotalBytes_Callback = str;pluginList[index].__RP_TotalBytes_Callback_Bytes = splitList[0];};__RP_Callback_Helper(str, null, 2, func);}function __RP_Connection_Callback(str){var func = function(str, index, pluginList, splitList){pluginList[index].__RP_Connection_Callback = str;pluginList[index].__RP_Connection_Callback_Url = splitList[0];};__RP_Callback_Helper(str, null, 2, func);}
-//--></script></html>
+</html>

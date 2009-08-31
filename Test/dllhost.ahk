@@ -1,11 +1,3 @@
-/*
-by Naveen Garg
-dllhost.ahk
-*/
-gosub start
-return
-
-F1::
 start:
 ahkdll := DllCall("LoadLibrary", "str", A_ScriptDir . "\AutoHotkey.dll")
 sleep, 500

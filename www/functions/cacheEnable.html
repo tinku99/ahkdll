@@ -1,0 +1,28 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <title>LowLevel - cacheEnable</title>
+<link href="../css/commands.css" rel="stylesheet" type="text/css">
+<link href="../css/print.css" rel="stylesheet" type="text/css" media="print">
+</head>
+<body>
+  <h1>cacheEnable</h1>
+  <p>Re-enables binary number caching for a variable.</p>
+  <p class="CommandSyntax">cacheEnable(var)<br>
+cacheEnable(%varContainingNameOfVar%)</p>
+  <h2>Parameters</h2>
+<table border="1" width="100%" cellspacing="0" cellpadding="3" bordercolor="#C0C0C0">
+    <tr>
+      <td width="15%">var</td>
+      <td width="85%">An unquoted variable reference. </td>
+    </tr>
+  </table>
+  <h2>Remarks</h2>
+code from Lexikos, for compatibility with his <a href=
+"http://www.autohotkey.com/forum/viewtopic.php?t=26300">lowlevel</a> functions. 
+  <p>In AutoHotkey v1.0.48, binary numbers are cached in variables to avoid conversions to/from strings. However, taking the address of a variable (e.g. &amp;var) marks that variable as uncacheable because it allows the user to read/write its contents in unconventional ways. This function may be used to re-enable binary number caching; however, any address previously taken may become invalid or out-of-sync with the actual contents of the variable.</p>
+  <p>If <strong>var</strong> is a ByRef parameter, caching is re-enabled for the underlying variable.</p>
+</body>
+</html>

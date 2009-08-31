@@ -1,0 +1,31 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <title>LowLevel - static</title>
+<link href="../css/commands.css" rel="stylesheet" type="text/css">
+<link href="../css/print.css" rel="stylesheet" type="text/css" media="print">
+</head>
+<body>
+  <h1>static</h1>
+  <p>Makes a variable static.</p>
+  <p class="CommandSyntax">static(var)<br>
+static(%varContainingNameOfVar%)</p>
+  <h2>Parameters</h2>
+<table border="1" width="100%" cellspacing="0" cellpadding="3" bordercolor="#C0C0C0">
+    <tr>
+      <td width="15%">var</td>
+      <td width="85%">A reference to a local variable or non-ByRef parameter. </td>
+    </tr>
+  </table>
+  <h2>Remarks</h2>
+code from Lexikos, for compatibility with his <a href=
+"http://www.autohotkey.com/forum/viewtopic.php?t=26300">lowlevel</a> functions. 
+  <h2>Example</h2>
+  <pre><em>; Assign a variable and make it static at the same time: </em>
+static(%VarContainingNameOfVar% := Value)
+</pre>
+
+</body>
+</html>

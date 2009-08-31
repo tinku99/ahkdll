@@ -1,0 +1,37 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<title>FileReadLine</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<link href="../css/commands.css" rel="stylesheet" type="text/css">
+<link href="../css/print.css" rel="stylesheet" type="text/css" media="print">
+</head>
+<body>
+
+<h1>FileReadLine from stdin</h1>
+<hr size="2">
+
+<p class="CommandSyntax">FileReadLine, OutputVar, Filename, LineNum</p>
+<h2>Parameters</h2>
+<table border="1" width="100%" cellspacing="0" cellpadding="3" bordercolor="#C0C0C0">
+  <tr>
+    <td>Filename</td>
+    <td><strong>Standard Input (stdin)</strong>: Specifying stdin for <em>Filename</em> causes <em>Text</em> to be read from standard input (stdin). Such text can be piped from a file
+  </tr>
+ <tr>
+    <td>LineNum</td>
+    <td>should be 1 with stdin</td>
+  </tr>
+</table>
+<h2>Example</h2>
+<pre class="NoIndent">
+FileReadLine, line1, stdin, 1
+FileReadLine, line2, stdin, 1
+listvars
+msgbox
+...
+> type script.ahk | autohotkey.exe script.ahk
+</pre>
+</body>
+</html>

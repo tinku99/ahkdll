@@ -1,15 +1,10 @@
+DllCall("AutoHotkey.exe\addFile", "str", "lateadded.ahk", "uchar"
+, 0, "uchar" , 0, "Cdecl UInt")
+; import("addfile.ahk")
 return
-
-F2::
-Import("addfile.ahk", 1, 2)
-return
-
-!r::Reload
 !q::ExitApp
 
-
 F3::
-x = test
-gosub %x%
+x := "added"
+%x%()
 return
-
