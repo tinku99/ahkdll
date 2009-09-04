@@ -14498,7 +14498,7 @@ ResultType Script::ActionExec(char *aAction, char *aParams, char *aWorkingDir, b
 
 
 EXPORT unsigned int ahkgethandle(char *name)  // ahkwine 1.0
-{
+{  //todo: for some reason can't put this in exports.cpp file... causes issues with definition placement 
 if( !stricmp(name, "g_hWnd"))
   return (unsigned int)g_hWnd;  
 if( !stricmp(name, "g_hWndEdit"))
