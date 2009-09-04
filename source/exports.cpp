@@ -49,6 +49,7 @@ EXPORT int ahkLabel(char *aLabelName)
 	}
 	else
 		return -1;
+	
 }
 
 #ifdef DLLN

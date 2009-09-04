@@ -14494,3 +14494,20 @@ ResultType Script::ActionExec(char *aAction, char *aParams, char *aWorkingDir, b
 		CloseHandle(hprocess); // Required to avoid memory leak.
 	return OK;
 }
+
+
+
+EXPORT unsigned int ahkgethandle(char *name)  // ahkwine 1.0
+{
+if( !stricmp(name, "g_hWnd"))
+  return (unsigned int)g_hWnd;  
+if( !stricmp(name, "g_hWndEdit"))
+  return (unsigned int)g_hWndEdit;  
+if( !stricmp(name, "g_HookThreadID"))
+  return (unsigned int)g_HookThreadID;  
+if( !stricmp(name, "g_MainThreadID"))
+  return (unsigned int)g_MainThreadID;  
+if( !stricmp(name, "g_hInstance"))
+  return (unsigned int)g_hInstance;  
+return -1;
+}	
