@@ -3,7 +3,7 @@
 #NoEnv
 
 start:
-ahkdll := DllCall("LoadLibrary", "str", A_ScriptDir . "\AutoHotkey.dll")
+ahkdll := DllCall("LoadLibrary", "str", "AutoHotkey.dll")
 
 InputBox, Script, Script, Enter a line of script to execute.,,, 120,,,,, MsgBox :D
 
@@ -23,7 +23,7 @@ if (pipe=-1 or pipe_ga=-1) {
     ExitApp
 }
 
-DllCall(A_ScriptDir . "\AutoHotkey\ahkdll", "str", fullpipe_name, "str"
+DllCall("AutoHotkey.dll\ahkdll", "str", fullpipe_name, "str"
 , "", "str", "parameters", "Cdecl Int")
 sleep, 1000  
 ; Run, %A_AhkPath% "\\.\pipe\%pipe_name%"
