@@ -423,6 +423,11 @@ else // since this is not a recognized switch, the end of the [Switches] section
 		// don't write-cache it either.
 		clipboard_var->DisableCache();
 
+
+
+
+
+
 	// Run the auto-execute part at the top of the script (this call might never return):
 	if (!g_script.AutoExecSection()) // Can't run script at all. Due to rarity, just abort.
 		return CRITICAL_ERROR;
@@ -485,3 +490,6 @@ EXPORT int ahkContinue()
 
 
 #endif
+
+
+

@@ -30,6 +30,14 @@ EXPORT VarSizeType ahkgetvar(char *name, char *output)
 	return ahkvar->Get(output);  // var.getText() added in V1. 
 }	
 
+EXPORT int ahkassign(char *name, char *value) // ahkwine 0.1
+{
+	Var *var;
+if (   !(var = g_script.FindOrAddVar(name, strlen(name)))   )
+				return -1;  // Realistically should never happen.
+			var->Assign(value); 
+			return 0; // success
+}
 
 EXPORT int ahkLabel(char *aLabelName)
 {
@@ -41,6 +49,7 @@ EXPORT int ahkLabel(char *aLabelName)
 	}
 	else
 		return -1;
+	
 }
 
 #ifdef DLLN
