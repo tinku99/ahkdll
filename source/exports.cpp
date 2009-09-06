@@ -49,8 +49,37 @@ EXPORT int ahkLabel(char *aLabelName)
 	}
 	else
 		return -1;
-	
 }
+
+EXPORT int ahkKey(vk_type aVK) // WPARAM key, PKBDLLHOOKSTRUCT event
+{
+//	modLR_type modifiersLR_now = -; // sSendMode ? sEventModifiersLR : GetModifierLRState();
+//	SetModifierLRState((modifiersLR_now | MOD_LALT) & ~(MOD_RALT | MOD_LCONTROL | MOD_RCONTROL | MOD_LSHIFT | MOD_RSHIFT)
+//		, modifiersLR_now, NULL, false // Pass false because there's no need to disguise the down-event of LALT.
+//		, true, KEY_IGNORE); // Pass true so that any release of RALT is disguised (Win is never released here).
+	 KeyEvent(KEYDOWNANDUP, aVK, 0, 0, false, 0);
+		return 0;
+}
+/*
+typedef UCHAR modLR_type; // Only the left-right win/alt/ctrl/shift rather than their generic counterparts.
+#define MODLR_MAX 0xFF
+#define MODLR_COUNT 8
+#define MOD_LCONTROL 0x01
+#define MOD_RCONTROL 0x02
+#define MOD_LALT 0x04
+#define MOD_RALT 0x08
+#define MOD_LSHIFT 0x10
+#define MOD_RSHIFT 0x20
+#define MOD_LWIN 0x40
+#define MOD_RWIN 0x80
+	event->vkCode = (vk_type)key;
+	event->scanCode = event->vkCode;
+	event->flags = 0;
+	event->time = GetTickCount();
+	event->dwExtraInfo = 0;
+//	LowLevelKeybdProc(0, 100, (LPARAM)event);  
+*/
+
 
 #ifdef DLLN
 // Naveen: v6 addFile()
@@ -262,3 +291,8 @@ bool callFunc(WPARAM awParam, LPARAM alParam)
 	
 	return 0 ; // block_further_processing; // If false, the caller will ignore aMsgReply and process this message normally. If true, aMsgReply contains the reply the caller should immediately send for this message.
 }
+
+
+
+
+
