@@ -511,7 +511,7 @@ inline char *UTOA(unsigned long value, char *buf)
 #ifdef AHKMINGW
 #define Get_active_window_keybd_layout \
 	HWND active_window = GetForegroundWindow();\
-	HKL active_window_keybd_layout = GetKeyboardLayout(g_MainThreadID); 
+	HKL active_window_keybd_layout = g_HKL; 
 	// ahkmingw wine doesn't support multiple keyboard layouts
 #else
 #define Get_active_window_keybd_layout \
