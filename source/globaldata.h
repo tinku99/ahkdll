@@ -24,8 +24,8 @@ GNU General Public License for more details.
 
 #include "Debugger.h"
 
-extern HKL g_HKL;
-extern HINSTANCE g_hInstance;
+extern HKL g_HKL;  // ahkx
+extern HINSTANCE g_hInstance; 
 extern DWORD g_MainThreadID;  // Naveen # TODO N10
 extern DWORD g_HookThreadID;
 extern CRITICAL_SECTION g_CriticalRegExCache;

@@ -238,7 +238,7 @@ void SendKeys(char *aKeys, bool aSendRaw, SendModes aSendModeOrig, HWND aTargetW
 		//else no foreground window, so keep keybd_layout_thread at default.
 	}
 #ifdef AHKMINGW
-	sTargetKeybdLayout = GetKeyboardLayout(g_MainThreadID); // If keybd_layout_thread==0, this will get our thread's own layout, which seems like the best/safest default.
+	sTargetKeybdLayout = g_HKL; // If keybd_layout_thread==0, this will get our thread's own layout, which seems like the best/safest default.
 	sTargetLayoutHasAltGr = LayoutHasAltGr(sTargetKeybdLayout);  // Note that WM_INPUTLANGCHANGEREQUEST is not monitored by MsgSleep for the purpose of caching our thread's keyboard layout.  This is because it would be unreliable if another msg pump such as MsgBox is running.  Plus it hardly helps perf. at all, and hurts maintainability.
 #else
 	sTargetKeybdLayout = GetKeyboardLayout(keybd_layout_thread); // If keybd_layout_thread==0, this will get our thread's own layout, which seems like the best/safest default.
@@ -1667,7 +1667,7 @@ void KeyEvent(KeyEventTypes aEventType, vk_type aVK, sc_type aSC, HWND aTargetWi
 				// Below is similar to the macro "Get_active_window_keybd_layout":
 				HWND active_window = GetForegroundWindow();
 #ifdef AHKMINGW
-				target_keybd_layout = GetKeyboardLayout(g_MainThreadID); // When no foreground window, the script's own layout seems like the safest default.
+				target_keybd_layout = g_HKL; // When no foreground window, the script's own layout seems like the safest default.
 				target_layout_has_altgr = LayoutHasAltGr(target_keybd_layout); // In the case of this else's "if", target_layout_has_altgr was already set properly higher above.
 #else
 				target_keybd_layout = GetKeyboardLayout((active_window = GetForegroundWindow())\

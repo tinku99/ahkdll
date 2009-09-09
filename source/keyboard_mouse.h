@@ -321,7 +321,6 @@ char *SCtoKeyName(sc_type aSC, char *aBuf, int aBufSize);
 char *VKtoKeyName(vk_type aVK, sc_type aSC, char *aBuf, int aBufSize);
 sc_type TextToSC(char *aText);
 #ifdef  AHKMINGW
-extern DWORD g_MainThreadID; 
 extern HKL g_HKL;   // Naveen # TODO N10
 vk_type TextToVK(char *aText, modLR_type *pModifiersLR = NULL, bool aExcludeThoseHandledByScanCode = false
 	, bool aAllowExplicitVK = true, HKL aKeybdLayout = g_HKL); // ahkmingw
