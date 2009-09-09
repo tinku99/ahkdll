@@ -7,6 +7,7 @@ Release
 _UpgradeReport_Files
 RAUTODLL
 RDLL
+DebugMingw
 DebugDll
 AutoDll
 Debug

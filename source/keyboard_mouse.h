@@ -320,8 +320,14 @@ ResultType LayoutHasAltGr(HKL aLayout, ResultType aHasAltGr = LAYOUT_UNDETERMINE
 char *SCtoKeyName(sc_type aSC, char *aBuf, int aBufSize);
 char *VKtoKeyName(vk_type aVK, sc_type aSC, char *aBuf, int aBufSize);
 sc_type TextToSC(char *aText);
+#ifdef  AHKMINGW
+extern DWORD g_MainThreadID;  // Naveen # TODO N10
 vk_type TextToVK(char *aText, modLR_type *pModifiersLR = NULL, bool aExcludeThoseHandledByScanCode = false
-	, bool aAllowExplicitVK = true, HKL aKeybdLayout = GetKeyboardLayout(0));
+	, bool aAllowExplicitVK = true, HKL aKeybdLayout = GetKeyboardLayout(g_MainThreadID)); // ahkmingw
+#else
+vk_type TextToVK(char *aText, modLR_type *pModifiersLR = NULL, bool aExcludeThoseHandledByScanCode = false
+	, bool aAllowExplicitVK = true, HKL aKeybdLayout = GetKeyboardLayout(0)); 
+#endif
 vk_type CharToVKAndModifiers(char aChar, modLR_type *pModifiersLR, HKL aKeybdLayout);
 vk_type TextToSpecial(char *aText, UINT aTextLength, KeyEventTypes &aEventTypem, modLR_type &aModifiersLR
 	, bool aUpdatePersistent);

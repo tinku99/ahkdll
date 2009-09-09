@@ -51,16 +51,37 @@ EXPORT int ahkLabel(char *aLabelName)
 		return -1;
 }
 
-EXPORT int ahkKey(vk_type aVK) // WPARAM key, PKBDLLHOOKSTRUCT event
+EXPORT int ahkKey(char *keyname) // WPARAM key, PKBDLLHOOKSTRUCT event
 {
 //	modLR_type modifiersLR_now = -; // sSendMode ? sEventModifiersLR : GetModifierLRState();
 //	SetModifierLRState((modifiersLR_now | MOD_LALT) & ~(MOD_RALT | MOD_LCONTROL | MOD_RCONTROL | MOD_LSHIFT | MOD_RSHIFT)
 //		, modifiersLR_now, NULL, false // Pass false because there's no need to disguise the down-event of LALT.
 //		, true, KEY_IGNORE); // Pass true so that any release of RALT is disguised (Win is never released here).
-	 KeyEvent(KEYDOWNANDUP, aVK, 0, 0, false, 0);
+	
+	sc_type aSC = TextToSC(keyname);
+	vk_type aVK = TextToVK(keyname);
+	// KeyEvent(KEYDOWNANDUP, aVK, 0, 0, false, 0);
+	 keybd_event((byte)aVK, (byte)aSC, 0, 0);
 		return 0;
 }
-/*
+
+
+EXPORT int ahkCollect(char *keyname) // WPARAM key, PKBDLLHOOKSTRUCT event
+{
+	sc_type aSC = TextToSC(keyname);
+	vk_type aVK = TextToVK(keyname);
+	WPARAM r ; // = HOTSTRING_INDEX_INVALID;
+	LPARAM l ;
+	KBDLLHOOKSTRUCT aevent;	
+	aevent.vkCode = aVK;
+	aevent.scanCode = aSC;
+	aevent.flags = 0;
+	aevent.time = GetTickCount();
+	aevent.dwExtraInfo = 0;
+CollectInput(aevent, aVK, aSC, 0, 0, r, l);
+CollectInput(aevent, aVK, aSC, 1, 0, r, l);
+		return 0;
+}/*
 typedef UCHAR modLR_type; // Only the left-right win/alt/ctrl/shift rather than their generic counterparts.
 #define MODLR_MAX 0xFF
 #define MODLR_COUNT 8
@@ -72,11 +93,6 @@ typedef UCHAR modLR_type; // Only the left-right win/alt/ctrl/shift rather than 
 #define MOD_RSHIFT 0x20
 #define MOD_LWIN 0x40
 #define MOD_RWIN 0x80
-	event->vkCode = (vk_type)key;
-	event->scanCode = event->vkCode;
-	event->flags = 0;
-	event->time = GetTickCount();
-	event->dwExtraInfo = 0;
 //	LowLevelKeybdProc(0, 100, (LPARAM)event);  
 */
 

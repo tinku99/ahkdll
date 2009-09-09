@@ -1,14 +1,11 @@
-::ba::
-msgbox ba
+F1::
+DllCall(A_ScriptDir . "\AutoHotkey.exe\ahkKey", "uchar", 65, "cdecl")
+msgbox  % errorlevel
 return
-
 a::
 msgbox a
 return
 
-+b::
-msgbox +b
-return
 /*a
 a
 wparam: 256
