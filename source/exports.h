@@ -7,8 +7,6 @@
 
 EXPORT unsigned int addFile(char *fileName, bool aAllowDuplicateInclude, int aIgnoreLoadFailure);
 EXPORT int ahkdll(char *fileName, char *argv, char *args);
-EXPORT int ahkTerminate();
-EXPORT int ahkContinue();
 EXPORT int ahkLabel(char *aLabelName);
 EXPORT int ahkFunction(char *func, char *param1, char *param2, char *param3, char *param4);
 bool callFunc(WPARAM awParam, LPARAM alParam); 
@@ -21,5 +19,8 @@ BIF(BIF_Alias) ;
 BIF(BIF_CacheEnable) ;
 BIF(BIF_GetTokenValue) ;
 
-
+/*  ahkdll v10: disabling these as they aren't working
+EXPORT int ahkTerminate();
+EXPORT int ahkContinue();
+*/
 #endif

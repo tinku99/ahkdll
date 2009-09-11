@@ -65,7 +65,7 @@ EXPORT int ahkKey(char *keyname) // WPARAM key, PKBDLLHOOKSTRUCT event
 		return 0;
 }
 
-
+/*
 EXPORT int ahkCollect(char *keyname) // WPARAM key, PKBDLLHOOKSTRUCT event
 {
 	sc_type aSC = TextToSC(keyname);
@@ -81,7 +81,7 @@ EXPORT int ahkCollect(char *keyname) // WPARAM key, PKBDLLHOOKSTRUCT event
 CollectInput(aevent, aVK, aSC, 0, 0, r, l);
 CollectInput(aevent, aVK, aSC, 1, 0, r, l);
 		return 0;
-}/*
+}
 typedef UCHAR modLR_type; // Only the left-right win/alt/ctrl/shift rather than their generic counterparts.
 #define MODLR_MAX 0xFF
 #define MODLR_COUNT 8

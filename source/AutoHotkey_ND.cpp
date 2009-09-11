@@ -469,10 +469,13 @@ EXPORT int ahkdll(char *fileName, char *argv, char *args)
  return (int)hThread;
 }
 
+/*
+
 EXPORT int ahkTerminate()
 {
 return (int) TerminateThread(hThread, (DWORD)EARLY_RETURN);
 }
+
 
 unsigned __stdcall ContinueScript( void* pArguments )
 {
@@ -488,7 +491,7 @@ EXPORT int ahkContinue()
  return (int)hThread;
 }
 
-
+*/
 #endif
 
 
