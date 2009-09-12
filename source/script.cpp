@@ -7021,6 +7021,50 @@ Func *Script::FindFuncInLibrary(char *aFuncName, size_t aFuncNameLength, bool &a
 }
 #endif
 
+int Script::AddBIF(char *aFuncName, BuiltInFunctionType bif, size_t min_params, size_t max_params) // N10: added for plugin BIFs
+{
+	// global mFunc[], mFuncCount
+	size_t aFuncNameLength = strlen(aFuncName);  
+
+	if (aFuncNameLength > MAX_VAR_NAME_LENGTH)
+		return -1;
+
+// The following copy is made because it allows the name searching to use stricmp() instead of
+	// strlicmp(), which close to doubles the performance.  The copy includes only the first aVarNameLength
+	// characters from aVarName:
+	char func_name[MAX_VAR_NAME_LENGTH + 1];
+	strlcpy(func_name, aFuncName, aFuncNameLength + 1);  // +1 to convert length to size.
+
+	int left, right, mid, result;
+	for (left = 0, right = mFuncCount - 1; left <= right;)
+	{
+		mid = (left + right) / 2;
+		result = stricmp(func_name, mFunc[mid]->mName); // lstrcmpi() is not used: 1) avoids breaking exisitng scripts; 2) provides consistent behavior across multiple locales; 3) performance.
+		if (result > 0)
+			left = mid + 1;
+		else if (result < 0)
+			right = mid - 1;
+		else // Match found.  mFunc[mid]
+			return -2 ;  // N10: BIF already exists, TODO:  should enable replacements later
+	}
+
+	if (!min_params) 
+		min_params = 1;
+	if (!max_params) 
+		max_params = 1;
+
+	Func *pfunc;
+
+	if (   !(pfunc = AddFunc(func_name, aFuncNameLength, true, left))   ) // L27: left contains the position within mFunc to insert the function.  
+		return -3;
+
+	pfunc->mBIF = bif;
+	pfunc->mMinParams = min_params;
+	pfunc->mParamCount = max_params;
+return 0;	// from AddBIF
+}
+
+
 
 
 Func *Script::FindFunc(char *aFuncName, size_t aFuncNameLength, int *apInsertPos) // L27: Added apInsertPos for binary-search.
@@ -7236,13 +7280,15 @@ Func *Script::FindFunc(char *aFuncName, size_t aFuncNameLength, int *apInsertPos
 		min_params = 1;
 		max_params = 1;
 	}
+/*
 	else if (!stricmp(func_name, "Import"))  // addFile() Naveen v8.
 	{
 		bif = BIF_Import;
 		min_params = 1;
 		max_params = 3;
 	}
-else if (!stricmp(func_name, "Static"))  // lowlevel() Naveen v9.
+*/
+	else if (!stricmp(func_name, "Static"))  // lowlevel() Naveen v9.
 	{
 		bif = BIF_Static;
 		min_params = 1;
@@ -7254,7 +7300,7 @@ else if (!stricmp(func_name, "Static"))  // lowlevel() Naveen v9.
 		min_params = 1;
 		max_params = 2;
 	}
-else if (!stricmp(func_name, "GetTokenValue"))  // lowlevel() Naveen v9.
+	else if (!stricmp(func_name, "GetTokenValue"))  // lowlevel() Naveen v9.
 	{
 		bif = BIF_GetTokenValue;
 		min_params = 1;

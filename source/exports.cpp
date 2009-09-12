@@ -311,4 +311,8 @@ bool callFunc(WPARAM awParam, LPARAM alParam)
 
 
 
-
+int initPlugins() // N10 plugins
+{
+	g_script.AddBIF("Import", BIF_Import, 1, 3) ;
+	return 0 ;
+}

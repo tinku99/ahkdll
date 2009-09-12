@@ -2543,7 +2543,7 @@ public:
 #endif
 	Func *FindFunc(char *aFuncName, size_t aFuncNameLength = 0, int *apInsertPos = NULL); // L27: Added apInsertPos for binary-search.
 	Func *AddFunc(char *aFuncName, size_t aFuncNameLength, bool aIsBuiltIn, int aInsertPos); // L27: Added aInsertPos for binary-search.
-
+	int AddBIF(char *aFuncName, BuiltInFunctionType bif, size_t minparams, size_t maxparams); // N10 added for dynamic BIFs
 	#define ALWAYS_USE_DEFAULT  0
 	#define ALWAYS_USE_GLOBAL   1
 	#define ALWAYS_USE_LOCAL    2

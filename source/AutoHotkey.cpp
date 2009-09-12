@@ -161,6 +161,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	var->Assign(script_param_num - 1);
 
 	global_init(*g);  // Set defaults prior to the below, since below might override them for AutoIt2 scripts.
+	initPlugins();  // N10 plugins
 
 // Set up the basics of the script:
 #ifdef AUTOHOTKEYSC
@@ -169,7 +170,6 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	if (g_script.Init(*g, script_filespec, restart_mode) != OK)  // Set up the basics of the script, using the above.
 #endif
 		return CRITICAL_ERROR;
-
 	// Set g_default now, reflecting any changes made to "g" above, in case AutoExecSection(), below,
 	// never returns, perhaps because it contains an infinite loop (intentional or not):
 	CopyMemory(&g_default, g, sizeof(global_struct));

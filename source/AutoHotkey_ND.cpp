@@ -271,6 +271,8 @@ else // since this is not a recognized switch, the end of the [Switches] section
 // Naveen Todo: change 'g' to a more descriptive and easily searchable name such as threadStruct
 	global_init(*g);  // Set defaults prior to the below, since below might override them for AutoIt2 scripts.
 
+	initPlugins(); // N10 plugins
+
 // Set up the basics of the script:
 #ifdef AUTOHOTKEYSC
 	if (g_script.Init(*g, "", restart_mode) != OK) 
@@ -422,11 +424,6 @@ else // since this is not a recognized switch, the end of the [Switches] section
 		// Since other applications and the user should see any changes the program makes to the clipboard,
 		// don't write-cache it either.
 		clipboard_var->DisableCache();
-
-
-
-
-
 
 	// Run the auto-execute part at the top of the script (this call might never return):
 	if (!g_script.AutoExecSection()) // Can't run script at all. Due to rarity, just abort.
