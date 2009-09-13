@@ -37,12 +37,12 @@ GNU General Public License for more details.
 #ifdef DLLN
 #define NAME_L_REVISION ".dllN10" // L14: Added .Ln for AutoHotkey_L revision n.
 #else
-#define NAME_L_REVISION ".L30N9" // L14: Added .Ln for AutoHotkey_L revision n.
+#define NAME_L_REVISION ".L30N10" // L14: Added .Ln for AutoHotkey_L revision n.
 #endif
 
 
 #endif
-#define NAME_VERSION "1.0.48.03N10" NAME_L_REVISION
+#define NAME_VERSION "1.0.48.03" NAME_L_REVISION
 #define NAME_PV NAME_P " v" NAME_VERSION
 
 // Window class names: Changing these may result in new versions not being able to detect any old instances
