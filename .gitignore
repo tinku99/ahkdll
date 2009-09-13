@@ -17,7 +17,8 @@ Release
 temp
 *.manifest
 *.dll 
-*.exe 
+*.exe
+*.zip
 *.ilk 
 *.pdb
 *.idb 
