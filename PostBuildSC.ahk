@@ -1,5 +1,5 @@
 #NoEnv
-SetWorkingDir %A_ScriptDir%\SC (self-contained)
+SetWorkingDir %A_ScriptDir%\release
 FileRead, bin, AutoHotkeySC.bin
 
 ; Clear CheckSum of NT header, since Ahk2Exe does not support non-zero values.

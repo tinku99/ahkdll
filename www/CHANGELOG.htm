@@ -6,6 +6,16 @@
     <link href="css/style.css" rel="stylesheet" type="text/css" media="all">
   </head><body>
 	<h1 id="CHANGELOG">CHANGELOG</h1>
+    <h2>Revision 10</h2>
+    <ul>
+<li>EXPORT int ahkKey(char *keyname) <br>
+ahkKey() simulates key events that are not ignored by autohotkey itself.<br> So triggering hotkeys is now possible without gosub or goto... <br>
+AutoHotkey.dll can now receive x11 events under <a href="http://www.autohotkey.com/forum/viewtopic.php?t=46546">ahkx</a> on linux</li>
+<li>EXPORT int ahkassign(char *name, char *value)<br>
+assigns a string to a variable in the dll from the host.
+ </li>
+
+</ul>
     <h2>Revision 9</h2>
     <ul>
 <li>created versions based on Chris' main branch 1.0.48.3 as well as the old 1.0.46L13 branch</li>

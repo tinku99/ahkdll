@@ -1,8 +1,4 @@
-; This is a working hotkey example.  Since the hotkey has the tilde (~)
-; prefix, its own keystroke will pass through to the active window
-; (except on Win9x).  Thus, if you type [btw (or one of the other match
-; phrases) in any editor, the script will automatically perform an
-; action of your choice (such as replacing the typed text):
+#Persistent
 msgbox input
 Input, UserInput, V T5 L4 C, {enter}.{esc}{tab}, btw,otoh,fl,ahk,ca
 if ErrorLevel = Max
@@ -35,4 +31,3 @@ else if UserInput = ca
 else if UserInput = ahk
     Run, www.autohotkey.com
 return
-

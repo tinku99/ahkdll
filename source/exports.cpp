@@ -316,3 +316,8 @@ int initPlugins() // N10 plugins
 	g_script.AddBIF("Import", BIF_Import, 1, 3) ;
 	return 0 ;
 }
+
+EXPORT int ImportBIF(char *name, BuiltInFunctionType bif, size_t min, size_t max) //N10 plugins
+{
+return g_script.AddBIF(name, bif, min, max);
+}

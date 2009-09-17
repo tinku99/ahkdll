@@ -1,36 +1,92 @@
-AutoHotkey_N
+AutoHotkey_N, AutoHotkey.dll
 Introduction
 
-AutoHotkey.dll is a shared library for autohotkey maintained by Naveen Garg.
-Features include:
+    * AutoHotkey.dll is a shared library for AutoHotkey and AutoHotkey_L maintained by Naveen Garg.
+    * AutoHotkey_N is a custom build of AutoHotkey incorporating the changes introduced by the dll.
+    * For a full list of changes, see Changelog
+    * Discuss AutoHotkey_N at the AutoHotkey Community Forums
+    * Thanks to Chris Mallett, Lexikos, Titan, and the autohotkey community. 
+
+Features
 
     * Embed the autohotkey interpreter in another program such as python or lisp
       int ahkdll(char *fileName, char *option, char *parameter)
-    * dynamically add #include type files to a running script with addfile()
+    * dynamically add #include files in the dll with addfile()
       _declspec(dllexport) int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)
     * import new scripts or replace loaded script with import(file...)
-    * Partial support for multithreading
-      by loading multiple copies of the dll under different names
+    * Multithreading by loading multiple copies of the dll under different names. Also, see HotkeyIt's work
     * Direct access to built in variables BIV
+    * make application / webserver frameworks possibe using apache modules such as modpython
 
-Download: binary, source
+Functions
 
-For a full list of changes, see Version History.
+    * addfile
+    * ahkFunction
+    * ahkLabel
+    * ahkdll
+    * ahkgetvar
+    * alias
+    * cacheEnable
+    * fileappend
+    * filereadline
+    * findfunc
+    * getTokenValue
+    * getVar
+    * import
+    * numput
+    * static
 
-Discuss AutoHotkey_N at the AutoHotkey Community Forums.
+Download
+
+    * AutoHotkey48L30N10: AutoHotkey48L30_N10.zip, source
+    * old versions
+    * based on Chris' main branch: V1.0.48.3AutoHotkeyC48N8.zip source
+    * based on AutoHotkeyV1.0.46L13 AutoHotkeyL13N6.zip source
+
 Note
 
-    * AutoHotkey.dll is a branch from Lexikos' custom build.
-    * I will try to track the main AutoHotkey branch as well: ahkcn
-    * My changes and additions to the source code follow the same license as the main AutoHotkey branch: GPLv2
+    * License: GPLv2
+    * No Warranty. Like all free software, use at your own risk
 
 Todo
 
-    * Export built in commands and functions
-    * build application / webserver framework, possibly using sparrow
-    * Reclaim / reuse memory from ignored lines and functions from repeated use of import().
+    * Allow Hotkeys to take functions (and pointers to functions) in addition to labels as targets
+    * HTML Help file
+    * self hosting parser
+    * linux port
 
-Version History
+
+
+CHANGELOG
+Revision 10
+
+    * EXPORT int ahkKey(char *keyname)
+      ahkKey() simulates key events that are not ignored by autohotkey itself.
+      So triggering hotkeys is now possible without gosub or goto...
+      AutoHotkey.dll can now receive x11 events under ahkx on linux
+    * EXPORT int ahkassign(char *name, char *value)
+      assigns a string to a variable in the dll from the host.
+
+Revision 9
+
+    * created versions based on Chris' main branch 1.0.48.3 as well as the old 1.0.46L13 branch
+    * Added builtin FindFunc() to facilitate use of Lexikos' LowLevel.ahk and code.ahk, see here
+    * Updated addfile(), so when called with 2 as the 3rd parameter.
+      For ex. addfile("somefile.ahk", 1, 2)
+      simpleheap memory used by late included files upto this point is freed. Hotkeys, labels, and functions from the first call to addfile are retained.
+      If you want to create hotkeys in later include files that have already been defined, use a dynamic function call with the Hotkey command:
+      Hotkey, label, hotkey
+    * also see post 
+
+Revision 8
+
+    * modified fileappend, to send output to stderr, with "stderr" is specified as filename.
+    * modified FileReadLine, to accept stdin for file. see this post
+    * fixed import(...) to return a line pointer to the first newly added line
+    * modified numget and numput to take numerical arguments for type in addition to the dllcall types. (number != dlltypesize)
+    * made Lexikos' LowLevel machine code functions builtins: see this post
+    * modified project file with compile settings for dll and exe for easier merging with main branch and AutoHotkey_L.
+
 Revision 7
 
     * Merged with AutoHotkey v.1.0.48.03_L30
@@ -51,7 +107,7 @@ Revision 6
     * V0.6 Merged with AutoHotkey v.1.0.48.02_L27
     * Multi-threading: Examples
 
-Revision 5 - 04/23/2009
+Revision 5
 
     * V0.5 dynamically load #include scripts (experimental)
     * int addFile(str file, uchar aAllowDuplicateInclude, uchar aIgnoreLoadFailure)
@@ -68,4 +124,3 @@ Revision 3
 Revision 2
 
     * V0.2: Merged with AutoHotkey_1.0.48_L26
-
