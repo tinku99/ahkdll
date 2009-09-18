@@ -191,11 +191,11 @@ struct key_to_sc_type // Map key names to scan codes.
 
 enum KeyStateTypes {KEYSTATE_LOGICAL, KEYSTATE_PHYSICAL, KEYSTATE_TOGGLE}; // For use with GetKeyJoyState(), etc.
 enum KeyEventTypes {KEYDOWN, KEYUP, KEYDOWNANDUP};
-
-void SendKeys(char *aKeys, bool aSendRaw, SendModes aSendModeOrig, HWND aTargetWindow = NULL);
+// N11 sendahk to inject hotkeys into ahk from itself.
+void SendKeys(char *aKeys, bool aSendRaw, SendModes aSendModeOrig, HWND aTargetWindow = NULL, unsigned int sendahk = 0);
 void SendKey(vk_type aVK, sc_type aSC, modLR_type aModifiersLR, modLR_type aModifiersLRPersistent
 	, int aRepeatCount, KeyEventTypes aEventType, modLR_type aKeyAsModifiersLR, HWND aTargetWindow
-	, int aX = COORD_UNSPECIFIED, int aY = COORD_UNSPECIFIED, bool aMoveOffset = false);
+	, int aX = COORD_UNSPECIFIED, int aY = COORD_UNSPECIFIED, bool aMoveOffset = false, unsigned int sendahk = 0);
 void SendKeySpecial(char aChar, int aRepeatCount);
 void SendASC(char *aAscii);
 
@@ -238,7 +238,7 @@ LRESULT CALLBACK PlaybackProc(int aCode, WPARAM wParam, LPARAM lParam);
 #define KEY_IGNORE 0xFFC3D44F
 #define KEY_PHYS_IGNORE (KEY_IGNORE - 1)  // Same as above but marked as physical for other instances of the hook.
 #define KEY_IGNORE_ALL_EXCEPT_MODIFIER (KEY_IGNORE - 2)  // Non-physical and ignored only if it's not a modifier.
-
+#define KEY_NOIGNORE (KEY_IGNORE - 3)  // Non-physical and ignored only if it's not a modifier. // N11
 // The default in the below is KEY_IGNORE_ALL_EXCEPT_MODIFIER, which causes standard calls to
 // KeyEvent() to update g_modifiersLR_logical_non_ignored the same way it updates g_modifiersLR_logical.
 // This is done because only the Send command has a realistic chance of interfering with (or being

@@ -92,7 +92,7 @@ void DisguiseWinAltIfNeeded(vk_type aVK)
 
 
 
-void SendKeys(char *aKeys, bool aSendRaw, SendModes aSendModeOrig, HWND aTargetWindow)
+void SendKeys(char *aKeys, bool aSendRaw, SendModes aSendModeOrig, HWND aTargetWindow, unsigned int sendahk)
 // The aKeys string must be modifiable (not constant), since for performance reasons,
 // it's allowed to be temporarily altered by this function.  mThisHotkeyModifiersLR, if non-zero,
 // should be the set of modifiers used to trigger the hotkey that called the subroutine
@@ -466,7 +466,7 @@ void SendKeys(char *aKeys, bool aSendRaw, SendModes aSendModeOrig, HWND aTargetW
 						MouseMove(click_x, click_y, placeholder, g.DefaultMouseSpeed, move_offset);
 					else // Use SendKey because it supports modifiers (e.g. ^{Click}) SendKey requires repeat_count>=1.
 						SendKey(vk, 0, mods_for_next_key, persistent_modifiers_for_this_SendKeys
-							, repeat_count, event_type, 0, aTargetWindow, click_x, click_y, move_offset);
+							, repeat_count, event_type, 0, aTargetWindow, click_x, click_y, move_offset, KEY_IGNORE - 3);
 					goto brace_case_end; // This {} item completely handled, so move on to next.
 				}
 				else if (!strnicmp(aKeys, "Raw", 3)) // This is used by auto-replace hotstrings too.
@@ -617,7 +617,10 @@ void SendKeys(char *aKeys, bool aSendRaw, SendModes aSendModeOrig, HWND aTargetW
 						// Don't tell it to save & restore modifiers because special keys like this one
 						// should have maximum flexibility (i.e. nothing extra should be done so that the
 						// user can have more control):
-						KeyEvent(event_type, vk, 0, aTargetWindow, true);
+						if (sendahk) // N11 inject keys not ignored by ahk
+							KeyEvent(event_type, vk, 0, aTargetWindow, true, KEY_NOIGNORE);
+						else
+							KeyEvent(event_type, vk, 0, aTargetWindow, true);
 						if (!sSendMode)
 							LONG_OPERATION_UPDATE_FOR_SENDKEYS
 					}
@@ -696,8 +699,15 @@ brace_case_end: // This label is used to simplify the code without sacrificing p
 			single_char_string[0] = *aKeys; // String was pre-terminated earlier.
 			if (vk = TextToVK(single_char_string, &mods_for_next_key, true, true, sTargetKeybdLayout))
 				// TextToVK() takes no measurable time compared to the amount of time SendKey takes.
+			{			
+				if (!sendahk)
 				SendKey(vk, 0, mods_for_next_key, persistent_modifiers_for_this_SendKeys, 1, KEYDOWNANDUP
 					, 0, aTargetWindow);
+				else
+				SendKey(vk, 0, mods_for_next_key, persistent_modifiers_for_this_SendKeys, 1, KEYDOWNANDUP
+					, 0, aTargetWindow, COORD_UNSPECIFIED, COORD_UNSPECIFIED, false, KEY_NOIGNORE);
+				
+			}	
 			else // Try to send it by alternate means.
 			{
 				// v1.0.40: SendKeySpecial sends only keybd_event keystrokes, not ControlSend style keystrokes:
@@ -888,7 +898,7 @@ brace_case_end: // This label is used to simplify the code without sacrificing p
 
 void SendKey(vk_type aVK, sc_type aSC, modLR_type aModifiersLR, modLR_type aModifiersLRPersistent
 	, int aRepeatCount, KeyEventTypes aEventType, modLR_type aKeyAsModifiersLR, HWND aTargetWindow
-	, int aX, int aY, bool aMoveOffset)
+	, int aX, int aY, bool aMoveOffset, unsigned int sendahk)
 // Caller has ensured that: 1) vk or sc may be zero, but not both; 2) aRepeatCount > 0.
 // This function is reponsible for first setting the correct state of the modifier keys
 // (as specified by the caller) before sending the key.  After sending, it should put the
@@ -942,7 +952,7 @@ void SendKey(vk_type aVK, sc_type aSC, modLR_type aModifiersLR, modLR_type aModi
 		&& GetCurrentThreadId() == g_MainThreadID // Exclude the hook thread because it isn't allowed to call anything like MsgSleep, nor are any calls from the hook thread within the understood/analyzed scope of this workaround.
 		)
 		while (IsKeyDownAsync(VK_LWIN) || IsKeyDownAsync(VK_RWIN)) // Even if the keyboard hook is installed, it seems best to use IsKeyDownAsync() vs. g_PhysicalKeyState[] because it's more likely to produce consistent behavior.
-			SLEEP_WITHOUT_INTERRUPTION(INTERVAL_UNSPECIFIED); // Seems best not to allow other threads to launch, for maintainability and because SendKeys() isn't designed to be interruptible. Also, INTERVAL_UNSPECIFIED performs better.
+			SLEEP_WITHOUT_INTERRUPTION(INTERVAL_UNSPECIFIED); // Seems best not to allow other threads to launch, for maintainability and because s() isn't designed to be interruptible. Also, INTERVAL_UNSPECIFIED performs better.
 			// Sleeping indefinitely seems like the lesser evil compared to having it timeout after a few seconds
 			// because having the PC become accidentally locked might have side effects such as the script continuing
 			// to operate while an incorrect/unintended window is active.
@@ -995,7 +1005,10 @@ void SendKey(vk_type aVK, sc_type aSC, modLR_type aModifiersLR, modLR_type aModi
 		else
 			// Sending mouse clicks via ControlSend is not supported, so in that case fall back to the
 			// old method of sending the VK directly (which probably has no effect 99% of the time):
+		if(!sendahk)		// N11 send events not ignored by ahk
 			KeyEvent(aEventType, aVK, aSC, aTargetWindow, true);
+		else	
+			KeyEvent(aEventType, aVK, aSC, aTargetWindow, true, sendahk);
 	} // for() [aRepeatCount]
 
 	// The final iteration by the above loop does a key or mouse delay (KeyEvent and MouseClick do it internally)

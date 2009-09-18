@@ -12531,7 +12531,7 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		SendKeys(ARG1, false, SM_PLAY);
 		return OK;
 	case ACT_SENDEVENT:
-		SendKeys(ARG1, false, SM_EVENT);
+		SendKeys(ARG1, false, SM_EVENT, 0, 1);
 		return OK;
 
 	case ACT_CLICK:
