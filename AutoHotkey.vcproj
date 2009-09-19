@@ -66,7 +66,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="wsock32.lib winmm.lib version.lib comctl32.lib"
-				OutputFile="$(OutDir)/AutoHotkey.exe"
+				OutputFile="$(OutDir)/dynacall.dll"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)/AutoHotkey.pdb"
@@ -157,7 +157,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/SAFESEH:NO /Verbose"
 				AdditionalDependencies="wsock32.lib winmm.lib version.lib comctl32.lib"
-				OutputFile="$(OutDir)/AutoHotkey.dll"
+				OutputFile="$(OutDir)/dynacall.dll"
 				LinkIncremental="1"
 				IgnoreDefaultLibraryNames="MSVCrt"
 				GenerateDebugInformation="false"
@@ -401,120 +401,7 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\source\application.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\AutoHotkey.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\clipboard.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\Debugger.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\globaldata.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\hook.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\hotkey.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\keyboard_mouse.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\mt19937ar-cok.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\os_version.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\script.cpp"
-				>
-			</File>
-			<File
 				RelativePath=".\source\script2.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\script_autoit.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\script_expression.cpp"
-				>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						Optimization="2"
-						FavorSizeOrSpeed="1"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="SC (self-contained)|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="SC (minimum size)|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="0"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath=".\source\script_gui.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\script_menu.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\script_registry.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\SimpleHeap.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\stdafx.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\util.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\var.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\window.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\source\WinGroup.cpp"
 				>
 			</File>
 		</Filter>
