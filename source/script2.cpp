@@ -70,15 +70,17 @@ struct DYNAPARM
 };
 
 
+#define EXPORT extern "C" __declspec(dllexport)
 
-DYNARESULT DynaCall(int aFlags, void *aFunction, DYNAPARM aParam[], int aParamCount, DWORD &aException
-	, void *aRet, int aRetSize, char errorlevel[32], global_struct g)
+EXPORT DYNARESULT DynaCall(int aFlags, void *aFunction, DYNAPARM aParam[], int aParamCount, DWORD &aException
+	, void *aRet, int aRetSize, char errorlevel[32])
 // Based on the code by Ton Plooy <tonp@xs4all.nl>.
 // Call the specified function with the given parameters. Build a proper stack and take care of correct
 // return value processing.
 {
+	// global_struct g = *gp ;
 	aException = 0;  // Set default output parameter for caller.
-	SetLastError(g.LastError); // v1.0.46.07: In case the function about to be called doesn't change last-error, this line serves to retain the script's previous last-error rather than some arbitrary one produced by AutoHotkey's own internal API calls.  This line has no measurable impact on performance.
+//	SetLastError(g.LastError); // v1.0.46.07: In case the function about to be called doesn't change last-error, this line serves to retain the script's previous last-error rather than some arbitrary one produced by AutoHotkey's own internal API calls.  This line has no measurable impact on performance.
 
 	// Declaring all variables early should help minimize stack interference of C code with asm.
 	DWORD *our_stack;
@@ -209,7 +211,7 @@ DYNARESULT DynaCall(int aFlags, void *aFunction, DYNAPARM aParam[], int aParamCo
 	// call GetLastError() because: Even if we could avoid calling any API function that resets LastError
 	// (which seems unlikely) it would be difficult to maintain (and thus a source of bugs) as revisions are
 	// made in the future.
-	g.LastError = GetLastError();
+	// Naveen g.LastError = GetLastError();
 
 	char buf[32];
 	esp_delta = esp_start - esp_end; // Positive number means too many args were passed, negative means too few.
