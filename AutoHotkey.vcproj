@@ -465,6 +465,89 @@
 				CommandLine="if exist upx.exe (&#x0D;&#x0A;set upx_path=upx.exe&#x0D;&#x0A;) else (&#x0D;&#x0A;if exist ..\upx.exe (&#x0D;&#x0A;set upx_path=..\upx.exe&#x0D;&#x0A;) else goto giveup&#x0D;&#x0A;)&#x0D;&#x0A;%upx_path% --best --no-lzma --filter=73 --compress-icons=0 &quot;$(TargetPath)&quot;&#x0D;&#x0A;:giveup&#x0D;&#x0A;"
 			/>
 		</Configuration>
+		<Configuration
+			Name="DebugDll|Win32"
+			OutputDirectory="$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="2"
+			CharacterSet="0"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="0"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;AHKDLL"
+				MinimalRebuild="true"
+				BasicRuntimeChecks="3"
+				RuntimeLibrary="1"
+				StructMemberAlignment="0"
+				BufferSecurityCheck="true"
+				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="2"
+				WarningLevel="3"
+				DebugInformationFormat="4"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalDependencies="wsock32.lib winmm.lib version.lib comctl32.lib"
+				OutputFile="test/AutoHotkey.dll"
+				LinkIncremental="2"
+				GenerateDebugInformation="true"
+				ProgramDatabaseFile="$(OutDir)/AutoHotkey.pdb"
+				SubSystem="2"
+				StackReserveSize="4194304"
+				StackCommitSize="0"
+				TerminalServerAware="1"
+				RandomizedBaseAddress="1"
+				DataExecutionPrevention="0"
+				TargetMachine="1"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+				AdditionalManifestFiles="source\resources\AutoHotkey.exe.manifest"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
 	</Configurations>
 	<References>
 	</References>
@@ -488,6 +571,10 @@
 			</File>
 			<File
 				RelativePath=".\source\Debugger.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\source\dllmain.cpp"
 				>
 			</File>
 			<File
@@ -623,6 +710,14 @@
 						UsePrecompiledHeader="1"
 					/>
 				</FileConfiguration>
+				<FileConfiguration
+					Name="DebugDll|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath=".\source\StringConv.cpp"
@@ -680,6 +775,10 @@
 			</File>
 			<File
 				RelativePath=".\source\lib\exearc_read.h"
+				>
+			</File>
+			<File
+				RelativePath=".\source\exports.h"
 				>
 			</File>
 			<File

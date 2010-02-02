@@ -1,5 +1,6 @@
 temp/
 bin/
+DebugDll/
 *.suo
 *.user
 *.ncb

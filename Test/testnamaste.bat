@@ -1,0 +1,1 @@
+autohotkey.exe test.ahk

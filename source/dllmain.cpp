@@ -15,11 +15,16 @@ GNU General Public License for more details.
 */
 
 #include "stdafx.h" // pre-compiled headers
-#ifndef AHKDLL
+#ifdef AHKDLL
 #include "globaldata.h" // for access to many global vars
 #include "application.h" // for MsgSleep()
 #include "window.h" // For MsgBox() & SetForegroundLockTimeout()
 #include "TextIO.h"
+
+#include "windows.h"  // N11
+#include "exports.h"  // N11
+#include <process.h>  // N11
+#include <string>
 
 // General note:
 // The use of Sleep() should be avoided *anywhere* in the code.  Instead, call MsgSleep().
@@ -29,7 +34,65 @@ GNU General Public License for more details.
 // hook functions.
 
 
-int WINAPI _tWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
+
+static struct nameHinstance
+     {
+       HINSTANCE hInstanceP;
+	   LPTSTR name ;
+	   LPTSTR argv;
+	   LPTSTR args;
+	 //  TCHAR argv[1000];
+	 //  TCHAR args[1000];
+	   int istext;
+     } nameHinstanceP ;
+
+// Naveen v1. HANDLE hThread
+// Todo: move this to struct nameHinstance
+static 	HANDLE hThread;
+
+// Naveen v1. hThread2 and threadCount
+// Todo: remove these as multithreading was implemented 
+//       with multiple loading of the dll under separate names.
+static int threadCount = 1 ; 
+static 	HANDLE hThread2;
+
+// Naveen v1. DllMain() - puts hInstance into struct nameHinstanceP 
+//                        so it can be passed to OldWinMain()
+// hInstance is required for script initialization 
+// probably for window creation
+// Todo: better cleanup in DLL_PROCESS_DETACH: windows, variables, no exit from script
+
+BOOL APIENTRY DllMain(HMODULE hInstance,DWORD fwdReason, LPVOID lpvReserved)
+ {
+switch(fwdReason)
+ {
+ case DLL_PROCESS_ATTACH:
+	 {
+		 //LPTSTR args = __targv[0];
+		 nameHinstanceP.hInstanceP = (HINSTANCE)hInstance;
+#ifdef AUTODLL
+	ahkdll("autoload.ahk", "", "");	  // used for remoteinjection of dll 
+#endif
+	   break;
+	 }
+ case DLL_THREAD_ATTACH:
+
+ break;
+
+ case DLL_PROCESS_DETACH:
+	 {
+		 CloseHandle( hThread ); // need better cleanup: windows, variables, no exit from script
+		 break;
+	 }
+ case DLL_THREAD_DETACH:
+ break;
+ }
+
+ return(TRUE); // a FALSE will abort the DLL attach
+ }
+
+
+int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {
 	// Init any globals not in "struct g" that need it:
 	g_hInstance = hInstance;
@@ -46,9 +109,10 @@ int WINAPI _tWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmd
 
 #ifndef AUTOHOTKEYSC
 	#ifdef _DEBUG
-		TCHAR *script_filespec = _T("Test\\Test.ahk");
+		TCHAR *script_filespec = _T("test.ahk");
 	#else
-		TCHAR *script_filespec = NULL; // Set default as "unspecified/omitted".
+		LPTSTR script_filespec = lpCmdLine ; // N11  
+		// TCHAR *script_filespec = NULL; // Set default as "unspecified/omitted".
 	#endif
 #endif
 
@@ -70,76 +134,33 @@ int WINAPI _tWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmd
 	bool switch_processing_is_complete = false;
 	int script_param_num = 1;
 
-	for (int i = 1; i < __argc; ++i) // Start at 1 because 0 contains the program name.
-	{
-		param = __targv[i]; // For performance and convenience.
-		if (switch_processing_is_complete) // All args are now considered to be input parameters for the script.
-		{
+LPTSTR args[4];
+//args[0] = __targv[0];   //      name of host program
+args[0] = GetCommandLine();
+args[1] = nameHinstanceP.argv;  // 1 option such as /Debug  /R /F /STDOUT
+args[2] = nameHinstanceP.name;  // name of script to launch
+args[3] = nameHinstanceP.args;  // script parameters, all in one string (* char)
+int argc = 4;
+
+	for (int i = 1; i < argc; ++i)  //	Naveen changed from:  for (int i = 1; i < __argc; ++i) see above
+	{  // Naveen: v6.1 put options in script variables as well
+		param = args[i]; // Naveen changed from: __argv[i]; see above
 			if (   !(var = g_script.FindOrAddVar(var_name, _stprintf(var_name, _T("%d"), script_param_num)))   )
 				return CRITICAL_ERROR;  // Realistically should never happen.
 			var->Assign(param);
 			++script_param_num;
-		}
-		// Insist that switches be an exact match for the allowed values to cut down on ambiguity.
-		// For example, if the user runs "CompiledScript.exe /find", we want /find to be considered
-		// an input parameter for the script rather than a switch:
-		else if (!_tcsicmp(param, _T("/R")) || !_tcsicmp(param, _T("/restart")))
-			restart_mode = true;
-		else if (!_tcsicmp(param, _T("/F")) || !_tcsicmp(param, _T("/force")))
-			g_ForceLaunch = true;
-		else if (!_tcsicmp(param, _T("/ErrorStdOut")))
-			g_script.mErrorStdOut = true;
-#ifndef AUTOHOTKEYSC // i.e. the following switch is recognized only by AutoHotkey.exe (especially since recognizing new switches in compiled scripts can break them, unlike AutoHotkey.exe).
-		else if (!_tcsicmp(param, _T("/iLib"))) // v1.0.47: Build an include-file so that ahk2exe can include library functions called by the script.
-		{
-			++i; // Consume the next parameter too, because it's associated with this one.
-			if (i >= __argc) // Missing the expected filename parameter.
-				return CRITICAL_ERROR;
-			// For performance and simplicity, open/create the file unconditionally and keep it open until exit.
-			g_script.mIncludeLibraryFunctionsThenExit = new TextFile;
-			if (!g_script.mIncludeLibraryFunctionsThenExit->Open(__targv[i], TextStream::WRITE | TextStream::EOL_CRLF | TextStream::BOM_UTF8, CP_UTF8)) // Can't open the temp file.
-				return CRITICAL_ERROR;
-		}
-#endif
+		
+	}   // Naveen: v6.1 only argv needs special processing
+	    //              script will do its own parameter parsing
+
+param = nameHinstanceP.argv ; // 
 #ifdef CONFIG_DEBUGGER
-		// Allow a debug session to be initiated by command-line.
-		else if (!g_Debugger.IsConnected() && !_tcsnicmp(param, _T("/Debug"), 6) && (param[6] == '\0' || param[6] == '='))
-		{
-			if (param[6] == '=')
-			{
-				param += 7;
 
-				LPTSTR c = _tcsrchr(param, ':');
-
-				if (c)
-				{
-					StringTCharToChar(param, g_DebuggerHost, c-param);
-					StringTCharToChar(c + 1, g_DebuggerPort);
-				}
-				else
-				{
-					StringTCharToChar(param, g_DebuggerHost);
-					g_DebuggerPort = "9000";
-				}
-			}
-			else
-			{
 				g_DebuggerHost = "localhost";
 				g_DebuggerPort = "9000";
-			}
-			// The actual debug session is initiated after the script is successfully parsed.
-		}
+
 #endif
-		else // since this is not a recognized switch, the end of the [Switches] section has been reached (by design).
-		{
-			switch_processing_is_complete = true;  // No more switches allowed after this point.
-#ifdef AUTOHOTKEYSC
-			--i; // Make the loop process this item again so that it will be treated as a script param.
-#else
-			script_filespec = param;  // The first unrecognized switch must be the script filespec, by design.
-#endif
-		}
-	}
+
 
 #ifndef AUTOHOTKEYSC
 	if (script_filespec)// Script filename was explicitly specified, so check if it has the special conversion flag.
@@ -159,6 +180,15 @@ int WINAPI _tWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmd
 	if (   !(var = g_script.FindOrAddVar(_T("0")))   )
 		return CRITICAL_ERROR;  // Realistically should never happen.
 	var->Assign(script_param_num - 1);
+
+	// N11 
+	Var *A_ScriptParams;
+	A_ScriptParams = g_script.FindOrAddVar(_T("A_ScriptParams"));	
+	A_ScriptParams->Assign(nameHinstanceP.args);
+
+	Var *A_ScriptOptions;
+	A_ScriptOptions = g_script.FindOrAddVar(_T("A_ScriptOptions"));	
+	A_ScriptOptions->Assign(nameHinstanceP.argv);
 
 	global_init(*g);  // Set defaults prior to the below, since below might override them for AutoIt2 scripts.
 
@@ -298,6 +328,7 @@ int WINAPI _tWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmd
 			InitCommonControls();
 	}
 
+	/*
 #ifdef CONFIG_DEBUGGER
 	// Initiate debug session now if applicable.
 	if (!g_DebuggerHost.IsEmpty() && g_Debugger.Connect(g_DebuggerHost, g_DebuggerPort) == DEBUGGER_E_OK)
@@ -306,6 +337,7 @@ int WINAPI _tWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmd
 	}
 #endif
 
+	*/
 	// Activate the hotkeys, hotstrings, and any hooks that are required prior to executing the
 	// top part (the auto-execute part) of the script so that they will be in effect even if the
 	// top part is something that's very involved and requires user interaction:
@@ -334,4 +366,52 @@ int WINAPI _tWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmd
 	MsgSleep(SLEEP_INTERVAL, WAIT_FOR_MESSAGES);
 	return 0; // Never executed; avoids compiler warning.
 }
+
+// Naveen: v1. runscript() - runs the script in a separate thread compared to host application.
+unsigned __stdcall runScript( void* pArguments )
+{
+	struct nameHinstance a =  *(struct nameHinstance *)pArguments;
+	
+	HINSTANCE hInstance = a.hInstanceP;
+	LPTSTR fileName = a.name;
+	OldWinMain(hInstance, 0, fileName, 0);	
+	_endthreadex( (DWORD)EARLY_RETURN );  
+    return 0;
+}
+
+void WaitIsReadyToExecute()
+{
+	 int lpExitCode = 0;
+	 while (!g_script.mIsReadyToExecute && (lpExitCode == 0 || lpExitCode == 259))
+	 {
+		 Sleep(10);
+		 GetExitCodeThread(hThread,(LPDWORD)&lpExitCode);
+	 }
+}
+
+EXPORT unsigned int ahkdll(LPTSTR fileName, LPTSTR argv, LPTSTR args)
+{
+ unsigned threadID;
+ nameHinstanceP.name = fileName ;
+ // nameHinstanceP.argv = argv ;
+ // nameHinstanceP.args = args ;
+int length = _tcslen(fileName)+1 ;
+ // nameHinstanceP.name = (LPTSTR)realloc(nameHinstanceP.name, length);
+ nameHinstanceP.argv = (LPTSTR)realloc(nameHinstanceP.argv,_tcslen(argv)+1);
+ nameHinstanceP.args = (LPTSTR)realloc(nameHinstanceP.args,_tcslen(args)+1);
+ // _tcsncpy(nameHinstanceP.name, fileName, length);
+ _tcsncpy(nameHinstanceP.argv, argv, _tcslen(argv));
+ _tcsncpy(nameHinstanceP.args, args, _tcslen(args));
+ // *(nameHinstanceP.name + _tcslen(fileName)) = '\0';
+ *(nameHinstanceP.argv + _tcslen(argv)) = '\0';
+ *(nameHinstanceP.args + _tcslen(args)) = '\0';
+ nameHinstanceP.istext = 0;
+ // if (hThread)
+ //	ahkTerminate();
+ hThread = (HANDLE)_beginthreadex( NULL, 0, &runScript, &nameHinstanceP, 0, &threadID );
+ WaitIsReadyToExecute();
+ return (unsigned int)hThread;
+}
+
+
 #endif
