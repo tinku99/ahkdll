@@ -393,18 +393,8 @@ EXPORT unsigned int ahkdll(LPTSTR fileName, LPTSTR argv, LPTSTR args)
 {
  unsigned threadID;
  nameHinstanceP.name = fileName ;
- // nameHinstanceP.argv = argv ;
- // nameHinstanceP.args = args ;
-int length = _tcslen(fileName)+1 ;
- // nameHinstanceP.name = (LPTSTR)realloc(nameHinstanceP.name, length);
- nameHinstanceP.argv = (LPTSTR)realloc(nameHinstanceP.argv,_tcslen(argv)+1);
- nameHinstanceP.args = (LPTSTR)realloc(nameHinstanceP.args,_tcslen(args)+1);
- // _tcsncpy(nameHinstanceP.name, fileName, length);
- _tcsncpy(nameHinstanceP.argv, argv, _tcslen(argv));
- _tcsncpy(nameHinstanceP.args, args, _tcslen(args));
- // *(nameHinstanceP.name + _tcslen(fileName)) = '\0';
- *(nameHinstanceP.argv + _tcslen(argv)) = '\0';
- *(nameHinstanceP.args + _tcslen(args)) = '\0';
+ nameHinstanceP.argv = argv ;
+ nameHinstanceP.args = args ;
  nameHinstanceP.istext = 0;
  // if (hThread)
  //	ahkTerminate();
