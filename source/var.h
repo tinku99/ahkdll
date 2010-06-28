@@ -123,7 +123,7 @@ public:
 	{
 		char *mByteContents;
 		LPTSTR mCharContents;
-	};
+	} ;
 	union
 	{
 		VarSizeType mByteLength;  // How much is actually stored in it currently, excluding the zero terminator.

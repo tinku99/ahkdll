@@ -15,13 +15,14 @@ EXPORT unsigned int ahkPostFunction(LPTSTR func, LPTSTR param1 = _T(""), LPTSTR 
 bool callFunc(WPARAM awParam, LPARAM alParam); 
 bool callFuncDll(); 
 // do not export callFunc, it must be called within script thread
-void BIF_FindFunc(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
-void BIF_Getvar(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
-BIF(BIF_Static) ;
-BIF(BIF_Alias) ;
-BIF(BIF_CacheEnable) ;
-BIF(BIF_GetTokenValue) ;
+BIF(__FindFunc);
+BIF(__Getvar);
+BIF(__Static) ;
+BIF(__Alias) ;
+BIF(__CacheEnable) ;
+BIF(__getTokenValue) ;
 int initPlugins();
+EXPORT unsigned int ahkFindFunc(LPTSTR funcname) ;
 #ifdef USRDLL
 EXPORT int ahkReload();
 void reloadDll();

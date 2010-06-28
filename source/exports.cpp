@@ -50,18 +50,7 @@ EXPORT int ximportfunc(ahkx_int_str func1, ahkx_int_str func2, ahkx_int_str_str 
     return 0;
 }
 
-void BIF_FindFunc(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount) // Added in Nv8.
-{
-	// Set default return value in case of early return.
-	aResultToken.symbol = SYM_INTEGER ;
-	aResultToken.marker = _T("");
-	// Get the first arg, which is the string used as the source of the extraction. Call it "findfunc" for clarity.
-	TCHAR funcname_buf[MAX_NUMBER_SIZE]; // A separate buf because aResultToken.buf is sometimes used to store the result.
-	LPTSTR funcname = TokenToString(*aParam[0], funcname_buf); // Remember that aResultToken.buf is part of a union, though in this case there's no danger of overwriting it since our result will always be of STRING type (not int or float).
-	int funcname_length = (int)EXPR_TOKEN_LENGTH(aParam[0], funcname);
-	aResultToken.value_int64 = (__int64)ahkFindFunc(funcname);
-	return;
-}
+
 // Naveen: v1. ahkgetvar()
 EXPORT LPTSTR ahkgetvar(LPTSTR name,unsigned int getVar)
 {

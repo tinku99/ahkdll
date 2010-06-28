@@ -8995,47 +8995,40 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 		min_params = 1;
 		max_params = 1;
 	}
-	else if (!_tcsicmp(func_name, _T("FindFunc")))  // addFile() Naveen v8.
+	else if (!_tcsicmp(func_name, _T("__FindFunc")))  // addFile() Naveen v8.
 	{
-		bif = BIF_FindFunc;
+		bif = __FindFunc;
 		min_params = 1;
 		max_params = 1;
 	}
-/*
-	else if (!_tcsicmp(func_name, _T("Import")))  // addFile() Naveen v8.
+
+	else if (!_tcsicmp(func_name, _T("__Static")))  // lowlevel() Naveen v9.
 	{
-		bif = BIF_Import;
-		min_params = 1;
-		max_params = 3;
-	}
-*/
-	else if (!_tcsicmp(func_name, _T("Static")))  // lowlevel() Naveen v9.
-	{
-		bif = BIF_Static;
+		bif = __Static;
 		min_params = 1;
 		max_params = 1;
 	}
-	else if (!_tcsicmp(func_name, _T("Alias")))  // lowlevel() Naveen v9.
+	else if (!_tcsicmp(func_name, _T("__Alias")))  // lowlevel() Naveen v9.
 	{
-		bif = BIF_Alias;
+		bif = __Alias;
 		min_params = 1;
 		max_params = 2;
 	}
-	else if (!_tcsicmp(func_name, _T("GetTokenValue")))  // lowlevel() Naveen v9.
+	else if (!_tcsicmp(func_name, _T("__getTokenValue")))  // lowlevel() Naveen v9.
 	{
-		bif = BIF_GetTokenValue;
+		bif = __getTokenValue;
 		min_params = 1;
 		max_params = 1;
 	}
-	else if (!_tcsicmp(func_name, _T("CacheEnable")))  // lowlevel() Naveen v9.
+	else if (!_tcsicmp(func_name, _T("__CacheEnable")))  // lowlevel() Naveen v9.
 	{
-		bif = BIF_CacheEnable;
+		bif = __CacheEnable;
 		min_params = 1;
 		max_params = 1;
 	}
-	else if (!_tcsicmp(func_name, _T("Getvar")))  // lowlevel() Naveen v9.
+	else if (!_tcsicmp(func_name, _T("__Getvar")))  // lowlevel() Naveen v9.
 	{
-		bif = BIF_Getvar;
+		bif = __Getvar;
 		min_params = 1;
 		max_params = 1;
 	}
