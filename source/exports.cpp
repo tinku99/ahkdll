@@ -323,7 +323,7 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 	if (aFunc)
 	{	
 		g_script.mTempFunc = aFunc ;
-		ExprTokenType return_value;
+		// ExprTokenType return_value;
 		if (aFunc->mParamCount > 0 && param1 != NULL)
 		{
 			// Copy the appropriate values into each of the function's formal parameters.
@@ -369,7 +369,7 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 				}
 			}
 		}
-		SendMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&return_value,NULL);
+		SendMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&aResultToken_to_return,NULL);
 		result_to_return_dll = TokenToString(aResultToken_to_return) ;
 		return result_to_return_dll;
 	}
@@ -377,7 +377,7 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 		return _T(""); 
 }
 
-bool callFuncDll()
+bool callFuncDll(ExprTokenType *aResultToken)
 {
 	
 	Func &func = *(Func *)g_script.mTempFunc ;
@@ -419,8 +419,8 @@ bool callFuncDll()
 
 		DEBUGGER_STACK_PUSH(SE_Thread, func.mJumpToLine, desc, func.mName)
 	// ExprTokenType aResultToken;
-	ExprTokenType &aResultToken = aResultToken_to_return ;
-	func.Call(&aResultToken); // Call the UDF.
+	// ExprTokenType &aResultToken = aResultToken_to_return ;
+	func.Call(aResultToken); // Call the UDF.
 
 		DEBUGGER_STACK_POP()
 
