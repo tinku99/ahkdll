@@ -5,7 +5,7 @@
 #include "script.h"
 
 static LPTSTR result_to_return_dll; //HotKeyIt H2 for ahkgetvar and ahkFunction return.
-
+ExprTokenType aResultToken_to_return ; 
 EXPORT int ahkPause(LPTSTR aChangeTo) //Change pause state of a running script
 {
 	if ( ( (*aChangeTo == 'O' || *aChangeTo == 'o') && ( *(aChangeTo+1) == 'N' || *(aChangeTo+1) == 'n' ) ) || *aChangeTo == '1')
@@ -55,35 +55,10 @@ EXPORT int ximportfunc(ahkx_int_str func1, ahkx_int_str func2, ahkx_int_str_str 
 EXPORT LPTSTR ahkgetvar(LPTSTR name,unsigned int getVar)
 {
 	Var *ahkvar = g_script.FindOrAddVar(name);
-	if (getVar != NULL)
-	{
-		if (ahkvar->mType == VAR_BUILTIN)
-			return _T("");
-		result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,MAX_INTEGER_LENGTH);
-		return ITOA64((int)ahkvar,result_to_return_dll);
-	}
-	if (!ahkvar->HasContents() && ahkvar->mType != VAR_BUILTIN )
-		return _T("");
-	if (*ahkvar->mCharContents == '\0')
-	{
-		result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,(ahkvar->mByteCapacity ? ahkvar->mByteCapacity : ahkvar->mByteLength) + MAX_NUMBER_LENGTH + 1);
-		if ( ahkvar->mType == VAR_BUILTIN )
-			ahkvar->mBIV(result_to_return_dll,name); //Hotkeyit 
-		else if ( ahkvar->mType == VAR_ALIAS )
-			ITOA64(ahkvar->mAliasFor->mContentsInt64,result_to_return_dll);
-		else if ( ahkvar->mType == VAR_NORMAL )
-			ITOA64(ahkvar->mContentsInt64,result_to_return_dll);//Hotkeyit
-	}
-	else
-	{
-		result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,ahkvar->mByteLength+1);
-		if ( ahkvar->mType == VAR_ALIAS )
-			ahkvar->mAliasFor->Get(result_to_return_dll); //Hotkeyit removed ebiv.cpp and made ahkgetvar return all vars
- 		else if ( ahkvar->mType == VAR_NORMAL )
-			ahkvar->Get(result_to_return_dll);  // var.getText() added in V1.
-		else if ( ahkvar->mType == VAR_BUILTIN )
-			ahkvar->mBIV(result_to_return_dll,name); //Hotkeyit 
-	}
+	int result_size = ahkvar->Get() + 1 ;
+    result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll, result_size);
+	ahkvar->Get(result_to_return_dll) ;
+
 	return result_to_return_dll;
 }	
 
@@ -395,6 +370,7 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 			}
 		}
 		SendMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&return_value,NULL);
+		result_to_return_dll = TokenToString(aResultToken_to_return) ;
 		return result_to_return_dll;
 	}
 	else
@@ -403,6 +379,7 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 
 bool callFuncDll()
 {
+	
 	Func &func = *(Func *)g_script.mTempFunc ;
 	if (!INTERRUPTIBLE_IN_EMERGENCY)
 		return false;
@@ -441,28 +418,12 @@ bool callFuncDll()
 
 
 		DEBUGGER_STACK_PUSH(SE_Thread, func.mJumpToLine, desc, func.mName)
-	ExprTokenType aResultToken;
+	// ExprTokenType aResultToken;
+	ExprTokenType &aResultToken = aResultToken_to_return ;
 	func.Call(&aResultToken); // Call the UDF.
-	
+
 		DEBUGGER_STACK_POP()
 
-	// Fix for v1.0.47: Must handle return_value BEFORE calling FreeAndRestoreFunctionVars() because return_value
-	// might be the contents of one of the function's local variables (which are about to be free'd).
-	if (aResultToken.symbol == PURE_INTEGER)
-	{
-		result_to_return_dll = (LPTSTR)realloc((LPTSTR)result_to_return_dll,MAX_INTEGER_LENGTH);
-		ITOA64(aResultToken.value_int64,result_to_return_dll);
-	}
-	else //if (return_value.symbol)
-	{
-		if (*TokenToString(aResultToken) != '\0')
-		{
-			result_to_return_dll = (LPTSTR)realloc((LPTSTR)result_to_return_dll,_tcslen(TokenToString(aResultToken))*sizeof(TCHAR));
-			_tcscpy(result_to_return_dll,TokenToString(aResultToken));
-		}
-		else
-			result_to_return_dll = _T("");
-	}
 	Var::FreeAndRestoreFunctionVars(func, var_backup, var_backup_count);
 	ResumeUnderlyingThread(ErrorLevel_saved);
 	return 0 ;
