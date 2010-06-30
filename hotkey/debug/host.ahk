@@ -63,6 +63,11 @@ empty:
              , "Cdecl Str")
   ; OutputDebug, % "Ran ReturnNonEmptyString"
   msgbox % R2 . "from nonempty"
+DllCall(DllPath . "\ahkPostFunction"
+             , "Str", "show", "Str", "hello"
+             , "Cdecl uint")
+  ; OutputDebug, % "Ran ReturnNonEmptyString"
+
   Return
 }
 

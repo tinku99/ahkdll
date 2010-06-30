@@ -5,7 +5,11 @@
 #include "script.h"
 
 static LPTSTR result_to_return_dll; //HotKeyIt H2 for ahkgetvar and ahkFunction return.
-ExprTokenType aResultToken_to_return ; 
+ExprTokenType aResultToken_to_return ;  // for ahkPostFunction
+FuncAndToken aFuncAndTokenToReturn ;    // for ahkPostFunction
+
+
+
 EXPORT int ahkPause(LPTSTR aChangeTo) //Change pause state of a running script
 {
 	if ( ( (*aChangeTo == 'O' || *aChangeTo == 'o') && ( *(aChangeTo+1) == 'N' || *(aChangeTo+1) == 'n' ) ) || *aChangeTo == '1')
@@ -106,8 +110,8 @@ EXPORT unsigned int ahkPostFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, L
 	Func *aFunc = g_script.FindFunc(func) ;
 	if (aFunc)
 	{	
-		g_script.mTempFunc = aFunc ;
-		ExprTokenType return_value;
+		// g_script.mTempFunc = aFunc ;
+		// ExprTokenType return_value;
 		if (aFunc->mParamCount > 0 && param1 != NULL)
 		{
 			// Copy the appropriate values into each of the function's formal parameters.
@@ -153,7 +157,12 @@ EXPORT unsigned int ahkPostFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, L
 				}
 			}
 		}
-		PostMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&return_value,NULL);
+		
+		
+		aFuncAndTokenToReturn.mFunc = aFunc ;
+		aFuncAndTokenToReturn.mToken = &aResultToken_to_return ;
+		
+		PostMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&aFuncAndTokenToReturn,NULL);
 		return 0;
 	}
 	return -1;
@@ -369,14 +378,15 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 				}
 			}
 		}
+		ExprTokenType aResultToken  ;
 		FuncAndToken aFuncAndToken ;
 		aFuncAndToken.mFunc = aFunc ;
-		aFuncAndToken.mToken = &aResultToken_to_return ;
+		aFuncAndToken.mToken = &aResultToken ;
 		SendMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&aFuncAndToken,NULL);
 		LPTSTR temp ;
-		temp = TokenToString(aResultToken_to_return) ;
+		temp = TokenToString(aResultToken) ;
 		result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll, sizeof(temp) + 2);
-		TokenToString(aResultToken_to_return, result_to_return_dll);
+		TokenToString(aResultToken, result_to_return_dll);
 		return result_to_return_dll;
 	}
 	else
