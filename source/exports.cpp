@@ -322,7 +322,7 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 	Func *aFunc = g_script.FindFunc(func) ;
 	if (aFunc)
 	{	
-		g_script.mTempFunc = aFunc ;
+		// g_script.mTempFunc = aFunc ;
 		// ExprTokenType return_value;
 		if (aFunc->mParamCount > 0 && param1 != NULL)
 		{
@@ -369,7 +369,10 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 				}
 			}
 		}
-		SendMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&aResultToken_to_return,NULL);
+		FuncAndToken aFuncAndToken ;
+		aFuncAndToken.mFunc = aFunc ;
+		aFuncAndToken.mToken = &aResultToken_to_return ;
+		SendMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&aFuncAndToken,NULL);
 		LPTSTR temp ;
 		temp = TokenToString(aResultToken_to_return) ;
 		result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll, sizeof(temp) + 2);
@@ -380,9 +383,11 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 		return _T(""); 
 }
 
-bool callFuncDll(ExprTokenType *aResultToken)
+bool callFuncDll(FuncAndToken *aFuncAndToken)
 {
-	Func &func = *(Func *)g_script.mTempFunc ;
+	Func &func =  *(aFuncAndToken->mFunc); 
+	ExprTokenType * aResultToken = aFuncAndToken->mToken ;
+	// Func &func = *(Func *)g_script.mTempFunc ;
 	if (!INTERRUPTIBLE_IN_EMERGENCY)
 		return false;
 	if (g_nThreads >= g_MaxThreadsTotal)

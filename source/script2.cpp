@@ -5506,7 +5506,7 @@ LRESULT CALLBACK MainWindowProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 		callFunc(wParam, lParam);
 		return 0;
 	case AHK_EXECUTE_FUNCTION_DLL: 
-		callFuncDll((ExprTokenType *) wParam);
+		callFuncDll((FuncAndToken *) wParam);
 		return 0;
 #ifndef MINIDLL
 	case WM_MEASUREITEM: // L17: Measure menu icon. Not used on Windows Vista or later.

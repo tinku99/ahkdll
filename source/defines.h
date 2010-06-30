@@ -588,6 +588,12 @@ typedef UINT_PTR EventInfoType;
 // a new thread typically saves the old thread's struct values on its stack so that they can later
 // be copied back into the g struct when the thread is resumed:
 class Func;                 // Forward declarations
+
+struct FuncAndToken {
+	Func * mFunc ;
+	ExprTokenType * mToken ;
+};
+
 class Label;                //
 struct RegItemStruct;       //
 struct LoopReadFileStruct;  //

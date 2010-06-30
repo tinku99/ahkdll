@@ -13,7 +13,7 @@ EXPORT unsigned int ahkLabel(LPTSTR aLabelName, unsigned int wait = 0);
 EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1 = _T(""), LPTSTR param2 = _T(""), LPTSTR param3 = _T(""), LPTSTR param4 = _T(""), LPTSTR param5 = _T(""), LPTSTR param6 = _T(""), LPTSTR param7 = _T(""), LPTSTR param8 = _T(""), LPTSTR param9 = _T(""), LPTSTR param10 = _T(""));
 EXPORT unsigned int ahkPostFunction(LPTSTR func, LPTSTR param1 = _T(""), LPTSTR param2 = _T(""), LPTSTR param3 = _T(""), LPTSTR param4 = _T(""), LPTSTR param5 = _T(""), LPTSTR param6 = _T(""), LPTSTR param7 = _T(""), LPTSTR param8 = _T(""), LPTSTR param9 = _T(""), LPTSTR param10 = _T(""));
 bool callFunc(WPARAM awParam, LPARAM alParam); 
-bool callFuncDll(ExprTokenType *aResultToken); 
+bool callFuncDll(FuncAndToken *aFuncAndToken); 
 // do not export callFunc, it must be called within script thread
 BIF(__FindFunc);
 BIF(__Getvar);
