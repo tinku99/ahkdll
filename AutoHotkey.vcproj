@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="9,00"
+	Version="9.00"
 	Name="AutoHotkey"
 	ProjectGUID="{76EFDEE3-81CF-4ADA-94DC-EA5509FF6FFC}"
 	RootNamespace="AutoHotkey"
@@ -337,7 +337,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/SAFESEH:NO /IGNORE:4037"
 				AdditionalDependencies="wsock32.lib winmm.lib version.lib comctl32.lib &quot;$(InputDir)\source\lib\exearc_read_mt.lib&quot;"
-				OutputFile="$(OutDir)/AutoHotkey.exe"
+				OutputFile="$(OutDir)/AutoHotkey_N.exe"
 				LinkIncremental="1"
 				GenerateDebugInformation="false"
 				SubSystem="2"

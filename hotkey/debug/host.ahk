@@ -1,4 +1,15 @@
 DllPath := "C:\naveen\source\AutoHotkey_H\bin\DebugDll\AutoHotkey.dll"
+fx = fx
+script = 
+(
+fx(){
+msgbox fx says hello 
+}
+
+)
+; msgbox % x := adds(A_AhkPath, script)
+; %fx%()
+
 
 OutputDebug, % "Dll Path: " . DllPath
 
@@ -17,6 +28,7 @@ handleThread
 
 OutputDebug, % "Handle thread: " . handleThread
 
+msgbox % adds(dllpath, script)
 Message =
 ( LTrim
   Press +1 to call ReturnEmptyString
@@ -50,7 +62,7 @@ msgbox % R1
     := DllCall(DllPath . "\ahkgetvar"
              , "Str", "bar"
              , "Cdecl Str")
-msgbox % R1
+
   Return
 }
 
@@ -64,7 +76,7 @@ empty:
   ; OutputDebug, % "Ran ReturnNonEmptyString"
   msgbox % R2 . "from nonempty"
 DllCall(DllPath . "\ahkPostFunction"
-             , "Str", "show", "Str", "hello"
+             , "Str", "fx"
              , "Cdecl uint")
   ; OutputDebug, % "Ran ReturnNonEmptyString"
 
@@ -73,3 +85,10 @@ DllCall(DllPath . "\ahkPostFunction"
 
 !r::reload
 !q::exitapp
+
+adds(dll, script){
+x = addsx 
+return DllCall(dll . "\addScript"
+             , "Str", script
+             , "Cdecl uint")
+}

@@ -249,7 +249,14 @@ return 0;  // never reached
 EXPORT unsigned int addFile(LPTSTR fileName, bool aAllowDuplicateInclude, int aIgnoreLoadFailure)
 {   // dynamically include a file into a script !!
 	// labels, hotkeys, functions.   
-	
+	Func * aFunc = NULL ; 
+	int inFunc = 0 ;
+	if (g->CurrentFunc)  // normally functions definitions are not allowed within functions.  But we're in a function call, not a function definition right now.
+	{
+		aFunc = g->CurrentFunc; 
+		g->CurrentFunc = NULL ; 
+		inFunc = 1 ;
+	}
 	Line *oldLastLine = g_script.mLastLine;
 	
 	if (aIgnoreLoadFailure > 1)  // if third param is > 1, reset all functions, labels, remove hotkeys
@@ -265,6 +272,9 @@ EXPORT unsigned int addFile(LPTSTR fileName, bool aAllowDuplicateInclude, int aI
 		g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, (bool) aIgnoreLoadFailure);
 	}
 	
+	if (inFunc == 1 )
+		g->CurrentFunc = aFunc ;
+
 	if (!g_script.PreparseBlocks(oldLastLine->mNextLine) || !g_script.PreparseIfElse(oldLastLine->mNextLine))
 		return LOADING_FAILED;
 	return (unsigned int) oldLastLine->mNextLine;  // 
@@ -282,7 +292,7 @@ EXPORT unsigned int addScript(LPTSTR script, int aExecute)
 {   // dynamically include a script into a script !!
 	// labels, hotkeys, functions.   
 
-	Line *oldLastLine = g_script.mLastLine;
+ 	Line *oldLastLine = g_script.mLastLine;
 	
 	if (g_script.LoadIncludedText(script) != OK)
 		return LOADING_FAILED;
@@ -307,20 +317,35 @@ EXPORT unsigned int addScript(LPTSTR script, int aExecute)
 EXPORT unsigned int addScript(LPTSTR script, int aExecute)
 {   // dynamically include a script from text!!
 	// labels, hotkeys, functions.   
-	
+	Func * aFunc = NULL ; 
+	int inFunc = 0 ;
+	if (g->CurrentFunc)  // normally functions definitions are not allowed within functions.  But we're in a function call, not a function definition right now.
+	{
+		aFunc = g->CurrentFunc; 
+		g->CurrentFunc = NULL ; 
+		inFunc = 1 ;
+	}
 	Line *oldLastLine = g_script.mLastLine;
 
-	if (g_script.LoadIncludedText(script) != OK)
+	if ((g_script.LoadIncludedText(script) != OK) || !g_script.PreparseBlocks(oldLastLine->mNextLine) || !g_script.PreparseIfElse(oldLastLine->mNextLine))
+	{
+	if (inFunc == 1 )
+		g->CurrentFunc = aFunc ; 
+
 		return LOADING_FAILED;
-	if (!g_script.PreparseBlocks(oldLastLine->mNextLine) || !g_script.PreparseIfElse(oldLastLine->mNextLine))
-		return LOADING_FAILED;
-	if (aExecute > 0)
+	}	
+		if (aExecute > 0)
 	{
 		if (aExecute > 1)
 			SendMessage(g_hWnd, AHK_EXECUTE, (WPARAM)oldLastLine->mNextLine, (LPARAM)oldLastLine->mNextLine);
 		else
 			PostMessage(g_hWnd, AHK_EXECUTE, (WPARAM)oldLastLine->mNextLine, (LPARAM)oldLastLine->mNextLine);
 	}
+
+    
+	if (inFunc == 1 )
+		g->CurrentFunc = aFunc ;
+
 	return (unsigned int) oldLastLine->mNextLine;  // 
 }
 #endif // USRDLL
