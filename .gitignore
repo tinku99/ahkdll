@@ -1,3 +1,5 @@
+enc_tmp_folder
+*.tmp
 *.[oa]
 *~    
 bin   

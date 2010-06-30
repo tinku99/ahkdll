@@ -370,7 +370,10 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 			}
 		}
 		SendMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&aResultToken_to_return,NULL);
-		result_to_return_dll = TokenToString(aResultToken_to_return) ;
+		LPTSTR temp ;
+		temp = TokenToString(aResultToken_to_return) ;
+		result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll, sizeof(temp) + 2);
+		TokenToString(aResultToken_to_return, result_to_return_dll);
 		return result_to_return_dll;
 	}
 	else
@@ -379,7 +382,6 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 
 bool callFuncDll(ExprTokenType *aResultToken)
 {
-	
 	Func &func = *(Func *)g_script.mTempFunc ;
 	if (!INTERRUPTIBLE_IN_EMERGENCY)
 		return false;
