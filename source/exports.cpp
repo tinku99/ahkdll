@@ -4,7 +4,7 @@
 #include "exports.h"
 #include "script.h"
 
-static LPTSTR result_to_return_dll; //HotKeyIt H2 for ahkgetvar and ahkFunction return.
+LPTSTR result_to_return_dll; //HotKeyIt H2 for ahkgetvar and ahkFunction return.
 ExprTokenType aResultToken_to_return ;  // for ahkPostFunction
 FuncAndToken aFuncAndTokenToReturn ;    // for ahkPostFunction
 
@@ -59,11 +59,11 @@ EXPORT int ximportfunc(ahkx_int_str func1, ahkx_int_str func2, ahkx_int_str_str 
 EXPORT LPTSTR ahkgetvar(LPTSTR name,unsigned int getVar)
 {
 	Var *ahkvar = g_script.FindOrAddVar(name);
-	int result_size = ahkvar->Get() + 1 ;
+	int result_size = ahkvar->Get() + 2 ;
     result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll, result_size);
 	ahkvar->Get(result_to_return_dll) ;
-
 	return result_to_return_dll;
+	// return _T(result_to_return_dll);
 }	
 
 EXPORT int ahkassign(LPTSTR name, LPTSTR value) // ahkwine 0.1
@@ -406,13 +406,11 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 		ExprTokenType aResultToken  ;
 		FuncAndToken aFuncAndToken ;
 		aFuncAndToken.mFunc = aFunc ;
-		aFuncAndToken.mToken = &aResultToken ;
+		aFuncAndToken.mToken = &aResultToken_to_return ;
 		SendMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&aFuncAndToken,NULL);
-		LPTSTR temp ;
-		temp = TokenToString(aResultToken) ;
-		result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll, sizeof(temp) + 2);
-		TokenToString(aResultToken, result_to_return_dll);
-		return result_to_return_dll;
+		TCHAR abuf[MAX_NUMBER_SIZE]; // A separate buf because aResultToken.buf is sometimes used to store the result.
+		result_to_return_dll = TokenToString(aResultToken_to_return, abuf);
+		return result_to_return_dll ;
 	}
 	else
 		return _T(""); 
@@ -420,8 +418,8 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 
 bool callFuncDll(FuncAndToken *aFuncAndToken)
 {
-	Func &func =  *(aFuncAndToken->mFunc); 
-	ExprTokenType * aResultToken = aFuncAndToken->mToken ;
+ 	Func &func =  *(aFuncAndToken->mFunc); 
+	ExprTokenType & aResultToken = *(aFuncAndToken->mToken) ;
 	// Func &func = *(Func *)g_script.mTempFunc ;
 	if (!INTERRUPTIBLE_IN_EMERGENCY)
 		return false;
@@ -462,11 +460,11 @@ bool callFuncDll(FuncAndToken *aFuncAndToken)
 		DEBUGGER_STACK_PUSH(SE_Thread, func.mJumpToLine, desc, func.mName)
 	// ExprTokenType aResultToken;
 	// ExprTokenType &aResultToken = aResultToken_to_return ;
-	func.Call(aResultToken); // Call the UDF.
+	func.Call(&aResultToken); // Call the UDF.
 
 		DEBUGGER_STACK_POP()
 
-	Var::FreeAndRestoreFunctionVars(func, var_backup, var_backup_count);
+	// Var::FreeAndRestoreFunctionVars(func, var_backup, var_backup_count);
 	ResumeUnderlyingThread(ErrorLevel_saved);
 	return 0 ;
 }

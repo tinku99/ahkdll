@@ -28,7 +28,7 @@ handleThread
 
 OutputDebug, % "Handle thread: " . handleThread
 
-msgbox % adds(dllpath, script)
+adds(dllpath, script)
 Message =
 ( LTrim
   Press +1 to call ReturnEmptyString
@@ -40,7 +40,7 @@ Message =
   DbgView.exe or similar may be handy.
 )        
 gosub nonempty
-gosub empty
+; gosub empty
 
 Return
 
@@ -48,20 +48,31 @@ Return
 nonempty:
 {
   R1 
-    := DllCall(DllPath . "\ahkFunction"
-             , "Str", "ReturnEmptyString"
+    := DllCall(DllPath . "\ahkgetvar"
+             , "Str", "bars"
              , "Cdecl Str")
-;   OutputDebug, % "Ran ReturnEmptyString"
-  ; msgbox % R1 . "from empty"
+msgbox % R1
+
+
   R1 
     := DllCall(DllPath . "\ahkgetvar"
              , "Str", "foo"
              , "Cdecl Str")
 msgbox % R1
+
   R1 
-    := DllCall(DllPath . "\ahkgetvar"
-             , "Str", "bar"
+    := DllCall(DllPath . "\ahkFunction"
+             , "Str", "ReturnEmptyString"
              , "Cdecl Str")
+;   OutputDebug, % "Ran ReturnEmptyString"
+  msgbox % R1 . "from func"
+
+  R2
+    := DllCall(DllPath . "\ahkFunction"
+             , "Str", "ReturnNonEmptyString"
+             , "Cdecl Str")
+  msgbox % R2 . "from nonempty"
+
 
   Return
 }
@@ -73,7 +84,6 @@ empty:
     := DllCall(DllPath . "\ahkFunction"
              , "Str", "ReturnNonEmptyString"
              , "Cdecl Str")
-  ; OutputDebug, % "Ran ReturnNonEmptyString"
   msgbox % R2 . "from nonempty"
 DllCall(DllPath . "\ahkPostFunction"
              , "Str", "fx"
