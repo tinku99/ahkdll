@@ -5,9 +5,9 @@
 #include "script.h"
 
 LPTSTR result_to_return_dll; //HotKeyIt H2 for ahkgetvar and ahkFunction return.
-ExprTokenType aResultToken_to_return ;  // for ahkPostFunction
-FuncAndToken aFuncAndTokenToReturn ;    // for ahkPostFunction
-
+// ExprTokenType aResultToken_to_return ;  // for ahkPostFunction
+FuncAndToken aFuncAndTokenToReturn[10] ;    // for ahkPostFunction
+int returnCount = 0 ;
 
 
 EXPORT int ahkPause(LPTSTR aChangeTo) //Change pause state of a running script
@@ -158,11 +158,12 @@ EXPORT unsigned int ahkPostFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, L
 			}
 		}
 		
-		
-		aFuncAndTokenToReturn.mFunc = aFunc ;
-		aFuncAndTokenToReturn.mToken = &aResultToken_to_return ;
-		
-		PostMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&aFuncAndTokenToReturn,NULL);
+		FuncAndToken & aFuncAndToken = aFuncAndTokenToReturn[returnCount];
+		aFuncAndToken.mFunc = aFunc ;
+	returnCount++ ;
+		if (returnCount > 9)
+			returnCount = 0 ;
+		PostMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&aFuncAndToken,NULL);
 		return 0;
 	}
 	return -1;
@@ -403,13 +404,16 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 				}
 			}
 		}
-		ExprTokenType aResultToken  ;
-		FuncAndToken aFuncAndToken ;
+		
+		FuncAndToken & aFuncAndToken = aFuncAndTokenToReturn[returnCount];
 		aFuncAndToken.mFunc = aFunc ;
-		aFuncAndToken.mToken = &aResultToken_to_return ;
+		returnCount++ ;
+		if (returnCount > 9)
+			returnCount = 0 ;
+
 		SendMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&aFuncAndToken,NULL);
 		TCHAR abuf[MAX_NUMBER_SIZE]; // A separate buf because aResultToken.buf is sometimes used to store the result.
-		result_to_return_dll = TokenToString(aResultToken_to_return, abuf);
+		result_to_return_dll = TokenToString(aFuncAndToken.mToken, abuf);
 		return result_to_return_dll ;
 	}
 	else
@@ -419,7 +423,7 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 bool callFuncDll(FuncAndToken *aFuncAndToken)
 {
  	Func &func =  *(aFuncAndToken->mFunc); 
-	ExprTokenType & aResultToken = *(aFuncAndToken->mToken) ;
+	ExprTokenType & aResultToken = aFuncAndToken->mToken ;
 	// Func &func = *(Func *)g_script.mTempFunc ;
 	if (!INTERRUPTIBLE_IN_EMERGENCY)
 		return false;

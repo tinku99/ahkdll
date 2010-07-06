@@ -590,8 +590,9 @@ typedef UINT_PTR EventInfoType;
 class Func;                 // Forward declarations
 
 struct FuncAndToken {
+	ExprTokenType mToken ;
+	LPTSTR result_to_return_dll;
 	Func * mFunc ;
-	ExprTokenType * mToken ;
 };
 
 class Label;                //

@@ -49,7 +49,7 @@ nonempty:
 {
   R1 
     := DllCall(DllPath . "\ahkgetvar"
-             , "Str", "bars"
+             , "Str", "bar"
              , "Cdecl Str")
 msgbox % R1
 
@@ -80,15 +80,16 @@ msgbox % R1
 ^2::
 empty:
 {
+DllCall(DllPath . "\ahkPostFunction"
+             , "Str", "fx"
+             , "Cdecl uint")
+  ; OutputDebug, % "Ran ReturnNonEmptyString"
+
   R2
     := DllCall(DllPath . "\ahkFunction"
              , "Str", "ReturnNonEmptyString"
              , "Cdecl Str")
   msgbox % R2 . "from nonempty"
-DllCall(DllPath . "\ahkPostFunction"
-             , "Str", "fx"
-             , "Cdecl uint")
-  ; OutputDebug, % "Ran ReturnNonEmptyString"
 
   Return
 }
