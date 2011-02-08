@@ -1,0 +1,11 @@
+temp/
+bin/
+*.suo
+*.user
+*.ncb
+*.aps
+ComServer_h.h
+ComServer_i.c
+*.sdf
+*.opensdf
+*.orig
