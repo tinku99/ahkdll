@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-stylesheet type='text/xsl' href='_UpgradeReport_Files/UpgradeReport.xslt'?><UpgradeLog>
+<Properties><Property Name="Solution" Value="automcomserver">
+</Property><Property Name="Solution File" Value="D:\Temp\simplecomserver_src\automcomserver\automcomserver.sln">
+</Property><Property Name="Date" Value="Freitag, 8. Oktober 2010">
+</Property><Property Name="Time" Value="01:06:21">
+</Property></Properties><Event ErrorLevel="3" Project="automcomserver" Source="automcomserver.vcproj" Description="No Conversion Required">
+</Event></UpgradeLog>
