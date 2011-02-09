@@ -527,7 +527,6 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 	else
 		return _T(""); 
 }
-
 //H30 changed to not return anything since it is not used
 void callFuncDll(FuncAndToken *aFuncAndToken)
 {

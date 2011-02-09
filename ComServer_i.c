@@ -6,7 +6,7 @@
 
 
  /* File created by MIDL compiler version 7.00.0555 */
-/* at Mon Dec 13 22:21:01 2010
+/* at Tue Feb 08 19:35:49 2011
  */
 /* Compiler settings for source\ComServer.idl:
     Oicf, W1, Zp8, env=Win32 (32b run), target_arch=X86 7.00.0555 
@@ -74,6 +74,9 @@ MIDL_DEFINE_GUID(IID, IID_ICOMServer,0x04FFE41B,0x8FE9,0x4479,0x99,0x0A,0xB1,0x8
 
 
 MIDL_DEFINE_GUID(CLSID, CLSID_CoCOMServer,0xC00BCC8C,0x5A04,0x4392,0x87,0x0F,0x20,0xAA,0xE1,0xB9,0x26,0xB2);
+
+
+MIDL_DEFINE_GUID(CLSID, CLSID_CoCOMServerOptional,0x974318D9,0xA5B2,0x4FE5,0x8A,0xC4,0x33,0xA0,0xC9,0xEB,0xB8,0xB5);
 
 #undef MIDL_DEFINE_GUID
 

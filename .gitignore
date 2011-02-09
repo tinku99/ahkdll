@@ -1,3 +1,6 @@
+*.sdf
+*.opensdf
+ipch
 temp/
 bin/
 *.suo

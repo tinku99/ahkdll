@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include "Registry.h"
 #include "ComServerImpl.h"
 #include "MemoryModule.h"
+
 //#include <string>
 
 // General note:
@@ -673,12 +674,18 @@ HRESULT __stdcall CoCOMServer::ahkgetvar(/*in*/VARIANT name,/*[in,optional]*/ VA
 	*result = T2BSTR(com_ahkgetvar(Variant2T(name,buf),Variant2I(getVar)));
 	return S_OK;
 }
+
+void AssignVariant(Var &aArg, VARIANT &aVar, bool aRetainVar);
+
 HRESULT __stdcall CoCOMServer::ahkassign(/*in*/VARIANT name, /*in*/VARIANT value,/*out*/unsigned int* success)
 {
-	if (success==NULL)
-		return ERROR_INVALID_PARAMETER;
-	TCHAR buf1[MAX_INTEGER_SIZE],buf2[MAX_INTEGER_SIZE];
-	*success = com_ahkassign(Variant2T(name,buf1),Variant2T(value,buf2));
+	 if (success==NULL)
+      return ERROR_INVALID_PARAMETER;
+   TCHAR namebuf[MAX_INTEGER_SIZE];
+   Var *var;
+   if (   !(var = g_script.FindOrAddVar(Variant2T(name,namebuf)))   )
+      return ERROR_INVALID_PARAMETER;  // Realistically should never happen.
+   AssignVariant(*var, value, false) ;
 	return S_OK;
 }
 HRESULT __stdcall CoCOMServer::ahkExecuteLine(/*[in,optional]*/ VARIANT line,/*[in,optional]*/ VARIANT aMode,/*[in,optional]*/ VARIANT wait,/*[out, retval]*/ unsigned int* pLine)

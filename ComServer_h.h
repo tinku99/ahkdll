@@ -4,7 +4,7 @@
 
 
  /* File created by MIDL compiler version 7.00.0555 */
-/* at Mon Dec 13 22:21:01 2010
+/* at Tue Feb 08 19:35:49 2011
  */
 /* Compiler settings for source\ComServer.idl:
     Oicf, W1, Zp8, env=Win32 (32b run), target_arch=X86 7.00.0555 
@@ -57,6 +57,18 @@ typedef struct CoCOMServer CoCOMServer;
 #endif /* __cplusplus */
 
 #endif 	/* __CoCOMServer_FWD_DEFINED__ */
+
+
+#ifndef __CoCOMServerOptional_FWD_DEFINED__
+#define __CoCOMServerOptional_FWD_DEFINED__
+
+#ifdef __cplusplus
+typedef class CoCOMServerOptional CoCOMServerOptional;
+#else
+typedef struct CoCOMServerOptional CoCOMServerOptional;
+#endif /* __cplusplus */
+
+#endif 	/* __CoCOMServerOptional_FWD_DEFINED__ */
 
 
 /* header files for imported files */
@@ -460,6 +472,14 @@ DEFINE_GUID(CLSID_CoCOMServer,0xC00BCC8C,0x5A04,0x4392,0x87,0x0F,0x20,0xAA,0xE1,
 
 class DECLSPEC_UUID("C00BCC8C-5A04-4392-870F-20AAE1B926B2")
 CoCOMServer;
+#endif
+
+DEFINE_GUID(CLSID_CoCOMServerOptional,0x974318D9,0xA5B2,0x4FE5,0x8A,0xC4,0x33,0xA0,0xC9,0xEB,0xB8,0xB5);
+
+#ifdef __cplusplus
+
+class DECLSPEC_UUID("974318D9-A5B2-4FE5-8AC4-33A0C9EBB8B5")
+CoCOMServerOptional;
 #endif
 #endif /* __LibCOMServer_LIBRARY_DEFINED__ */
 
