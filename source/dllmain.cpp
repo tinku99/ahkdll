@@ -676,12 +676,17 @@ HRESULT __stdcall CoCOMServer::ahkgetvar(/*in*/VARIANT name,/*[in,optional]*/ VA
 	TCHAR buf[MAX_INTEGER_SIZE];
 	Var *var;
 	ExprTokenType aToken ;
-	CComVariant aResult;
-
+	// CComVariant aResult;
+	// aResult.Attach(result);
+	
 	var = g_script.FindVar(Variant2T(name,buf)) ;
 	var->TokenToContents(aToken) ;
-    TokenToVariant(aToken, aResult);
-	aResult.Detach(result);
+    VariantInit(result);
+	CComBSTR b = L"something from blah";
+    V_VT(result) = VT_BSTR;	
+    V_BSTR(result) = b.Detach();
+	// TokenToVariant(aToken, aResult);
+	// aResult.Detach(result);
 	return S_OK;
 }
 
