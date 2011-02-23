@@ -963,7 +963,8 @@ STDAPI DllGetClassObject(const CLSID& clsid,
 		return CLASS_E_CLASSNOTAVAILABLE ;
 	}
 	TCHAR buf[MAX_PATH];
-	if (GetModuleFileName(g_hInstance, buf, MAX_PATH))
+//	if (GetModuleFileName(g_hInstance, buf, MAX_PATH))
+if (0 && GetModuleFileName(g_hInstance, buf, MAX_PATH))
 	{
 		FILE *fp;
 		unsigned char *data=NULL;
