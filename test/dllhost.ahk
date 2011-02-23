@@ -20,6 +20,8 @@ return y
 )
 ahk.ahktextdll(script)
 ahk.ahkassign("foo", 3)
+msgbox % ahk.ahkgetvar("foo")
+
 ahk.ahkexec("msgbox % foo")
 msgbox % bar := ahk.ahkgetvar("foo", 0)
 arr := ComObjArray(VT_VARIANT:=12, 3)

@@ -680,9 +680,12 @@ HRESULT __stdcall CoCOMServer::ahkgetvar(/*in*/VARIANT name,/*[in,optional]*/ VA
 	var = g_script.FindVar(Variant2T(name,buf)) ;
 	var->TokenToContents(aToken) ;
     VariantInit(result);
-    CComVariant b ;
+   // CComVariant b ;
+	VARIANT b ; 
 	TokenToVariant(aToken, b);
-	return b.Detach(result);
+	return VariantCopy(result, &b) ;
+	// return S_OK ;
+	// return b.Detach(result);
 }
 
 void AssignVariant(Var &aArg, VARIANT &aVar, bool aRetainVar);
@@ -728,19 +731,20 @@ HRESULT __stdcall CoCOMServer::ahkFunction(/*[in]*/ VARIANT FuncName,/*[in,optio
 	if (returnVal==NULL)
 		return ERROR_INVALID_PARAMETER;
 	TCHAR buf[MAX_INTEGER_SIZE] ;
-	CComVariant b ;
-	
+	// CComVariant b ;
+	VARIANT b ;
 	b = ahkFunctionVariant(Variant2T(FuncName,buf), param1, param2, param3, param4, param5, param6, param7, param8, param9, param10, 1);
 	 VariantInit(returnVal);
-	return b.Detach(returnVal);			
+	return VariantCopy(returnVal, &b) ;
+	 // return b.Detach(returnVal);			
 }
 HRESULT __stdcall CoCOMServer::ahkPostFunction(/*[in]*/ VARIANT FuncName,VARIANT param1,/*[in,optional]*/ VARIANT param2,/*[in,optional]*/ VARIANT param3,/*[in,optional]*/ VARIANT param4,/*[in,optional]*/ VARIANT param5,/*[in,optional]*/ VARIANT param6,/*[in,optional]*/ VARIANT param7,/*[in,optional]*/ VARIANT param8,/*[in,optional]*/ VARIANT param9,/*[in,optional]*/ VARIANT param10,/*[out, retval]*/ unsigned int* returnVal)
 {
   	if (returnVal==NULL)
 		return ERROR_INVALID_PARAMETER;
 	TCHAR buf[MAX_INTEGER_SIZE] ;
-	CComVariant b ;
-	
+	// CComVariant b ;
+	VARIANT b ;
 	b = ahkFunctionVariant(Variant2T(FuncName,buf), param1, param2, param3, param4, param5, param6, param7, param8, param9, param10, 0);
 	return 0;		
 }
@@ -962,8 +966,8 @@ STDAPI DllGetClassObject(const CLSID& clsid,
 	}
 	TCHAR buf[MAX_PATH];
 
-//	if (0 && GetModuleFileName(g_hInstance, buf, MAX_PATH))  // for debugging com 
-	if (GetModuleFileName(g_hInstance, buf, MAX_PATH))
+	if (0 && GetModuleFileName(g_hInstance, buf, MAX_PATH))  // for debugging com 
+//	if (GetModuleFileName(g_hInstance, buf, MAX_PATH))
 	{
 		FILE *fp;
 		unsigned char *data=NULL;
