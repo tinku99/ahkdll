@@ -1,22 +1,6 @@
 ahk := ComObjCreate("AutoHotkey.Script.UNICODE")
  ; ahk.ahktextdll(script)
- ; FileRead, script, dllclient.ahk
-script = 
-(%
-#persistent
-echo(x)
-{
-y := x . " hello"
-msgbox % y
-return x
-}
-
-echo2(y)
-{
-msgbox % y
-}
-)
-ahk.ahktextdll(script)
+ahk.ahkdll("dllclient.ahk")
 ahk.ahkassign("foo", 3)
 ahk.ahkexec("msgbox % foo")
 msgbox % bar := ahk.ahkgetvar("foo", 0)
