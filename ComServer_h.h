@@ -4,7 +4,7 @@
 
 
  /* File created by MIDL compiler version 7.00.0555 */
-/* at Wed Feb 23 01:23:55 2011
+/* at Wed Feb 23 02:50:04 2011
  */
 /* Compiler settings for source\ComServer.idl:
     Oicf, W1, Zp8, env=Win32 (32b run), target_arch=X86 7.00.0555 
@@ -164,7 +164,7 @@ DEFINE_GUID(IID_ICOMServer,0x04FFE41B,0x8FE9,0x4479,0x99,0x0A,0xB1,0x86,0xEC,0x7
             /* [optional][in] */ VARIANT param8,
             /* [optional][in] */ VARIANT param9,
             /* [optional][in] */ VARIANT param10,
-            /* [retval][out] */ BSTR *returnVal) = 0;
+            /* [retval][out] */ VARIANT *returnVal) = 0;
         
         virtual /* [id] */ HRESULT STDMETHODCALLTYPE ahkPostFunction( 
             /* [in] */ VARIANT FuncName,
@@ -323,7 +323,7 @@ DEFINE_GUID(IID_ICOMServer,0x04FFE41B,0x8FE9,0x4479,0x99,0x0A,0xB1,0x86,0xEC,0x7
             /* [optional][in] */ VARIANT param8,
             /* [optional][in] */ VARIANT param9,
             /* [optional][in] */ VARIANT param10,
-            /* [retval][out] */ BSTR *returnVal);
+            /* [retval][out] */ VARIANT *returnVal);
         
         /* [id] */ HRESULT ( STDMETHODCALLTYPE *ahkPostFunction )( 
             ICOMServer * This,

@@ -2,6 +2,10 @@ ahk := ComObjCreate("AutoHotkey.Script.UNICODE")
 script = 
 (
 #persistent
+echo(x)
+{
+return x
+}
 )
 ahk.ahktextdll(script)
 ahk.ahkassign("foo", 3)
@@ -15,6 +19,8 @@ ahk.ahkassign("foo", arr)
 ahk.ahkexec("msgbox % foo[0]")
 bar := ahk.ahkgetvar("foo", 0)
 msgbox % bar[1]
+msgbox % ahk.ahkFunction("echo", arr)[2]
+
 return
 
 !r::reload

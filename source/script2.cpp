@@ -5506,8 +5506,8 @@ LRESULT CALLBACK MainWindowProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 		g_script.mTempLabel = (Label *)wParam ;
 		g_script.mTempLabel->Execute();
 		return 0;
-	case AHK_EXECUTE_FUNCTION: 
-		callFunc(wParam, lParam);
+	case AHK_EXECUTE_FUNCTION_VARIANT: 
+		callFuncDllVariant((FuncAndToken *) wParam);
 		return 0;
 	case AHK_EXECUTE_FUNCTION_DLL: 
 		callFuncDll((FuncAndToken *) wParam);
