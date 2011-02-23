@@ -20,7 +20,7 @@ library LibCOMServer
 		[id(3)] HRESULT ahkPause([in,optional] VARIANT aChangeTo,[out, retval] BOOL* paused);
 		[id(4)] HRESULT ahkReady([out, retval] BOOL* ready);
 		[id(5)] HRESULT ahkFindLabel([in] VARIANT aLabelName,[out, retval] unsigned int* pLabel);
-		[id(6)] HRESULT ahkgetvar([in] VARIANT name,[in,optional] VARIANT getVar,[out, retval] BSTR* returnVal);
+		[id(6)] HRESULT ahkgetvar([in] VARIANT name,[in,optional] VARIANT getVar,[out, retval] VARIANT *returnVal);
 		[id(7)] HRESULT ahkassign([in] VARIANT name,[in,optional] VARIANT value,[out, retval] unsigned int* success);
 		[id(8)] HRESULT ahkExecuteLine([in,optional] VARIANT line,[in,optional] VARIANT aMode,[in,optional] VARIANT wait,[out, retval] unsigned int* pLine);
 		[id(9)] HRESULT ahkLabel([in] VARIANT aLabelName,[in,optional] VARIANT nowait,[out, retval] BOOL* success);

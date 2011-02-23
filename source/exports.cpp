@@ -14,8 +14,8 @@ int returnCount = 0 ;
 //COM virtual functions
 BOOL com_ahkPause(LPTSTR aChangeTo){return ahkPause(aChangeTo);}
 unsigned int com_ahkFindLabel(LPTSTR aLabelName){return ahkFindLabel(aLabelName);}
-LPTSTR com_ahkgetvar(LPTSTR name,unsigned int getVar){return ahkgetvar(name,getVar);}
-unsigned int com_ahkassign(LPTSTR name, LPTSTR value){return ahkassign(name,value);}
+// LPTSTR com_ahkgetvar(LPTSTR name,unsigned int getVar){return ahkgetvar(name,getVar);}
+// unsigned int com_ahkassign(LPTSTR name, LPTSTR value){return ahkassign(name,value);}
 unsigned int com_ahkExecuteLine(unsigned int line,unsigned int aMode,unsigned int wait){return ahkExecuteLine(line,aMode,wait);}
 BOOL com_ahkLabel(LPTSTR aLabelName, unsigned int nowait){return ahkLabel(aLabelName,nowait);}
 unsigned int com_ahkFindFunc(LPTSTR funcname){return ahkFindFunc(funcname);}

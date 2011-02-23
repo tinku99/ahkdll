@@ -112,7 +112,7 @@ DEFINE_GUID(IID_ICOMServer,0x4ffe41b, 0x8fe9, 0x4479, 0x99, 0xa, 0xb1, 0x86, 0xe
            /*[in]*/ VARIANT aLabelName,/*[out, retval]*/ unsigned int* pLabel) = 0;
     public:
         virtual /* [id] */ HRESULT STDMETHODCALLTYPE ahkgetvar( 
-           /*[in]*/ VARIANT name,/*[in,optional]*/ VARIANT getVar,/*[out, retval]*/ BSTR* returnVal) = 0;
+           /*[in]*/ VARIANT name,/*[in,optional]*/ VARIANT getVar,/*[out, retval]*/ VARIANT *returnVal) = 0;
     public:
         virtual /* [id] */ HRESULT STDMETHODCALLTYPE ahkassign( 
            /*[in]*/ VARIANT name,/*[in,optional]*/ VARIANT value,/*[out, retval]*/ unsigned int* success) = 0;

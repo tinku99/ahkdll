@@ -665,13 +665,23 @@ HRESULT __stdcall CoCOMServer::ahkFindLabel(/*in*/VARIANT aLabelName,/*out*/unsi
 	*aLabelPointer = com_ahkFindLabel(Variant2T(aLabelName,buf));
 	return S_OK;
 }
-HRESULT __stdcall CoCOMServer::ahkgetvar(/*in*/VARIANT name,/*[in,optional]*/ VARIANT getVar,/*out*/BSTR* result)
+
+void TokenToVariant(ExprTokenType &aToken, VARIANT &aVar);
+
+HRESULT __stdcall CoCOMServer::ahkgetvar(/*in*/VARIANT name,/*[in,optional]*/ VARIANT getVar,/*out*/VARIANT *result)
 {
 	if (result==NULL)
 		return ERROR_INVALID_PARAMETER;
 	//USES_CONVERSION;
 	TCHAR buf[MAX_INTEGER_SIZE];
-	*result = T2BSTR(com_ahkgetvar(Variant2T(name,buf),Variant2I(getVar)));
+	Var *var;
+	ExprTokenType aToken ;
+	CComVariant aResult;
+
+	var = g_script.FindVar(Variant2T(name,buf)) ;
+	var->TokenToContents(aToken) ;
+    TokenToVariant(aToken, aResult);
+	aResult.Detach(result);
 	return S_OK;
 }
 

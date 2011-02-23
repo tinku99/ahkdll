@@ -157,6 +157,7 @@
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='DebugDll|Win32'">
     <PlatformToolset>Windows7.1SDK</PlatformToolset>
+    <UseOfAtl>Static</UseOfAtl>
   </PropertyGroup>
   <!-- import common config -->
   <Import Project="Config.vcxproj" />

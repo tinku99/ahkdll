@@ -38,7 +38,7 @@ public:
 	virtual HRESULT __stdcall ahkPause(/*in,optional*/VARIANT aChangeTo, /*out*/BOOL* paused);
 	virtual HRESULT __stdcall ahkReady(/*out*/BOOL* ready);
 	virtual HRESULT __stdcall ahkFindLabel(/*[in]*/ VARIANT aLabelName,/*[out, retval]*/ unsigned int* pLabel);
-    virtual HRESULT __stdcall ahkgetvar(/*[in]*/ VARIANT name,/*[in,optional]*/ VARIANT getVar,/*[out, retval]*/ BSTR* returnVal);
+    virtual HRESULT __stdcall ahkgetvar(/*[in]*/ VARIANT name,/*[in,optional]*/ VARIANT getVar,/*[out, retval]*/ VARIANT *returnVal);
     virtual HRESULT __stdcall ahkassign(/*[in]*/ VARIANT name,/*[in,optional]*/ VARIANT value,/*[out, retval]*/ unsigned int* success);
     virtual HRESULT __stdcall ahkExecuteLine(/*[in,optional]*/ VARIANT line,/*[in,optional]*/ VARIANT aMode,/*[in,optional]*/ VARIANT wait,/*[out, retval]*/ unsigned int* pLine);
     virtual HRESULT __stdcall ahkLabel(/*[in]*/ VARIANT aLabelName,/*[in,optional]*/ VARIANT nowait,/*[out, retval]*/ BOOL* success);
