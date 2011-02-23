@@ -619,7 +619,7 @@ void callFuncDll(FuncAndToken *aFuncAndToken)
 
 
 void AssignVariant(Var &aArg, VARIANT &aVar, bool aRetainVar);
-VARIANT ahkFunctionVariant(LPTSTR func, VARIANT param1,/*[in,optional]*/ VARIANT param2,/*[in,optional]*/ VARIANT param3,/*[in,optional]*/ VARIANT param4,/*[in,optional]*/ VARIANT param5,/*[in,optional]*/ VARIANT param6,/*[in,optional]*/ VARIANT param7,/*[in,optional]*/ VARIANT param8,/*[in,optional]*/ VARIANT param9,/*[in,optional]*/ VARIANT param10)
+VARIANT ahkFunctionVariant(LPTSTR func, VARIANT param1,/*[in,optional]*/ VARIANT param2,/*[in,optional]*/ VARIANT param3,/*[in,optional]*/ VARIANT param4,/*[in,optional]*/ VARIANT param5,/*[in,optional]*/ VARIANT param6,/*[in,optional]*/ VARIANT param7,/*[in,optional]*/ VARIANT param8,/*[in,optional]*/ VARIANT param9,/*[in,optional]*/ VARIANT param10, int sendOrPost)
 {
 	Func *aFunc = g_script.FindFunc(func) ;
 	if (aFunc)
@@ -678,9 +678,19 @@ VARIANT ahkFunctionVariant(LPTSTR func, VARIANT param1,/*[in,optional]*/ VARIANT
 		if (returnCount > 9)
 			returnCount = 0 ;
 
+		if (sendOrPost == 1)
+		{
 		SendMessage(g_hWnd, AHK_EXECUTE_FUNCTION_VARIANT, (WPARAM)&aFuncAndToken,NULL);
 		return aFuncAndToken.variant_to_return_dll;
-	}
+		}
+		else
+		{
+			PostMessage(g_hWnd, AHK_EXECUTE_FUNCTION_VARIANT, (WPARAM)&aFuncAndToken,NULL);
+			VARIANT &r =  aFuncAndToken.variant_to_return_dll;
+			r.vt = VT_NULL ;
+			return r ; 
+		}
+		}
 	FuncAndToken & aFuncAndToken = aFuncAndTokenToReturn[returnCount];
 	returnCount++ ;
 
