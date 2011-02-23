@@ -13,7 +13,9 @@ return x
 
 echo2(y)
 {
-msgbox % y
+listvars
+  ToolTip % y, 0, 0
+return y
 }
 )
 ahk.ahktextdll(script)
@@ -30,6 +32,7 @@ ahk.ahkexec("msgbox % foo[0]")
 bar := ahk.ahkgetvar("foo", 0)
 msgbox % bar[1]
 msgbox % ahk.ahkFunction("echo", arr)[2]
+msgbox % ahk.ahkPostFunction("echo2", "echo2")
 
 return
 

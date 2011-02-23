@@ -736,7 +736,7 @@ HRESULT __stdcall CoCOMServer::ahkFunction(/*[in]*/ VARIANT FuncName,/*[in,optio
 }
 HRESULT __stdcall CoCOMServer::ahkPostFunction(/*[in]*/ VARIANT FuncName,VARIANT param1,/*[in,optional]*/ VARIANT param2,/*[in,optional]*/ VARIANT param3,/*[in,optional]*/ VARIANT param4,/*[in,optional]*/ VARIANT param5,/*[in,optional]*/ VARIANT param6,/*[in,optional]*/ VARIANT param7,/*[in,optional]*/ VARIANT param8,/*[in,optional]*/ VARIANT param9,/*[in,optional]*/ VARIANT param10,/*[out, retval]*/ unsigned int* returnVal)
 {
- 	if (returnVal==NULL)
+  	if (returnVal==NULL)
 		return ERROR_INVALID_PARAMETER;
 	TCHAR buf[MAX_INTEGER_SIZE] ;
 	CComVariant b ;
@@ -961,8 +961,9 @@ STDAPI DllGetClassObject(const CLSID& clsid,
 		return CLASS_E_CLASSNOTAVAILABLE ;
 	}
 	TCHAR buf[MAX_PATH];
-//	if (GetModuleFileName(g_hInstance, buf, MAX_PATH))
-if (0 && GetModuleFileName(g_hInstance, buf, MAX_PATH))
+
+//	if (0 && GetModuleFileName(g_hInstance, buf, MAX_PATH))  // for debugging com 
+	if (GetModuleFileName(g_hInstance, buf, MAX_PATH))
 	{
 		FILE *fp;
 		unsigned char *data=NULL;
