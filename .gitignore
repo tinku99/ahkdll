@@ -1,0 +1,5 @@
+*.sdf
+*.suo
+*.vcxproj.user
+bin/
+temp/
