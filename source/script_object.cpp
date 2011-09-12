@@ -1428,6 +1428,24 @@ ResultType STDMETHODCALLTYPE Func::Invoke(ExprTokenType &aResultToken, ExprToken
 			aResultToken.symbol = SYM_INTEGER;
 			aResultToken.value_int64 = mParamCount;
 		}
+		else if (!_tcsicmp(member, _T("sourceFile"))) 
+		{
+			aResultToken.symbol = SYM_STRING;
+			if (mIsBuiltIn){
+				aResultToken.symbol = SYM_INTEGER;
+				aResultToken.value_int64 = 0 ;
+			}
+			else
+				aResultToken.marker = *mJumpToLine->sSourceFile ;
+		}
+		else if (!_tcsicmp(member, _T("sourceLine")))
+		{
+			aResultToken.symbol = SYM_INTEGER;
+			if (mIsBuiltIn)
+				aResultToken.value_int64 = 0 ;
+			else
+			aResultToken.value_int64 = (long long) mJumpToLine->mLineNumber - 1;
+		}
 		else if (!_tcsicmp(member, _T("IsBuiltIn")))
 		{
 			aResultToken.symbol = SYM_INTEGER;
