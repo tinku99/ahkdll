@@ -1395,7 +1395,53 @@ Object::FieldType *Object::Insert(SymbolType key_type, KeyType key, IndexType at
 
 	return &field;
 }
+//
+// Line: Script interface, accessible via "Line reference".
+//
 
+ResultType STDMETHODCALLTYPE Line::Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount)
+{
+	if (!aParamCount)
+		return INVOKE_NOT_HANDLED;
+
+	LPTSTR member = TokenToString(*aParam[0]);
+
+	if (!IS_INVOKE_CALL)
+	{
+		if (IS_INVOKE_SET || aParamCount > 1)
+			return INVOKE_NOT_HANDLED;
+
+		if (!_tcsicmp(member, _T("actionType")))
+		{
+			aResultToken.symbol = SYM_INTEGER;
+			aResultToken.value_int64 = (long long) mActionType;
+		}
+		else if (!_tcsicmp(member, _T("nextLine")))
+		{
+			aResultToken.symbol = SYM_OBJECT;
+			aResultToken.object = mNextLine ;
+		}
+		else if (!_tcsicmp(member, _T("sourceFile"))) 
+		{
+			aResultToken.symbol = SYM_STRING;
+			aResultToken.marker = *sSourceFile ;
+		}
+		else if (!_tcsicmp(member, _T("sourceLine")))
+		{
+			aResultToken.symbol = SYM_INTEGER;
+			aResultToken.value_int64 = (long long) mLineNumber - 1;
+		}	
+		else if (!_tcsicmp(member, _T("source"))) 
+		{
+			TCHAR aBuf[200] ;
+            ToText(aBuf, 200, true);
+			aResultToken.symbol = SYM_STRING;
+			aResultToken.marker = aBuf ;
+		}
+
+	}
+return OK ;
+}
 
 //
 // Func: Script interface, accessible via "function reference".

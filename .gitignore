@@ -1,4 +1,6 @@
 *.sdf
+*.opensdf
+ipch
 *.suo
 *.vcxproj.user
 bin/

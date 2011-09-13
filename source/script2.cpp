@@ -15979,6 +15979,35 @@ void BIF_IsFunc(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParam
 	aResultToken.value_int64 = func ? (__int64)func->mMinParams+1 : 0;
 }
 
+void BIF_Line(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount)
+// Returns a reference to a Line object.
+{
+	__int64 n = TokenToInt64(*aParam[0]) ;
+	if (n < 0){
+		aResultToken.value_int64 = 0;  
+		return ;
+	}
+
+	Line *line = g_script.mFirstLine ;
+
+	if (n == 1){
+		aResultToken.symbol = SYM_OBJECT;  
+		aResultToken.object = line;
+		return ;
+	}
+	int i ; 
+	for (i = (int)n; i > 1; --i ){ 	
+		if (NULL == line->mNextLine){
+		aResultToken.value_int64 = 0; 
+		return ; 
+		}
+		line = line->mNextLine ; 
+	}
+	
+	aResultToken.symbol = SYM_OBJECT;  
+	aResultToken.object = line;
+}
+
 
 
 void BIF_Func(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount)

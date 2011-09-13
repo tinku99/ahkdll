@@ -555,7 +555,7 @@ enum WinSetAttributes {WINSET_INVALID, WINSET_TRANSPARENT, WINSET_TRANSCOLOR, WI
 
 
 class Label; // Forward declaration so that each can use the other.
-class Line
+class Line : public IObject
 {
 private:
 	ResultType EvaluateCondition();
@@ -711,6 +711,12 @@ private:
 public:
 	static ResultType Line::IncludeFiles(bool aAllowDuplicateInclude, bool aIgnoreLoadFailure, FileLoopModeType aFileLoopMode, bool aRecurseSubfolders, LPTSTR aFilePattern);
 	#define SET_S_DEREF_BUF(ptr, size) Line::sDerefBuf = ptr, Line::sDerefBufSize = size
+
+// IObject.
+	ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount);
+	ULONG STDMETHODCALLTYPE AddRef() { return 1; }
+	ULONG STDMETHODCALLTYPE Release() { return 1; }
+
 
 	#define NULLIFY_S_DEREF_BUF \
 	{\
@@ -2934,6 +2940,7 @@ void BIF_StrGetPut(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aPa
 void BIF_IsLabel(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_IsFunc(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_Func(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
+void BIF_Line(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_IsByRef(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_GetKeyState(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_GetKeyName(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
