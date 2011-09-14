@@ -15957,27 +15957,21 @@ void BIF_IsLabel(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aPara
 	aResultToken.value_int64 = g_script.FindLabel(TokenToString(*aParam[0], aResultToken.buf)) ? 1 : 0; // "? 1 : 0" produces 15 bytes smaller OBJ size than "!= NULL" in this case (but apparently not in comparisons like x==y ? TRUE : FALSE).
 }
 
-
-
-void BIF_IsFunc(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount) // Lexikos: Added for use with dynamic function calls.
-// Although it's tempting to return an integer like 0x8000000_min_max, where min/max are the function's
-// minimum and maximum number of parameters stored in the low-order DWORD, it would be more friendly and
-// readable to implement those outputs as optional ByRef parameters;
-//     e.g. IsFunc(FunctionName, ByRef Minparameters, ByRef Maxparameters)
-// It's also tempting to return something like 1+func.mInstances; but mInstances is tracked only due to
-// the nature of the current implementation of function-recursion; it might not be something that would
-// be tracked in future versions, and its value to the script is questionable.  Finally, a pointer to
-// the Func struct itself could be returns so that the script could use NumGet() to retrieve function
-// attributes.  However, that would expose implementation details that might be likely to change in the
-// future, plus it would be cumbersome to use.  Therefore, something simple seems best; and since a
-// dynamic function-call fails when too few parameters are passed (but not too many), it seems best to
-// indicate to the caller not only that the function exists, but also how many parameters are required.
+void BIF_Hotkey(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount)
+// Returns a reference to a Line object.
 {
-	Func *func;
-	if (  !(func = dynamic_cast<Func *>(TokenToObject(*aParam[0])))  )
-		func = g_script.FindFunc(TokenToString(*aParam[0], aResultToken.buf));
-	aResultToken.value_int64 = func ? (__int64)func->mMinParams+1 : 0;
+	bool  hastilde = (bool)TokenToInt64(*aParam[1]) ;
+	bool  ismand =   (bool)TokenToInt64(*aParam[2]) ;
+
+	bool & hr = hastilde ;
+	bool & ir = ismand ; 
+	Hotkey *hotkey = Hotkey::FindHotkeyByTrueNature(TokenToString(*aParam[0]), hr, ir) ;
+	
+	aResultToken.symbol = SYM_OBJECT;  
+	aResultToken.object = hotkey;
 }
+
+
 
 void BIF_Line(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount)
 // Returns a reference to a Line object.
@@ -16009,6 +16003,25 @@ void BIF_Line(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCo
 }
 
 
+void BIF_IsFunc(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount) // Lexikos: Added for use with dynamic function calls.
+// Although it's tempting to return an integer like 0x8000000_min_max, where min/max are the function's
+// minimum and maximum number of parameters stored in the low-order DWORD, it would be more friendly and
+// readable to implement those outputs as optional ByRef parameters;
+//     e.g. IsFunc(FunctionName, ByRef Minparameters, ByRef Maxparameters)
+// It's also tempting to return something like 1+func.mInstances; but mInstances is tracked only due to
+// the nature of the current implementation of function-recursion; it might not be something that would
+// be tracked in future versions, and its value to the script is questionable.  Finally, a pointer to
+// the Func struct itself could be returns so that the script could use NumGet() to retrieve function
+// attributes.  However, that would expose implementation details that might be likely to change in the
+// future, plus it would be cumbersome to use.  Therefore, something simple seems best; and since a
+// dynamic function-call fails when too few parameters are passed (but not too many), it seems best to
+// indicate to the caller not only that the function exists, but also how many parameters are required.
+{
+	Func *func;
+	if (  !(func = dynamic_cast<Func *>(TokenToObject(*aParam[0])))  )
+		func = g_script.FindFunc(TokenToString(*aParam[0], aResultToken.buf));
+	aResultToken.value_int64 = func ? (__int64)func->mMinParams+1 : 0;
+}
 
 void BIF_Func(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount)
 // Returns a reference to an existing user-defined or built-in function, as an object.

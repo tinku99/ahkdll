@@ -9817,6 +9817,11 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 		bif = BIF_Func;
 	else if (!_tcsicmp(func_name, _T("Line")))
 		bif = BIF_Line;
+	else if (!_tcsicmp(func_name, _T("Hotkey"))){
+			bif = BIF_Hotkey;
+		//	min_params = 3;
+			max_params = 4;
+	}
 	else if (!_tcsicmp(func_name, _T("IsFunc")))
 		bif = BIF_IsFunc;
 	else if (!_tcsicmp(func_name, _T("IsByRef")))

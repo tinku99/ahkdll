@@ -1442,6 +1442,98 @@ ResultType STDMETHODCALLTYPE Line::Invoke(ExprTokenType &aResultToken, ExprToken
 	}
 return OK ;
 }
+//
+// Variant: Script interface, accessible via "Variant reference".
+//
+
+ResultType STDMETHODCALLTYPE HotkeyVariant::Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount)
+{
+	if (!aParamCount)
+		return INVOKE_NOT_HANDLED;
+
+	LPTSTR member = TokenToString(*aParam[0]);
+
+	if (!IS_INVOKE_CALL)
+	{
+		if (IS_INVOKE_SET || aParamCount > 1)
+			return INVOKE_NOT_HANDLED;
+
+		if (!_tcsicmp(member, _T("hotwintitle")))
+		{
+			aResultToken.symbol = SYM_STRING;
+			aResultToken.marker = mHotWinTitle ;
+		}
+		else if (!_tcsicmp(member, _T("hotwintext")))
+		{
+			aResultToken.symbol = SYM_STRING;
+			aResultToken.marker = mHotWinText ;
+		}
+		else if (!_tcsicmp(member, _T("hotexpression"))) 
+		{
+			Line *line = g_HotExprLines[mHotExprIndex] ;
+			aResultToken.symbol = SYM_OBJECT;
+			aResultToken.object = line ; 
+		}
+		else if (!_tcsicmp(member, _T("hotcriterion")))
+		{
+			aResultToken.symbol = SYM_INTEGER;
+			aResultToken.value_int64 = (long long) mHotCriterion;
+		}	
+		else if (!_tcsicmp(member, _T("nextVariant"))) 
+		{
+			aResultToken.symbol = SYM_OBJECT;
+			aResultToken.object = mNextVariant ; 
+		}
+
+	}
+return OK ;
+}
+
+//
+// Hotkey: Script interface, accessible via "Hotkey reference".
+//
+
+ResultType STDMETHODCALLTYPE Hotkey::Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount)
+{
+	if (!aParamCount)
+		return INVOKE_NOT_HANDLED;
+
+	LPTSTR member = TokenToString(*aParam[0]);
+
+	if (!IS_INVOKE_CALL)
+	{
+		if (IS_INVOKE_SET || aParamCount > 1)
+			return INVOKE_NOT_HANDLED;
+
+		if (!_tcsicmp(member, _T("name")))
+		{
+			aResultToken.symbol = SYM_STRING;
+			aResultToken.marker = mName ;
+		}
+		else if (!_tcsicmp(member, _T("modifiers")))
+		{
+			aResultToken.symbol = SYM_INTEGER;
+			aResultToken.value_int64 = (long long) mModifiers ;
+		}
+		else if (!_tcsicmp(member, _T("variant"))) 
+		{
+			aResultToken.symbol = SYM_OBJECT;
+			aResultToken.object = mFirstVariant ;
+		}
+		else if (!_tcsicmp(member, _T("keyup")))
+		{
+			aResultToken.symbol = SYM_INTEGER;
+			aResultToken.value_int64 = (long long) mKeyUp;
+		}	
+		else if (!_tcsicmp(member, _T("suppress"))) 
+		{
+			aResultToken.symbol = SYM_INTEGER;
+			aResultToken.value_int64 = (long long) mNoSuppress;
+		}
+
+	}
+return OK ;
+}
 
 //
 // Func: Script interface, accessible via "function reference".

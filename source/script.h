@@ -2941,6 +2941,7 @@ void BIF_IsLabel(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aPara
 void BIF_IsFunc(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_Func(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_Line(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
+void BIF_Hotkey(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_IsByRef(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_GetKeyState(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_GetKeyName(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);

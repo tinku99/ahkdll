@@ -73,8 +73,9 @@ struct HotkeyCriterion
 
 
 
-struct HotkeyVariant
+class HotkeyVariant : public IObject
 {
+public: 
 	Label *mJumpToLabel;
 	DWORD mRunAgainTime;
 	LPTSTR mHotWinTitle, mHotWinText;
@@ -90,11 +91,16 @@ struct HotkeyVariant
 	bool mMaxThreadsBuffer;
 	bool mRunAgainAfterFinished;
 	bool mEnabled; // Whether this variant has been disabled via the Hotkey command.
+
+	// IObject.
+	ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount);
+	ULONG STDMETHODCALLTYPE AddRef() { return 1; }
+	ULONG STDMETHODCALLTYPE Release() { return 1; }
 };
 
 
 
-class Hotkey
+class Hotkey : public IObject
 {
 private:
 	// These are done as static, rather than having an outer-class to contain all the hotkeys, because
@@ -239,6 +245,11 @@ public:
 
 	static void InstallKeybdHook();
 	static void InstallMouseHook();
+	
+	// IObject.
+	ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount);
+	ULONG STDMETHODCALLTYPE AddRef() { return 1; }
+	ULONG STDMETHODCALLTYPE Release() { return 1; }
 
 	bool PerformIsAllowed(HotkeyVariant &aVariant)
 	{
