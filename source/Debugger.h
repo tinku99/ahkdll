@@ -97,6 +97,9 @@ private:
 
 // Forward-declarations (this file is included in script.h before these are declared).
 class Line;
+class Hotkey;
+// class ArgStruct;
+// class ExprTokenType; 
 class Func;
 class Label;
 

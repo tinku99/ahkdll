@@ -12681,7 +12681,7 @@ IObject *DynaToken::Create(ExprTokenType *aParam[], int aParamCount)
 	result_token.mem_to_free = NULL;
 	result_token.buf = buf;
 
-	ExprTokenType oParam = {0};
+	ExprTokenType oParam = ExprTokenType();
 	ExprTokenType *param[1] = {&oParam};
 
 	if (obj && aParamCount)
@@ -16000,6 +16000,18 @@ void BIF_Line(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCo
 	
 	aResultToken.symbol = SYM_OBJECT;  
 	aResultToken.object = line;
+}
+void BIF_IsArgStruct(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount) // Lexikos: Added for use with dynamic function calls.
+{
+	ArgStruct *argstruct;
+	argstruct = dynamic_cast<ArgStruct *>(TokenToObject(*aParam[0]))  ;
+	aResultToken.value_int64 = argstruct ? 1 : 0;
+}
+void BIF_IsExprTokenType(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount) // Lexikos: Added for use with dynamic function calls.
+{
+	ExprTokenType *e;
+	e = dynamic_cast<ExprTokenType *>(TokenToObject(*aParam[0]))  ;
+	aResultToken.value_int64 = e ? 1 : 0;
 }
 
 

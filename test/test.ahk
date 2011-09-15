@@ -9,6 +9,10 @@ h := Hotkey("f5", 0, 0)
 msgbox % h.name
 h := Hotkey("f5", 0, 1)
 msgbox % h.name
+a := line(2).argStruct
+msgbox % "argstruct text: " a.text
+t := a.token
+msgbox % "token symbol: " t.symbol
 return
 
 fx(){

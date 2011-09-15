@@ -346,8 +346,9 @@ typedef UCHAR ArgTypeType;  // UCHAR vs. an enum, to save memory.
 #define ARG_TYPE_INPUT_VAR  (UCHAR)1
 #define ARG_TYPE_OUTPUT_VAR (UCHAR)2
 
-struct ArgStruct
+class ArgStruct : public IObject
 {
+public: 
 	ArgTypeType type;
 	bool is_expression; // Whether this ARG is known to contain an expression.
 	// Above are kept adjacent to each other to conserve memory (any fields that aren't an even
@@ -357,6 +358,12 @@ struct ArgStruct
 	LPTSTR text;
 	DerefType *deref;  // Will hold a NULL-terminated array of var-deref locations within <text>.
 	ExprTokenType *postfix;  // An array of tokens in postfix order. Also used for ACT_ADD and others to store pre-converted binary integers.
+
+// IObject.
+	ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount);
+	ULONG STDMETHODCALLTYPE AddRef() { return 1; }
+	ULONG STDMETHODCALLTYPE Release() { return 1; }
+
 };
 
 
@@ -2941,6 +2948,8 @@ void BIF_IsLabel(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aPara
 void BIF_IsFunc(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_Func(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_Line(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
+// void BIF_IsArgStruct(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
+// void BIF_IsExprTokenType(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_Hotkey(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_IsByRef(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 void BIF_GetKeyState(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);

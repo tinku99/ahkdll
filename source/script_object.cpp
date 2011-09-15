@@ -1399,6 +1399,71 @@ Object::FieldType *Object::Insert(SymbolType key_type, KeyType key, IndexType at
 // Line: Script interface, accessible via "Line reference".
 //
 
+ResultType STDMETHODCALLTYPE ArgStruct::Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount)
+{
+	if (!aParamCount)
+		return INVOKE_NOT_HANDLED;
+	LPTSTR member = TokenToString(*aParam[0]);
+	if (!IS_INVOKE_CALL)
+	{
+		if (IS_INVOKE_SET || aParamCount > 1)
+			return INVOKE_NOT_HANDLED;
+
+		if (!_tcsicmp(member, _T("nextArg")))
+		{
+			aResultToken.symbol = SYM_OBJECT;
+			aResultToken.object = ((ArgStruct*)this)++;
+		}
+		else if (!_tcsicmp(member, _T("text")))
+		{
+			aResultToken.symbol = SYM_STRING;
+			aResultToken.marker = text;
+		}	
+		else if (!_tcsicmp(member, _T("token"))) 
+		{
+			aResultToken.symbol = SYM_OBJECT;
+			aResultToken.object=  postfix;
+		}
+
+	}
+return OK ;
+}
+
+ResultType STDMETHODCALLTYPE ExprTokenType::Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount)
+{
+	if (!aParamCount)
+		return INVOKE_NOT_HANDLED;
+	LPTSTR member = TokenToString(*aParam[0]);
+	if (!IS_INVOKE_CALL)
+	{
+		if (IS_INVOKE_SET || aParamCount > 1)
+			return INVOKE_NOT_HANDLED;
+
+		if (!_tcsicmp(member, _T("nextToken")))
+		{
+			aResultToken.symbol = SYM_OBJECT;
+			aResultToken.object = ((ExprTokenType*)this)++;
+		}
+		else if (!_tcsicmp(member, _T("text")))
+		{
+			aResultToken.symbol = SYM_STRING;
+			aResultToken.marker = marker;
+		}	
+		else if (!_tcsicmp(member, _T("symbol")))
+		{
+			aResultToken.symbol = SYM_INTEGER;
+			aResultToken.value_int64 = (long long) symbol;
+		}	
+		else if (!_tcsicmp(member, _T("token"))) 
+		{
+			aResultToken.symbol = SYM_OBJECT;
+			aResultToken.object=  circuit_token;
+		}
+
+	}
+return OK ;
+}
+
 ResultType STDMETHODCALLTYPE Line::Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount)
 {
 	if (!aParamCount)
@@ -1415,6 +1480,11 @@ ResultType STDMETHODCALLTYPE Line::Invoke(ExprTokenType &aResultToken, ExprToken
 		{
 			aResultToken.symbol = SYM_INTEGER;
 			aResultToken.value_int64 = (long long) mActionType;
+		}
+		else if (!_tcsicmp(member, _T("argStruct")))
+		{
+			aResultToken.symbol = SYM_OBJECT;
+			aResultToken.object = mArg ;
 		}
 		else if (!_tcsicmp(member, _T("nextLine")))
 		{

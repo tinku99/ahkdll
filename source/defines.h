@@ -194,7 +194,7 @@ enum SymbolType // For use with ExpandExpression() and IsPureNumeric().
 #define SYM_DYNAMIC_IS_VAR_NORMAL_OR_CLIP(token) (!(token)->buf && ((token)->var->Type() == VAR_NORMAL || (token)->var->Type() == VAR_CLIPBOARD)) // i.e. it's an environment variable or the clipboard, not a built-in variable or double-deref.
 
 
-struct ExprTokenType; // Forward declaration for use below.
+class ExprTokenType; // Forward declaration for use below.
 struct DECLSPEC_NOVTABLE IObject // L31: Abstract interface for "objects".
 {
 	// See script_object.cpp for comments.
@@ -220,8 +220,9 @@ struct DECLSPEC_NOVTABLE IObject // L31: Abstract interface for "objects".
 
 struct DerefType; // Forward declarations for use below.
 class Var;        //
-struct ExprTokenType  // Something in the compiler hates the name TokenType, so using a different name.
+class ExprTokenType : public IObject // Something in the compiler hates the name TokenType, so using a different name.
 {
+public:
 	// Due to the presence of 8-byte members (double and __int64) this entire struct is aligned on 8-byte
 	// vs. 4-byte boundaries.  The compiler defaults to this because otherwise an 8-byte member might
 	// sometimes not start at an even address, which would hurt performance on Pentiums, etc.
@@ -258,6 +259,10 @@ struct ExprTokenType  // Something in the compiler hates the name TokenType, so 
 	// The above two probably need to be adjacent to each other to conserve memory due to 8-byte alignment,
 	// which is the default alignment (for performance reasons) in any struct that contains 8-byte members
 	// such as double and __int64.
+// IObject.
+	ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount);
+	ULONG STDMETHODCALLTYPE AddRef() { return 1; }
+	ULONG STDMETHODCALLTYPE Release() { return 1; }
 };
 #define MAX_TOKENS 512 // Max number of operators/operands.  Seems enough to handle anything realistic, while conserving call-stack space.
 #define STACK_PUSH(token_ptr) stack[stack_count++] = token_ptr

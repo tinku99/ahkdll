@@ -6830,7 +6830,8 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		new_arg = NULL;  // Just need an empty array in this case.
 	else
 	{
-		if (   !(new_arg = (ArgStruct *)SimpleHeap::Malloc(aArgc * sizeof(ArgStruct)))   )
+//		if (   !(new_arg = (ArgStruct *)SimpleHeap::Malloc(aArgc * sizeof(ArgStruct)))   )
+		if (   !(new_arg = new ArgStruct[aArgc]))
 			return ScriptError(ERR_OUTOFMEM);
 
 		int i, j, i_plus_one;
@@ -7502,7 +7503,8 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 							// by such assignments when it wasn't before.
 						))   )
 			{
-				if (   !(new_arg[arg_index].postfix = (ExprTokenType *)SimpleHeap::Malloc(sizeof(__int64)))   )
+//				if (   !(new_arg[arg_index].postfix = (ExprTokenType *)SimpleHeap::Malloc(sizeof(__int64)))   )
+				if (   !(new_arg[arg_index].postfix = new ExprTokenType[1]))
 					return ScriptError(ERR_OUTOFMEM);
 				*(__int64 *)new_arg[arg_index].postfix = ATOI64(new_arg[arg_index].text);
 			}
@@ -13168,7 +13170,8 @@ end_of_infix_to_postfix:
 	// any 8-byte members like __int64 or double in the compressed struct because that would change the default
 	// alignment to 64-bit vs. 32-bit, which would keep the struct size at 16 bytes rather than allowing it to
 	// fall to 12 bytes.
-	if (   !(aArg.postfix = (ExprTokenType *)SimpleHeap::Malloc((postfix_count+1)*sizeof(ExprTokenType)))   ) // +1 for the terminator item added below.
+//	if (   !(aArg.postfix = (ExprTokenType *)SimpleHeap::Malloc((postfix_count+1)*sizeof(ExprTokenType)))   ) // +1 for the terminator item added below.
+	if (   !(aArg.postfix = new ExprTokenType[postfix_count+1])) // +1 for the terminator item added below.
 		return LineError(ERR_OUTOFMEM);
 
 	int i, j;
