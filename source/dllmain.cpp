@@ -604,9 +604,9 @@ const char g_szFriendlyNameOptional[] = "AutoHotkey Script UNICODE" ;
 const char g_szVerIndProgIDOptional[] = "AutoHotkey.Script.UNICODE" ;
 const char g_szProgIDOptional[] = "AutoHotkey.Script.UNICODE.1" ;
 #else
-const char g_szFriendlyNameOptional[] = "AutoHotkey Script ANSI" ;
-const char g_szVerIndProgIDOptional[] = "AutoHotkey.Script.ANSI" ;
-const char g_szProgIDOptional[] = "AutoHotkey.Script.ANSI.1" ;
+const char g_szFriendlyNameOptional[] = "AutoHotkey Script ANSISANDBOX" ;
+const char g_szVerIndProgIDOptional[] = "AutoHotkey.Script.ANSISANDBOX" ;
+const char g_szProgIDOptional[] = "AutoHotkey.Script.ANSISANDBOX.1" ;
 #endif // UNICODE
 #endif // WIN64
 

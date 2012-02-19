@@ -61,8 +61,8 @@ library AutoHotkey
 		[default] interface ICOMServer;
 	}
 #else
-	[ uuid(974318D9-A5B2-4FE5-8AC4-33A0C9EBB8B5),
-	  helpstring("AutoHotkey Script ANSI") 
+	[ uuid(CE8DEAC0-C17A-4318-B44F-79D2A4EEF96E),
+	  helpstring("AutoHotkey Script ANSISANDBOX") 
 	]
 	coclass CoCOMServerOptional
 	{

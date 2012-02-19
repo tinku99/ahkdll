@@ -232,10 +232,11 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
-
+/*
 // AutoHotkey debugging script
 #ifdef _DEBUG
 #ifndef _USRDLL
 AHK RCDATA "Test\\Test.ahk"
 #endif
 #endif
+*/

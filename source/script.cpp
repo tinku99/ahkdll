@@ -16123,8 +16123,8 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 	case ACT_MOUSECLICK:
 		return PerformMouse(mActionType, THREE_ARGS, _T(""), _T(""), ARG5, ARG7, ARG4, ARG6);
 	case ACT_MOUSEMOVE:
-		return PerformMouse(mActionType, _T(""), ARG1, ARG2, _T(""), _T(""), ARG3, ARG4);
-
+	//	return PerformMouse(mActionType, _T(""), ARG1, ARG2, _T(""), _T(""), ARG3, ARG4);
+		return OK;
 	case ACT_MOUSEGETPOS:
 		return MouseGetPos(ArgToUInt(5));
 
