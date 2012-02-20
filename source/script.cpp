@@ -16117,20 +16117,20 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		return OK;
 
 	case ACT_CLICK:
-		return PerformClick(ARG1);
+	//	return PerformClick(ARG1);
 	case ACT_MOUSECLICKDRAG:
-		return PerformMouse(mActionType, SEVEN_ARGS);
+	//	return PerformMouse(mActionType, SEVEN_ARGS);
 	case ACT_MOUSECLICK:
-		return PerformMouse(mActionType, THREE_ARGS, _T(""), _T(""), ARG5, ARG7, ARG4, ARG6);
+	//	return PerformMouse(mActionType, THREE_ARGS, _T(""), _T(""), ARG5, ARG7, ARG4, ARG6);
 	case ACT_MOUSEMOVE:
 	//	return PerformMouse(mActionType, _T(""), ARG1, ARG2, _T(""), _T(""), ARG3, ARG4);
-		return OK;
+		
 	case ACT_MOUSEGETPOS:
-		return MouseGetPos(ArgToUInt(5));
-
+	// return MouseGetPos(ArgToUInt(5));
+		return OK;
 	case ACT_WINACTIVATE:
 	case ACT_WINACTIVATEBOTTOM:
-		if (WinActivate(g, FOUR_ARGS, mActionType == ACT_WINACTIVATEBOTTOM))
+	/*	if (WinActivate(g, FOUR_ARGS, mActionType == ACT_WINACTIVATEBOTTOM))
 			// It seems best to do these sleeps here rather than in the windowing
 			// functions themselves because that way, the program can use the
 			// windowing functions without being subject to the script's delay
@@ -16139,7 +16139,7 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 			// since no other actions will be dependent on it actually
 			// having happened:
 			DoWinDelay;
-		return OK;
+	*/	return OK;
 
 	case ACT_WINMINIMIZE:
 	case ACT_WINMAXIMIZE:
@@ -16148,7 +16148,8 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 	case ACT_WINSHOW:
 	case ACT_WINCLOSE:
 	case ACT_WINKILL:
-	{
+	 return OK ; 
+	 /* {
 		// Set initial guess for is_ahk_group (further refined later).  For ahk_group, WinText,
 		// ExcludeTitle, and ExcludeText must be blank so that they are reserved for future use
 		// (i.e. they're currently not supported since the group's own criteria take precedence):
@@ -16185,9 +16186,9 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		else
 			return PerformShowWindow(mActionType, FOUR_ARGS);
 	}
-
+	*/
 	case ACT_ENVGET:
-		return EnvGet(ARG2);
+	//	return EnvGet(ARG2);
 
 	case ACT_ENVSET:
 		// MSDN: "If [the 2nd] parameter is NULL, the variable is deleted from the current process’s environment."
@@ -16206,9 +16207,9 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		// SetEnvironmentVariable()'s return value determine whether there's an error).  However, I just
 		// realized that it's impossible to "retrieve" the value of an env var that has spaces (until now,
 		// since the EnvGet command is available).
-		return SetErrorLevelOrThrowBool(!SetEnvironmentVariable(ARG1, ARG2));
-
-	case ACT_ENVUPDATE:
+		// return SetErrorLevelOrThrowBool(!SetEnvironmentVariable(ARG1, ARG2));
+		return OK ; 
+	case ACT_ENVUPDATE: /*
 	{
 		// From the AutoIt3 source:
 		// AutoIt3 uses SMTO_BLOCK (which prevents our thread from doing anything during the call)
@@ -16216,20 +16217,20 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		ULONG_PTR nResult;
 		return SetErrorLevelOrThrowBool(!SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE,
 										0, (LPARAM)_T("Environment"), SMTO_BLOCK, 15000, &nResult));
-	}
+	}  */
 
 	case ACT_URLDOWNLOADTOFILE:
-		return URLDownloadToFile(TWO_ARGS);
+		// return URLDownloadToFile(TWO_ARGS);
 
-	case ACT_RUNAS:
+	case ACT_RUNAS: /*
 		if (!g_os.IsWin2000orLater()) // Do nothing if the OS doesn't support it.
 			return OK;
 		StringTCharToWChar(ARG1, g_script.mRunAsUser);
 		StringTCharToWChar(ARG2, g_script.mRunAsPass);
-		StringTCharToWChar(ARG3, g_script.mRunAsDomain);
+		StringTCharToWChar(ARG3, g_script.mRunAsDomain); */
 		return OK;
 
-	case ACT_RUN:
+	case ACT_RUN: /*
 	{
 		bool use_el = tcscasestr(ARG3, _T("UseErrorLevel"));
 		result = g_script.ActionExec(ARG1, NULL, ARG2, !use_el, ARG3, NULL, use_el, true, ARGVAR4); // Be sure to pass NULL for 2nd param.
@@ -16239,7 +16240,7 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 			result = g_ErrorLevel->Assign(result ? ERRORLEVEL_NONE : _T("ERROR"));
 		// Otherwise, if result == FAIL, above already displayed the error (or threw an exception).
 		return result;
-	}
+	}  */
 
 	case ACT_RUNWAIT:
 	case ACT_CLIPWAIT:
@@ -16248,73 +16249,73 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 	case ACT_WINWAITCLOSE:
 	case ACT_WINWAITACTIVE:
 	case ACT_WINWAITNOTACTIVE:
-		return PerformWait();
+		// return PerformWait();
 
 	case ACT_WINMOVE:
-		return mArgc > 2 ? WinMove(EIGHT_ARGS) : WinMove(_T(""), _T(""), ARG1, ARG2);
+		// return mArgc > 2 ? WinMove(EIGHT_ARGS) : WinMove(_T(""), _T(""), ARG1, ARG2);
 
 	case ACT_WINMENUSELECTITEM:
-		return WinMenuSelectItem(ELEVEN_ARGS);
+		// return WinMenuSelectItem(ELEVEN_ARGS);
 
 	case ACT_CONTROLSEND:
 	case ACT_CONTROLSENDRAW:
-		return ControlSend(SIX_ARGS, mActionType == ACT_CONTROLSENDRAW);
+		// return ControlSend(SIX_ARGS, mActionType == ACT_CONTROLSENDRAW);
 
 	case ACT_CONTROLCLICK:
-		if (   !(vk = ConvertMouseButton(ARG4))   ) // Treats blank as "Left".
-			return LineError(ERR_PARAM4_INVALID, FAIL, ARG4);
-		return ControlClick(vk, *ARG5 ? ArgToInt(5) : 1, ARG6, ARG1, ARG2, ARG3, ARG7, ARG8);
+		// if (   !(vk = ConvertMouseButton(ARG4))   ) // Treats blank as "Left".
+		//	return LineError(ERR_PARAM4_INVALID, FAIL, ARG4);
+		// return ControlClick(vk, *ARG5 ? ArgToInt(5) : 1, ARG6, ARG1, ARG2, ARG3, ARG7, ARG8);
 
 	case ACT_CONTROLMOVE:
-		return ControlMove(NINE_ARGS);
+		// return ControlMove(NINE_ARGS);
 	case ACT_CONTROLGETPOS:
-		return ControlGetPos(ARG5, ARG6, ARG7, ARG8, ARG9);
+		// return ControlGetPos(ARG5, ARG6, ARG7, ARG8, ARG9);
 	case ACT_CONTROLGETFOCUS:
-		return ControlGetFocus(ARG2, ARG3, ARG4, ARG5);
+		// return ControlGetFocus(ARG2, ARG3, ARG4, ARG5);
 	case ACT_CONTROLFOCUS:
-		return ControlFocus(FIVE_ARGS);
+		// return ControlFocus(FIVE_ARGS);
 	case ACT_CONTROLSETTEXT:
-		return ControlSetText(SIX_ARGS);
+		// return ControlSetText(SIX_ARGS);
 	case ACT_CONTROLGETTEXT:
-		return ControlGetText(ARG2, ARG3, ARG4, ARG5, ARG6);
+		// return ControlGetText(ARG2, ARG3, ARG4, ARG5, ARG6);
 	case ACT_CONTROL:
-		return Control(SEVEN_ARGS);
+		// return Control(SEVEN_ARGS);
 	case ACT_CONTROLGET:
-		return ControlGet(ARG2, ARG3, ARG4, ARG5, ARG6, ARG7, ARG8);
+		// return ControlGet(ARG2, ARG3, ARG4, ARG5, ARG6, ARG7, ARG8);
 	case ACT_STATUSBARGETTEXT:
-		return StatusBarGetText(ARG2, ARG3, ARG4, ARG5, ARG6);
+		// return StatusBarGetText(ARG2, ARG3, ARG4, ARG5, ARG6);
 	case ACT_STATUSBARWAIT:
-		return StatusBarWait(EIGHT_ARGS);
+		// return StatusBarWait(EIGHT_ARGS);
 	case ACT_POSTMESSAGE:
 	case ACT_SENDMESSAGE:
-		return ScriptPostSendMessage(mActionType == ACT_SENDMESSAGE);
+		// return ScriptPostSendMessage(mActionType == ACT_SENDMESSAGE);
 	case ACT_PROCESS:
-		return ScriptProcess(THREE_ARGS);
+		// return ScriptProcess(THREE_ARGS);
 	case ACT_WINSET:
-		return WinSet(SIX_ARGS);
+		// return WinSet(SIX_ARGS);
 	case ACT_WINSETTITLE:
-		return mArgc > 1 ? WinSetTitle(FIVE_ARGS) : WinSetTitle(_T(""), _T(""), ARG1);
+		// return mArgc > 1 ? WinSetTitle(FIVE_ARGS) : WinSetTitle(_T(""), _T(""), ARG1);
 	case ACT_WINGETTITLE:
-		return WinGetTitle(ARG2, ARG3, ARG4, ARG5);
+		// return WinGetTitle(ARG2, ARG3, ARG4, ARG5);
 	case ACT_WINGETCLASS:
-		return WinGetClass(ARG2, ARG3, ARG4, ARG5);
+		// return WinGetClass(ARG2, ARG3, ARG4, ARG5);
 	case ACT_WINGET:
-		return WinGet(ARG2, ARG3, ARG4, ARG5, ARG6);
+		// return WinGet(ARG2, ARG3, ARG4, ARG5, ARG6);
 	case ACT_WINGETTEXT:
-		return WinGetText(ARG2, ARG3, ARG4, ARG5);
+		// return WinGetText(ARG2, ARG3, ARG4, ARG5);
 	case ACT_WINGETPOS:
-		return WinGetPos(ARG5, ARG6, ARG7, ARG8);
+		// return WinGetPos(ARG5, ARG6, ARG7, ARG8);
 
 	case ACT_SYSGET:
-		return SysGet(ARG2, ARG3);
-
-	case ACT_WINMINIMIZEALL:
+		// return SysGet(ARG2, ARG3);
+		return OK ; 
+	case ACT_WINMINIMIZEALL: /*
 		PostMessage(FindWindow(_T("Shell_TrayWnd"), NULL), WM_COMMAND, 419, 0);
 		DoWinDelay;
-		return OK;
-	case ACT_WINMINIMIZEALLUNDO:
+		return OK;  */
+	case ACT_WINMINIMIZEALLUNDO: /*
 		PostMessage(FindWindow(_T("Shell_TrayWnd"), NULL), WM_COMMAND, 416, 0);
-		DoWinDelay;
+		DoWinDelay;  */
 		return OK;
 
 	case ACT_ONEXIT:
@@ -16332,9 +16333,9 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 #ifndef MINIDLL
 	case ACT_HOTKEY:
 		// mAttribute is the label resolved at loadtime, if available (for performance).
-		return Hotkey::Dynamic(THREE_ARGS, (Label *)mAttribute);
+		// return Hotkey::Dynamic(THREE_ARGS, (Label *)mAttribute);
 #endif
-	case ACT_SETTIMER: // A timer is being created, changed, or enabled/disabled.
+	case ACT_SETTIMER: /* // A timer is being created, changed, or enabled/disabled.
 		// Note that only one timer per label is allowed because the label is the unique identifier
 		// that allows us to figure out whether to "update or create" when searching the list of timers.
 		if (   !(target_label = (Label *)mAttribute)   ) // Since it wasn't resolved at load-time, it must be a variable reference.
@@ -16367,7 +16368,7 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		// Timer is always (re)enabled when ARG2 specifies a numeric period or is blank + there's no ARG3.
 		// If ARG2 is blank but ARG3 (priority) isn't, tell it to update only the priority and nothing else:
 		default: g_script.UpdateOrCreateTimer(target_label, ARG2, ARG3, true, !*ARG2 && *ARG3);
-		}
+		}  */
 		return OK;
 
 	case ACT_CRITICAL:
@@ -16436,7 +16437,7 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		}
 		return OK;
 
-	case ACT_GROUPADD: // Adding a WindowSpec *to* a group, not adding a group.
+	case ACT_GROUPADD: /* // Adding a WindowSpec *to* a group, not adding a group.
 	{
 		if (   !(group = (WinGroup *)mAttribute)   )
 			if (   !(group = g_script.FindGroup(ARG1, true))   )  // Last parameter -> create-if-not-found.
@@ -16455,18 +16456,18 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 			group->mJumpToLabel = target_label;
 		}
 		return group->AddWindow(ARG2, ARG3, ARG5, ARG6);
-	}
+	}  */
 
 	// Note ACT_GROUPACTIVATE is handled by ExecUntil(), since it's better suited to do the Gosub.
-	case ACT_GROUPDEACTIVATE:
+	case ACT_GROUPDEACTIVATE:  /*
 		if (   !(group = (WinGroup *)mAttribute)   )
 			group = g_script.FindGroup(ARG1);
 		if (group)
 			group->Deactivate(*ARG2 && !_tcsicmp(ARG2, _T("R")));  // Note: It will take care of DoWinDelay if needed.
-		//else nonexistent group: By design, do nothing.
+		//else nonexistent group: By design, do nothing. */
 		return OK;
 
-	case ACT_GROUPCLOSE:
+	case ACT_GROUPCLOSE: /*
 		if (   !(group = (WinGroup *)mAttribute)   )
 			group = g_script.FindGroup(ARG1);
 		if (group)
@@ -16474,12 +16475,12 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 				group->ActUponAll(ACT_WINCLOSE, 0);  // Note: It will take care of DoWinDelay if needed.
 			else
 				group->CloseAndGoToNext(*ARG2 && !_tcsicmp(ARG2, _T("R")));  // Note: It will take care of DoWinDelay if needed.
-		//else nonexistent group: By design, do nothing.
+		//else nonexistent group: By design, do nothing. */
 		return OK;
 
 	case ACT_GETKEYSTATE:
-		return GetKeyJoyState(ARG2, ARG3);
-
+		// return GetKeyJoyState(ARG2, ARG3);
+		return OK ; 
 	case ACT_RANDOM:
 	{
 		if (!output_var) // v1.0.42.03: Special mode to change the seed.
@@ -16529,13 +16530,13 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		return DriveSpace(ARG2, true);
 
 	case ACT_DRIVE:
-		return Drive(THREE_ARGS);
-
+		// return Drive(THREE_ARGS);
+		return OK ; 
 	case ACT_DRIVEGET:
 		return DriveGet(ARG2, ARG3);
 
 	case ACT_SOUNDGET:
-	case ACT_SOUNDSET:
+	case ACT_SOUNDSET: /*
 		device_id = *ARG4 ? ArgToInt(4) - 1 : 0;
 		if (device_id < 0)
 			device_id = 0;
@@ -16545,50 +16546,50 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 			, component_type, instance_number  // Which instance of this component, 1 = first
 			, *ARG3 ? SoundConvertControlType(ARG3) : MIXERCONTROL_CONTROLTYPE_VOLUME  // Default
 			, (UINT)device_id);
-
+			*/
 	case ACT_SOUNDGETWAVEVOLUME:
-	case ACT_SOUNDSETWAVEVOLUME:
+	case ACT_SOUNDSETWAVEVOLUME: /*
 		device_id = *ARG2 ? ArgToInt(2) - 1 : 0;
 		if (device_id < 0)
 			device_id = 0;
 		return (mActionType == ACT_SOUNDGETWAVEVOLUME) ? SoundGetWaveVolume((HWAVEOUT)device_id)
 			: SoundSetWaveVolume(ARG1, (HWAVEOUT)device_id);
-
+			*/
 	case ACT_SOUNDBEEP:
 		// For simplicity and support for future/greater capabilities, no range checking is done.
 		// It simply calls the function with the two DWORD values provided. It avoids setting
 		// ErrorLevel because failure is rare and also because a script might want play a beep
 		// right before displaying an error dialog that uses the previous value of ErrorLevel.
-		Beep(*ARG1 ? ArgToUInt(1) : 523, *ARG2 ? ArgToUInt(2) : 150);
+		// Beep(*ARG1 ? ArgToUInt(1) : 523, *ARG2 ? ArgToUInt(2) : 150);
 		return OK;
 
 	case ACT_SOUNDPLAY:
-		return SoundPlay(ARG1, *ARG2 && !_tcsicmp(ARG2, _T("wait")) || !_tcsicmp(ARG2, _T("1")));
+		// return SoundPlay(ARG1, *ARG2 && !_tcsicmp(ARG2, _T("wait")) || !_tcsicmp(ARG2, _T("1")));
 
 	case ACT_FILEAPPEND:
 		// Uses the read-file loop's current item filename was explicitly leave blank (i.e. not just
 		// a reference to a variable that's blank):
-		return FileAppend(ARG2, ARG1, (mArgc < 2) ? g.mLoopReadFile : NULL);
+		// return FileAppend(ARG2, ARG1, (mArgc < 2) ? g.mLoopReadFile : NULL);
 
 	case ACT_FILEREAD:
-		return FileRead(ARG2);
+		// return FileRead(ARG2);
 
 	case ACT_FILEREADLINE:
-		return FileReadLine(ARG2, ARG3);
+		// return FileReadLine(ARG2, ARG3);
 
 	case ACT_FILEDELETE:
-		return FileDelete();
+		// return FileDelete();
 
 	case ACT_FILERECYCLE:
-		return FileRecycle(ARG1);
+		// return FileRecycle(ARG1);
 
 	case ACT_FILERECYCLEEMPTY:
-		return FileRecycleEmpty(ARG1);
+		// return FileRecycleEmpty(ARG1);
 #ifndef MINIDLL
 	case ACT_FILEINSTALL:
-		return FileInstall(THREE_ARGS);
+		// return FileInstall(THREE_ARGS);
 #endif
-	case ACT_FILECOPY:
+	case ACT_FILECOPY: /*
 	{
 		int error_count = Util_CopyFile(ARG1, ARG2, ArgToInt(3) == 1, false, g.LastError);
 		if (!error_count)
@@ -16596,12 +16597,12 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		if (g_script.mIsAutoIt2)
 			return g_ErrorLevel->Assign(ERRORLEVEL_ERROR); // For backward compatibility with v2.
 		return SetErrorLevelOrThrowInt(error_count);
-	}
+	} */
 	case ACT_FILEMOVE:
-		return SetErrorLevelOrThrowInt(Util_CopyFile(ARG1, ARG2, ArgToInt(3) == 1, true, g.LastError));
+		// return SetErrorLevelOrThrowInt(Util_CopyFile(ARG1, ARG2, ArgToInt(3) == 1, true, g.LastError));
 	case ACT_FILECOPYDIR:
-		return SetErrorLevelOrThrowBool(!Util_CopyDir(ARG1, ARG2, ArgToInt(3) == 1));
-	case ACT_FILEMOVEDIR:
+		// return SetErrorLevelOrThrowBool(!Util_CopyDir(ARG1, ARG2, ArgToInt(3) == 1));
+	case ACT_FILEMOVEDIR: /*
 		if (ctoupper(*ARG3) == 'R')
 		{
 			// Perform a simple rename instead, which prevents the operation from being only partially
@@ -16612,46 +16613,47 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		}
 		// Otherwise:
 		return SetErrorLevelOrThrowBool(!Util_MoveDir(ARG1, ARG2, ArgToInt(3)));
-
+		*/
 	case ACT_FILECREATEDIR:
-		return FileCreateDir(ARG1);
+		// return FileCreateDir(ARG1);
 	case ACT_FILEREMOVEDIR:
-		return SetErrorLevelOrThrowBool(!*ARG1 // Consider an attempt to create or remove a blank dir to be an error.
-			|| !Util_RemoveDir(ARG1, ArgToInt(2) == 1)); // Relies on short-circuit evaluation.
+		// return SetErrorLevelOrThrowBool(!*ARG1 // Consider an attempt to create or remove a blank dir to be an error.
+		//	|| !Util_RemoveDir(ARG1, ArgToInt(2) == 1)); // Relies on short-circuit evaluation.
 
 	case ACT_FILEGETATTRIB:
 		// The specified ARG, if non-blank, takes precedence over the file-loop's file (if any):
 		#define USE_FILE_LOOP_FILE_IF_ARG_BLANK(arg) (*arg ? arg : (g.mLoopFile ? g.mLoopFile->cFileName : _T("")))
-		return FileGetAttrib(USE_FILE_LOOP_FILE_IF_ARG_BLANK(ARG2));
+		// return FileGetAttrib(USE_FILE_LOOP_FILE_IF_ARG_BLANK(ARG2));
 	case ACT_FILESETATTRIB:
 		FileSetAttrib(ARG1, USE_FILE_LOOP_FILE_IF_ARG_BLANK(ARG2), ConvertLoopMode(ARG3), ArgToInt(4) == 1);
-		return !g.ThrownToken ? OK : FAIL;
+		// return !g.ThrownToken ? OK : FAIL;
 	case ACT_FILEGETTIME:
-		return FileGetTime(USE_FILE_LOOP_FILE_IF_ARG_BLANK(ARG2), *ARG3);
+		// return FileGetTime(USE_FILE_LOOP_FILE_IF_ARG_BLANK(ARG2), *ARG3);
 	case ACT_FILESETTIME:
 		FileSetTime(ARG1, USE_FILE_LOOP_FILE_IF_ARG_BLANK(ARG2), *ARG3, ConvertLoopMode(ARG4), ArgToInt(5) == 1);
-		return !g.ThrownToken ? OK : FAIL;
+		// return !g.ThrownToken ? OK : FAIL;
 	case ACT_FILEGETSIZE:
-		return FileGetSize(USE_FILE_LOOP_FILE_IF_ARG_BLANK(ARG2), ARG3);
+		// return FileGetSize(USE_FILE_LOOP_FILE_IF_ARG_BLANK(ARG2), ARG3);
 	case ACT_FILEGETVERSION:
-		return FileGetVersion(USE_FILE_LOOP_FILE_IF_ARG_BLANK(ARG2));
+		// return FileGetVersion(USE_FILE_LOOP_FILE_IF_ARG_BLANK(ARG2));
 
 	case ACT_SETWORKINGDIR:
-		SetWorkingDir(ARG1);
-		return !g.ThrownToken ? OK : FAIL;
+		// SetWorkingDir(ARG1);
+		// return !g.ThrownToken ? OK : FAIL;
+		return OK ; 
 #ifndef MINIDLL
 	case ACT_FILESELECTFILE:
-		return FileSelectFile(ARG2, ARG3, ARG4, ARG5);
+		// return FileSelectFile(ARG2, ARG3, ARG4, ARG5);
 
 	case ACT_FILESELECTFOLDER:
-		return FileSelectFolder(ARG2, ARG3, ARG4);
+		// return FileSelectFolder(ARG2, ARG3, ARG4);
 #endif
 	case ACT_FILEGETSHORTCUT:
-		return FileGetShortcut(ARG1);
+		// return FileGetShortcut(ARG1);
 	case ACT_FILECREATESHORTCUT:
-		return FileCreateShortcut(NINE_ARGS);
+		// return FileCreateShortcut(NINE_ARGS);
 #ifndef MINIDLL
-	case ACT_KEYHISTORY:
+	case ACT_KEYHISTORY: /*
 #ifdef ENABLE_KEY_HISTORY_FILE
 		if (*ARG1 || *ARG2)
 		{
@@ -16681,7 +16683,8 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 #endif
 		// Otherwise:
 		return ShowMainWindow(MAIN_MODE_KEYHISTORY, false); // Pass "unrestricted" when the command is explicitly used in the script.
-	case ACT_LISTLINES:
+	*/
+	case ACT_LISTLINES: /*
 		if (   (toggle = ConvertOnOff(ARG1, NEUTRAL)) == NEUTRAL   )
 			return ShowMainWindow(MAIN_MODE_LINES, false); // Pass "unrestricted" when the command is explicitly used in the script.
 		// Otherwise:
@@ -16698,14 +16701,14 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 				sLogNext = LINE_LOG_SIZE - 1;
 			sLog[sLogNext] = NULL; // Without this, one of the lines in the history would be invalid due to the circular nature of the line history array, which would also cause the line history to show the wrong chronological order in some cases.
 		}
-		g.ListLinesIsEnabled = (toggle == TOGGLED_ON);
+		g.ListLinesIsEnabled = (toggle == TOGGLED_ON); */
 		return OK;
 	case ACT_LISTVARS:
-		return ShowMainWindow(MAIN_MODE_VARS, false); // Pass "unrestricted" when the command is explicitly used in the script.
+		// return ShowMainWindow(MAIN_MODE_VARS, false); // Pass "unrestricted" when the command is explicitly used in the script.
 	case ACT_LISTHOTKEYS:
-		return ShowMainWindow(MAIN_MODE_HOTKEYS, false); // Pass "unrestricted" when the command is explicitly used in the script.
+		// return ShowMainWindow(MAIN_MODE_HOTKEYS, false); // Pass "unrestricted" when the command is explicitly used in the script.
 #endif // MINIDLL
-	case ACT_MSGBOX:
+	case ACT_MSGBOX: /*
 	{
 		int result;
 #ifndef MINIDLL
@@ -16740,9 +16743,9 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		//	// MessageBox() failed in some unexpected way:
 		//	LineError("The MsgBox could not be displayed.");
 		return result ? OK : FAIL;
-	}
+	} */
 #ifndef MINIDLL
-	case ACT_INPUTBOX:
+	case ACT_INPUTBOX: /*
 		return InputBox(output_var, ARG2, ARG3, ctoupper(*ARG4) == 'H' // 4th is whether to hide input.
 			, *ARG5 ? ArgToInt(5) : INPUTBOX_DEFAULT  // Width
 			, *ARG6 ? ArgToInt(6) : INPUTBOX_DEFAULT  // Height
@@ -16751,34 +16754,34 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 			// ARG9: future use for Font name & size, e.g. "Courier:8"
 			, ArgToDouble(10)  // Timeout
 			, ARG11  // Initial default string for the edit field.
-			);
+			); */
 
 	case ACT_SPLASHTEXTON:
-		return SplashTextOn(*ARG1 ? ArgToInt(1) : 200, *ARG2 ? ArgToInt(2) : 0, ARG3, ARG4);
+		// return SplashTextOn(*ARG1 ? ArgToInt(1) : 200, *ARG2 ? ArgToInt(2) : 0, ARG3, ARG4);
 	case ACT_SPLASHTEXTOFF:
-		DESTROY_SPLASH
+		// DESTROY_SPLASH
 		return OK;
 
 	case ACT_PROGRESS:
-		return Splash(FIVE_ARGS, _T(""), false);  // ARG6 is for future use and currently not passed.
+		// return Splash(FIVE_ARGS, _T(""), false);  // ARG6 is for future use and currently not passed.
 
 	case ACT_SPLASHIMAGE:
-		return Splash(ARG2, ARG3, ARG4, ARG5, ARG6, ARG1, true);  // ARG7 is for future use and currently not passed.
+		// return Splash(ARG2, ARG3, ARG4, ARG5, ARG6, ARG1, true);  // ARG7 is for future use and currently not passed.
 #endif
 	case ACT_TOOLTIP:
-		return ToolTip(FOUR_ARGS);
+		// return ToolTip(FOUR_ARGS);
 
 #ifndef MINIDLL
 	case ACT_TRAYTIP:
-		return TrayTip(FOUR_ARGS);
+		// return TrayTip(FOUR_ARGS);
 
 	case ACT_INPUT:
-		return Input();
-
+		// return Input();
+		return OK ; 
 
 //////////////////////////////////////////////////////////////////////////
 #endif
-	case ACT_COORDMODE:
+	case ACT_COORDMODE: /*
 	{
 		CoordModeType mode = ConvertCoordMode(ARG2);
 		CoordModeType shift = ConvertCoordModeCmd(ARG1);
@@ -16786,20 +16789,20 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 			g.CoordMode = (g.CoordMode & ~(COORD_MODE_MASK << shift)) | (mode << shift);
 		//else too rare to report an error, since load-time validation normally catches it.
 		return OK;
-	}
+	} */
 
-	case ACT_SETDEFAULTMOUSESPEED:
+	case ACT_SETDEFAULTMOUSESPEED: /*
 		g.DefaultMouseSpeed = (UCHAR)ArgToInt(1);
 		// In case it was a deref, force it to be some default value if it's out of range:
 		if (g.DefaultMouseSpeed < 0 || g.DefaultMouseSpeed > MAX_MOUSE_SPEED)
-			g.DefaultMouseSpeed = DEFAULT_MOUSE_SPEED;
+			g.DefaultMouseSpeed = DEFAULT_MOUSE_SPEED; */
 		return OK;
 
 	case ACT_SENDMODE:
-		g.SendMode = ConvertSendMode(ARG1, g.SendMode); // Leave value unchanged if ARG1 is invalid.
+		// g.SendMode = ConvertSendMode(ARG1, g.SendMode); // Leave value unchanged if ARG1 is invalid.
 		return OK;
 
-	case ACT_SENDLEVEL:
+	case ACT_SENDLEVEL: /*
 	{
 		int sendLevel = ArgToInt(1);
 		if (SendLevelIsValid(sendLevel))
@@ -16807,8 +16810,8 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 
 		return OK;
 	}
-
-	case ACT_SETKEYDELAY:
+	*/
+	case ACT_SETKEYDELAY: /*
 		if (!_tcsicmp(ARG3, _T("Play")))
 		{
 			if (*ARG1)
@@ -16822,26 +16825,26 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 				g.KeyDelay = ArgToInt(1);
 			if (*ARG2)
 				g.PressDuration = ArgToInt(2);
-		}
+		}  */
 		return OK;
-	case ACT_SETMOUSEDELAY:
+	case ACT_SETMOUSEDELAY: /*
 		if (!_tcsicmp(ARG2, _T("Play")))
 			g.MouseDelayPlay = ArgToInt(1);
 		else
-			g.MouseDelay = ArgToInt(1);
+			g.MouseDelay = ArgToInt(1); */
 		return OK;
 	case ACT_SETWINDELAY:
-		g.WinDelay = ArgToInt(1);
+		// g.WinDelay = ArgToInt(1);
 		return OK;
 	case ACT_SETCONTROLDELAY:
-		g.ControlDelay = ArgToInt(1);
+		// g.ControlDelay = ArgToInt(1);
 		return OK;
 
 	case ACT_SETBATCHLINES:
 		// This below ensures that IntervalBeforeRest and LinesPerCycle aren't both in effect simultaneously
 		// (i.e. that both aren't greater than -1), even though ExecUntil() has code to prevent a double-sleep
 		// even if that were to happen.
-		if (tcscasestr(ARG1, _T("ms"))) // This detection isn't perfect, but it doesn't seem necessary to be too demanding.
+		/* if (tcscasestr(ARG1, _T("ms"))) // This detection isn't perfect, but it doesn't seem necessary to be too demanding.
 		{
 			g.LinesPerCycle = -1;  // Disable the old BatchLines method in favor of the new one below.
 			g.IntervalBeforeRest = ArgToInt(1);  // If negative, script never rests.  If 0, it rests after every line.
@@ -16855,15 +16858,15 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 				// Don't interpret zero as "infinite" because zero can accidentally
 				// occur if the dereferenced var was blank:
 				g.LinesPerCycle = 10;  // The old default, which is retained for compatibility with existing scripts.
-		}
+		}*/ 
 		return OK;
 
 	case ACT_SETSTORECAPSLOCKMODE:
-		if (   (toggle = ConvertOnOff(ARG1, NEUTRAL)) != NEUTRAL   )
-			g.StoreCapslockMode = (toggle == TOGGLED_ON);
+		// if (   (toggle = ConvertOnOff(ARG1, NEUTRAL)) != NEUTRAL   )
+		// 	g.StoreCapslockMode = (toggle == TOGGLED_ON);
 		return OK;
 
-	case ACT_SETTITLEMATCHMODE:
+	case ACT_SETTITLEMATCHMODE: /*
 		switch (ConvertTitleMatchMode(ARG1))
 		{
 		case FIND_IN_LEADING_PART: g.TitleMatchMode = FIND_IN_LEADING_PART; return OK;
@@ -16874,7 +16877,8 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		case FIND_SLOW: g.TitleFindFast = false; return OK;
 		}
 		return LineError(ERR_PARAM1_INVALID, FAIL, ARG1);
-
+		*/
+		return OK ; 
 	case ACT_SETFORMAT:
 		// For now, it doesn't seem necessary to have runtime validation of the first parameter.
 		// Just ignore the command if it's not valid:
@@ -16917,23 +16921,23 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		return FormatTime(ARG2, ARG3);
 #ifndef MINIDLL
 	case ACT_MENU:
-		return g_script.PerformMenu(SIX_ARGS); // L17: Changed from FIVE_ARGS to access previously "reserved" arg (for use by Menu,,Icon).
+	//	return g_script.PerformMenu(SIX_ARGS); // L17: Changed from FIVE_ARGS to access previously "reserved" arg (for use by Menu,,Icon).
 
 	case ACT_GUI:
-		return g_script.PerformGui(FOUR_ARGS);
+	//	return g_script.PerformGui(FOUR_ARGS);
 
 	case ACT_GUICONTROL:
-		return GuiControl(THREE_ARGS);
+	//	return GuiControl(THREE_ARGS);
 
 	case ACT_GUICONTROLGET:
-		return GuiControlGet(ARG2, ARG3, ARG4);
+	//	return GuiControlGet(ARG2, ARG3, ARG4);
 
 	////////////////////////////////////////////////////////////////////////////////////////
 	// For these, it seems best not to report an error during runtime if there's
 	// an invalid value (e.g. something other than On/Off/Blank) in a param containing
 	// a dereferenced variable, since settings are global and affect all subroutines,
 	// not just the one that we would otherwise report failure for:
-	case ACT_SUSPEND:
+	case ACT_SUSPEND: /*
 		switch (ConvertOnOffTogglePermit(ARG1))
 		{
 		case NEUTRAL:
@@ -16955,11 +16959,12 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		// We know it's a variable because otherwise the loading validation would have caught it earlier:
 		case TOGGLE_INVALID:
 			return LineError(ERR_PARAM1_INVALID, FAIL, ARG1);
-		}
+		} */
 		return OK;
 #endif //MINIDLL
 	case ACT_PAUSE:
-		return ChangePauseState(ConvertOnOffToggle(ARG1), (bool)ArgToInt(2));
+		// return ChangePauseState(ConvertOnOffToggle(ARG1), (bool)ArgToInt(2));
+		return OK ; 
 	case ACT_AUTOTRIM:
 		if (   (toggle = ConvertOnOff(ARG1, NEUTRAL)) != NEUTRAL   )
 			g.AutoTrim = (toggle == TOGGLED_ON);
@@ -16969,14 +16974,14 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 			g.StringCaseSense = SCS_INSENSITIVE; // For simplicity, just fall back to default if value is invalid (normally its caught at load-time; only rarely here).
 		return OK;
 	case ACT_DETECTHIDDENWINDOWS:
-		if (   (toggle = ConvertOnOff(ARG1, NEUTRAL)) != NEUTRAL   )
-			g.DetectHiddenWindows = (toggle == TOGGLED_ON);
+		// if (   (toggle = ConvertOnOff(ARG1, NEUTRAL)) != NEUTRAL   )
+		//	g.DetectHiddenWindows = (toggle == TOGGLED_ON);
 		return OK;
 	case ACT_DETECTHIDDENTEXT:
-		if (   (toggle = ConvertOnOff(ARG1, NEUTRAL)) != NEUTRAL   )
-			g.DetectHiddenText = (toggle == TOGGLED_ON);
+		// if (   (toggle = ConvertOnOff(ARG1, NEUTRAL)) != NEUTRAL   )
+		//	g.DetectHiddenText = (toggle == TOGGLED_ON);
 		return OK;
-	case ACT_BLOCKINPUT:
+	case ACT_BLOCKINPUT: /*
 		switch (toggle = ConvertBlockInput(ARG1))
 		{
 		case TOGGLED_ON:
@@ -17001,7 +17006,7 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 			break;
 #endif
 		// default (NEUTRAL or TOGGLE_INVALID): do nothing.
-		}
+		} */
 		return OK;
 
 	////////////////////////////////////////////////////////////////////////////////////////
@@ -17010,19 +17015,19 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 	// a dereferenced variable, since settings are global and affect all subroutines,
 	// not just the one that we would otherwise report failure for:
 	case ACT_SETNUMLOCKSTATE:
-		return SetToggleState(VK_NUMLOCK, g_ForceNumLock, ARG1);
+		// return SetToggleState(VK_NUMLOCK, g_ForceNumLock, ARG1);
 	case ACT_SETCAPSLOCKSTATE:
-		return SetToggleState(VK_CAPITAL, g_ForceCapsLock, ARG1);
+		// return SetToggleState(VK_CAPITAL, g_ForceCapsLock, ARG1);
 	case ACT_SETSCROLLLOCKSTATE:
-		return SetToggleState(VK_SCROLL, g_ForceScrollLock, ARG1);
+		// return SetToggleState(VK_SCROLL, g_ForceScrollLock, ARG1);
 
 #ifndef MINIDLL
 	case ACT_EDIT:
-		g_script.Edit();
+		// g_script.Edit();
 		return OK;
 #endif
 	case ACT_RELOAD:
-		g_script.Reload(true);
+		// g_script.Reload(true);
 		// Even if the reload failed, it seems best to return OK anyway.  That way,
 		// the script can take some follow-on action, e.g. it can sleep for 1000
 		// after issuing the reload command and then take action under the assumption
@@ -17030,7 +17035,7 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		// in which the Sleep is running still exist, it didn't work):
 		return OK;
 
-	case ACT_SLEEP:
+	case ACT_SLEEP: /*
 	{
 		// Only support 32-bit values for this command, since it seems unlikely anyone would to have
 		// it sleep more than 24.8 days or so.  It also helps performance on 32-bit hardware because
@@ -17048,19 +17053,19 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 			MsgSleep(sleep_time);
 		return OK;
 	}
-
+	*/
 	case ACT_INIREAD:
-		return IniRead(ARG2, ARG3, ARG4, ARG5);
+		// return IniRead(ARG2, ARG3, ARG4, ARG5);
 	case ACT_INIWRITE:
-		return IniWrite(FOUR_ARGS);
+		// return IniWrite(FOUR_ARGS);
 	case ACT_INIDELETE:
 		// To preserve maximum compatibility with existing scripts, only send NULL if ARG3
 		// was explicitly omitted.  This is because some older scripts might rely on the
 		// fact that a blank ARG3 does not delete the entire section, but rather does
 		// nothing (that fact is untested):
-		return IniDelete(ARG1, ARG2, mArgc < 3 ? NULL : ARG3);
+		// return IniDelete(ARG1, ARG2, mArgc < 3 ? NULL : ARG3);
 
-	case ACT_REGREAD:
+	case ACT_REGREAD: /*
 		if (mArgc < 2 && g.mLoopRegItem) // Uses the registry loop's current item.
 			// If g.mLoopRegItem->name specifies a subkey rather than a value name, do this anyway
 			// so that it will set ErrorLevel to ERROR and set the output variable to be blank.
@@ -17073,8 +17078,8 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 			result = RegRead(root_key = RegConvertRootKey(ARG2, &is_remote_registry), ARG3, ARG4);
 		if (is_remote_registry && root_key) // Never try to close local root keys, which the OS keeps always-open.
 			RegCloseKey(root_key);
-		return result;
-	case ACT_REGWRITE:
+		return result; */
+	case ACT_REGWRITE: /*
 		if (mArgc < 2 && g.mLoopRegItem) // Uses the registry loop's current item.
 			// If g.mLoopRegItem->name specifies a subkey rather than a value name, do this anyway
 			// so that it will set ErrorLevel to ERROR.  An error will also be indicated if
@@ -17085,8 +17090,8 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 			, ARG3, ARG4, ARG5); // If RegConvertValueType(ARG1) yields REG_NONE, RegWrite() will set ErrorLevel rather than displaying a runtime error.
 		if (is_remote_registry && root_key) // Never try to close local root keys, which the OS keeps always-open.
 			RegCloseKey(root_key);
-		return result;
-	case ACT_REGDELETE:
+		return result; */
+	case ACT_REGDELETE: /*
 		if (mArgc < 1 && g.mLoopRegItem) // Uses the registry loop's current item.
 		{
 			// In this case, if the current reg item is a value, just delete it normally.
@@ -17105,17 +17110,17 @@ __forceinline ResultType Line::Perform() // As of 2/9/2009, __forceinline() redu
 		if (is_remote_registry && root_key) // Never try to close local root keys, which the OS always keeps open.
 			RegCloseKey(root_key);
 		return result;
-
-	case ACT_OUTPUTDEBUG:
+		*/
+	case ACT_OUTPUTDEBUG:/*
 #ifndef CONFIG_DEBUGGER
 		OutputDebugString(ARG1); // It does not return a value for the purpose of setting ErrorLevel.
 #else
 		g_Debugger.OutputDebug(ARG1);
-#endif
+#endif */
 		return OK;
 
 	case ACT_SHUTDOWN:
-		return Util_Shutdown(ArgToInt(1)) ? OK : FAIL; // Range of ARG1 is not validated in case other values are supported in the future.
+		// return Util_Shutdown(ArgToInt(1)) ? OK : FAIL; // Range of ARG1 is not validated in case other values are supported in the future.
 #ifdef MINIDLL
 	case ACT_IMAGESEARCH:	
 	case ACT_PIXELGETCOLOR:
