@@ -1,4 +1,5 @@
 AutoHotkey.sdf
+*.opensdf
 AutoHotkey.suo
 AutoHotkey.vcxproj.user
 ComServer_h.h
