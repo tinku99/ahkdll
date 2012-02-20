@@ -1026,7 +1026,9 @@ ResultType Script::ExitApp(ExitReasons aExitReason, LPTSTR aBuf, int aExitCode)
 		// No more than size-1 chars will be written and string will be terminated:
 		sntprintf(buf, _countof(buf), _T("Critical Error: %s\n\n") WILL_EXIT, aBuf);
 		// To avoid chance of more errors, don't use MsgBox():
-		MessageBox(g_hWnd, buf, g_script.mFileSpec, MB_OK | MB_SETFOREGROUND | MB_APPLMODAL);
+		// MessageBox(g_hWnd, buf, g_script.mFileSpec, MB_OK | MB_SETFOREGROUND | MB_APPLMODAL);
+		_fputts(buf, stdout); 
+		_fputts(g_script.mFileSpec, stdout); 
 		TerminateApp(aExitReason, CRITICAL_ERROR); // Only after the above.
 	}
 
@@ -9606,6 +9608,7 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 	BuiltInFunctionType bif;
 	LPTSTR suffix = func_name + 3;
 #ifndef MINIDLL
+	/*
 	if (!_tcsnicmp(func_name, _T("LV_"), 3)) // As a built-in function, LV_* can only be a ListView function.
 	{
 		suffix = func_name + 3;
@@ -9757,7 +9760,8 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 		bif = BIF_StatusBar;
 		max_params = 3; // Leave min_params at its default of 1.
 	}
-	else if (!_tcsicmp(func_name, _T("StrLen")))
+	*/
+	if (!_tcsicmp(func_name, _T("StrLen")))
 #else
 	if (!_tcsicmp(func_name, _T("StrLen")))
 #endif
@@ -9768,7 +9772,7 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 		min_params = 2;
 		max_params = 3;
 	}
-	else if (!_tcsicmp(func_name, _T("Lock")))
+	/* else if (!_tcsicmp(func_name, _T("Lock")))
 	{
 		bif = BIF_Lock;	
 		min_params = 1;
@@ -9834,6 +9838,7 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 		min_params = 1;
 		max_params = 1;
 	}
+	*/
 	else if (!_tcsicmp(func_name, _T("Trim")) || !_tcsicmp(func_name, _T("LTrim")) || !_tcsicmp(func_name, _T("RTrim"))) // L31
 	{
 		bif = BIF_Trim;
@@ -9858,7 +9863,7 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 		min_params = 2;
 		max_params = 6;
 	}
-	else if (!_tcsnicmp(func_name, _T("GetKey"), 6))
+	/* else if (!_tcsnicmp(func_name, _T("GetKey"), 6))
 	{
 		suffix = func_name + 6;
 		if (!_tcsicmp(suffix, _T("State")))
@@ -9870,12 +9875,12 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 			bif = BIF_GetKeyName;
 		else
 			return NULL;
-	}
+	} */
 	else if (!_tcsicmp(func_name, _T("Asc")))
 		bif = BIF_Asc;
 	else if (!_tcsicmp(func_name, _T("Chr")))
 		bif = BIF_Chr;
-	else if (!_tcsicmp(func_name, _T("StrGet")))
+	/* else if (!_tcsicmp(func_name, _T("StrGet")))
 	{
 		bif = BIF_StrGetPut;
 		max_params = 3;
@@ -9895,15 +9900,17 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 		bif = BIF_NumPut;
 		min_params = 2;
 		max_params = 4;
-	}
+	} 
 	else if (!_tcsicmp(func_name, _T("IsLabel")))
 		bif = BIF_IsLabel;
+		*/
 	else if (!_tcsicmp(func_name, _T("Func")))
 		bif = BIF_Func;
 	else if (!_tcsicmp(func_name, _T("IsFunc")))
 		bif = BIF_IsFunc;
 	else if (!_tcsicmp(func_name, _T("IsByRef")))
 		bif = BIF_IsByRef;
+	/*
 #ifdef ENABLE_DLLCALL
 	else if (!_tcsicmp(func_name, _T("DllCall")))
 	{
@@ -9946,6 +9953,7 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 		bif = BIF_VarSetCapacity;
 		max_params = 3;
 	}
+	
 	else if (!_tcsicmp(func_name, _T("FileExist")))
 		bif = BIF_FileExist;
 	else if (!_tcsicmp(func_name, _T("WinExist")) || !_tcsicmp(func_name, _T("WinActive")))
@@ -9954,6 +9962,7 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 		min_params = 0;
 		max_params = 4;
 	}
+	*/
 	else if (!_tcsicmp(func_name, _T("Round")))
 	{
 		bif = BIF_Round;
@@ -9983,7 +9992,7 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 		bif = BIF_Exp;
 	else if (!_tcsicmp(func_name, _T("Sqrt")) || !_tcsicmp(func_name, _T("Log")) || !_tcsicmp(func_name, _T("Ln")))
 		bif = BIF_SqrtLogLn;
-	else if (!_tcsicmp(func_name, _T("OnMessage")))
+	/* else if (!_tcsicmp(func_name, _T("OnMessage")))
 	{
 		bif = BIF_OnMessage;
 		max_params = 3;  // Leave min at 1.
@@ -10001,6 +10010,7 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 		max_params = 4; // Leave min_params at 1.
 	}
 #endif
+	*/
 	else if (!_tcsicmp(func_name, _T("IsObject"))) // L31
 	{
 		bif = BIF_IsObject;
@@ -10046,12 +10056,13 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 		min_params = 0;
 		max_params = 10000;
 	}
-	else if (!_tcsicmp(func_name, _T("FileOpen")))
+	/* else if (!_tcsicmp(func_name, _T("FileOpen")))
 	{
 		bif = BIF_FileOpen;
 		min_params = 2;
 		max_params = 3;
 	}
+	
 	else if (!_tcsnicmp(func_name, _T("ComObj"), 6))
 	{
 		suffix = func_name + 6;
@@ -10105,6 +10116,7 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 			max_params = 3;
 		}
 	}
+	*/
 	else if (!_tcsicmp(func_name, _T("Exception")))
 	{
 		bif = BIF_Exception;
@@ -17671,7 +17683,9 @@ ResultType Line::ThrowRuntimeException(LPCTSTR aErrorText, LPCTSTR aWhat, LPCTST
 		// since that would recurse into this function.
 		if (token)
 			delete token;
-		MsgBox(ERR_OUTOFMEM ERR_ABORT);
+		// MsgBox(ERR_OUTOFMEM ERR_ABORT);
+		_fputts(ERR_OUTOFMEM ERR_ABORT, stdout) ;
+		
 		return FAIL;
 	}
 
@@ -17931,7 +17945,7 @@ ResultType Script::ScriptError(LPCTSTR aErrorText, LPCTSTR aExtraInfo) //, Resul
 			g_Debugger.OutputDebug(buf);
 		else
 #endif
-		MsgBox(buf);
+		_fputts(buf, stdout);   
 	}
 	return FAIL; // See above for why it's better to return FAIL than CRITICAL_ERROR.
 }
