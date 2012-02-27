@@ -10062,10 +10062,11 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 		min_params = 2;
 		max_params = 3;
 	}
-	
+	*/
 	else if (!_tcsnicmp(func_name, _T("ComObj"), 6))
 	{
 		suffix = func_name + 6;
+		/*
 		if	(!_tcsicmp(suffix, _T("Create")))
 		{
 			bif = BIF_ComObjCreate;
@@ -10097,12 +10098,14 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 			bif = BIF_ComObjFlags;
 			max_params = 3;
 		}
-		else if (!_tcsicmp(suffix, _T("Array")))
+		*/
+		if (!_tcsicmp(suffix, _T("Array")))
 		{
 			bif = BIF_ComObjArray;
 			min_params = 2;
 			max_params = 9; // up to 8 dimensions
 		}
+	/*
 		else if (!_tcsicmp(suffix, _T("Query")))
 		{
 			bif = BIF_ComObjQuery;
@@ -10115,8 +10118,9 @@ Func *Script::FindFunc(LPCTSTR aFuncName, size_t aFuncNameLength, int *apInsertP
 			min_params = 0;
 			max_params = 3;
 		}
-	}
 	*/
+	}
+	
 	else if (!_tcsicmp(func_name, _T("Exception")))
 	{
 		bif = BIF_Exception;
