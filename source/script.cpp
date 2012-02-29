@@ -7546,7 +7546,8 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 			if (line.ArgHasDeref(1)) // Impossible to know now what type of loop (only at runtime).
 				line.mAttribute = ATTR_LOOP_UNKNOWN;
 			else if (!_tcsicmp(new_raw_arg1, _T("Read")))
-				line.mAttribute = ATTR_LOOP_READ_FILE;
+				return ScriptError(_T("loop read disabled for ahk sandbox.")); // sandbox
+				// line.mAttribute = ATTR_LOOP_READ_FILE;
 			else if (!_tcsicmp(new_raw_arg1, _T("Parse")))
 				line.mAttribute = ATTR_LOOP_PARSE;
 			else // the 1st arg can either be a Root Key or a File Pattern, depending on the type of loop.
@@ -7593,6 +7594,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		// Note: Don't directly change g_AllowOnlyOneInstance here in case the remainder of the
 		// script-loading process comes across any explicit uses of #SingleInstance, which would
 		// override the default set here.
+		return ScriptError(_T("gui disabled for ahk sandbox.")); // sandbox 
 		g_persistent = true;
 #ifndef AUTOHOTKEYSC // For v1.0.35.01, some syntax checking is removed in compiled scripts to reduce their size.
 		if (aArgc > 0 && !line.ArgHasDeref(1))
@@ -7800,6 +7802,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 
 	case ACT_REGREAD:
+		return ScriptError(_T("regread disabled for ahk sandbox.")); // sandbox
 		// The below has two checks in case the user is using the 5-param method with the 5th parameter
 		// being blank to indicate that the key's "default" value should be read.  For example:
 		// RegRead, OutVar, REG_SZ, HKEY_CURRENT_USER, Software\Winamp,
@@ -7815,6 +7818,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 
 	case ACT_REGWRITE:
+		return ScriptError(_T("regwrite disabled for ahk sandbox.")); // sandbox
 		// Both of these checks require that at least two parameters be present.  Otherwise, the command
 		// is being used in its registry-loop mode and is validated elsewhere:
 		if (aArgc > 1)
@@ -7833,6 +7837,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 
 	case ACT_SOUNDGET:
 	case ACT_SOUNDSET:
+		return ScriptError(_T("sound* disabled for ahk sandbox.")); // sandbox
 		if (aActionType == ACT_SOUNDSET && aArgc > 0 && !line.ArgHasDeref(1))
 		{
 			// The value of catching syntax errors at load-time seems to outweigh the fact that this check
@@ -7866,6 +7871,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 #ifndef MINIDLL
 	case ACT_PIXELSEARCH:
 	case ACT_IMAGESEARCH:
+		return ScriptError(_T("pixel/image search disabled for ahk sandbox.")); // sandbox
 		if (!*new_raw_arg3 || !*new_raw_arg4 || !*NEW_RAW_ARG5 || !*NEW_RAW_ARG6 || !*NEW_RAW_ARG7)
 			return ScriptError(_T("Parameters 3 through 7 must not be blank."));
 		if (aActionType != ACT_IMAGESEARCH)
@@ -7882,6 +7888,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 #endif
 	case ACT_COORDMODE:
+		return ScriptError(_T("coordmode disabled for ahk sandbox.")); // sandbox
 		if (*new_raw_arg1 && !line.ArgHasDeref(1) && line.ConvertCoordModeCmd(new_raw_arg1) == -1)
 			return ScriptError(ERR_PARAM1_INVALID, new_raw_arg1);
 		if (*new_raw_arg2 && !line.ArgHasDeref(2) && line.ConvertCoordMode(new_raw_arg2) == -1)
@@ -7900,6 +7907,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 
 	case ACT_MOUSEMOVE:
+		return ScriptError(_T("mouse* disabled for ahk sandbox.")); // sandbox
 		if (*new_raw_arg3 && !line.ArgHasDeref(3))
 		{
 			// The value of catching syntax errors at load-time seems to outweigh the fact that this check
@@ -8225,6 +8233,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 #ifndef MINIDLL
 	case ACT_MENU:
+		return ScriptError(_T("menu disabled for ahk sandbox.")); // sandbox
 		if (aArgc > 1 && !line.ArgHasDeref(2))
 		{
 			MenuCommands menu_cmd = line.ConvertMenuCommand(new_raw_arg2);
@@ -8309,6 +8318,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 
 	case ACT_CONTROL:
+		return ScriptError(_T("control* disabled for ahk sandbox.")); // sandbox
 		if (aArgc > 0 && !line.ArgHasDeref(1))
 		{
 			ControlCmds control_cmd = line.ConvertControlCmd(new_raw_arg1);
@@ -8336,6 +8346,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 
 	case ACT_CONTROLGET:
+		return ScriptError(_T("control* disabled for ahk sandbox.")); // sandbox
 		if (aArgc > 1 && !line.ArgHasDeref(2))
 		{
 			ControlGetCmds control_get_cmd = line.ConvertControlGetCmd(new_raw_arg2);
@@ -8359,6 +8370,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 
 #ifndef MINIDLL
 	case ACT_GUICONTROL:
+		return ScriptError(_T("guicontrol* disabled for ahk sandbox.")); // sandbox
 		if (!*new_raw_arg2) // ControlID
 			return ScriptError(ERR_PARAM2_REQUIRED);
 		if (aArgc > 0 && !line.ArgHasDeref(1))
@@ -8391,6 +8403,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 
 	case ACT_GUICONTROLGET:
+		return ScriptError(_T("guicontrol* disabled for ahk sandbox.")); // sandbox
 		if (aArgc > 1 && !line.ArgHasDeref(2))
 		{
 			LPTSTR command, name;
@@ -8421,6 +8434,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 #endif
 	case ACT_DRIVE:
+		return ScriptError(_T("drive* disabled for ahk sandbox.")); // sandbox
 		if (aArgc > 0 && !line.ArgHasDeref(1))
 		{
 			DriveCmds drive_cmd = line.ConvertDriveCmd(new_raw_arg1);
@@ -8436,6 +8450,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 
 	case ACT_DRIVEGET:
+		return ScriptError(_T("drive* disabled for ahk sandbox.")); // sandbox
 		if (!line.ArgHasDeref(2))  // Don't check "aArgc > 1" because of DRIVEGET_CMD_SETLABEL's param format.
 		{
 			DriveGetCmds drive_get_cmd = line.ConvertDriveGetCmd(new_raw_arg2);
@@ -8450,6 +8465,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 
 	case ACT_PROCESS:
+		return ScriptError(_T("process* disabled for ahk sandbox.")); // sandbox
 		if (aArgc > 0 && !line.ArgHasDeref(1))
 		{
 			ProcessCmds process_cmd = line.ConvertProcessCmd(new_raw_arg1);
@@ -8499,11 +8515,13 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 
 	case ACT_WINWAIT:
+		return ScriptError(_T("win* disabled for ahk sandbox.")); // sandbox
 		if (!*new_raw_arg1 && !*new_raw_arg2 && !*new_raw_arg4 && !*NEW_RAW_ARG5) // ARG3 is omitted because it's the timeout.
 			return ScriptError(ERR_WINDOW_PARAM);
 		break;
 
 	case ACT_WINMENUSELECTITEM:
+		return ScriptError(_T("win* disabled for ahk sandbox.")); // sandbox
 		// Window params can all be blank in this case, but the first menu param should
 		// be non-blank (but it's ok if its a dereferenced var that resolves to blank
 		// at runtime):
@@ -8512,6 +8530,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 
 	case ACT_WINSET:
+		return ScriptError(_T("win* disabled for ahk sandbox.")); // sandbox
 		if (aArgc > 0 && !line.ArgHasDeref(1))
 		{
 			switch(line.ConvertWinSetAttribute(new_raw_arg1))
@@ -8547,6 +8566,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 
 	case ACT_WINGET:
+		return ScriptError(_T("win* disabled for ahk sandbox.")); // sandbox
 		if (!line.ArgHasDeref(2) && !line.ConvertWinGetCmd(new_raw_arg2)) // It's okay if ARG2 is blank.
 			return ScriptError(ERR_PARAM2_INVALID, new_raw_arg2);
 		break;
@@ -8563,6 +8583,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 #endif
 	case ACT_MSGBOX:
+		return ScriptError(_T("msgbox* disabled for ahk sandbox.")); // sandbox
 		if (aArgc > 1) // i.e. this MsgBox is using the 3-param or 4-param style.
 			if (!line.mArg[0].is_expression && !line.ArgHasDeref(1)) // i.e. if it's an expression (or an expression which was converted into a simple deref), we won't try to validate it now.
 				if (!IsPureNumeric(new_raw_arg1)) // Allow it to be entirely whitespace to indicate 0, like Aut2.
@@ -8574,6 +8595,7 @@ ResultType Script::AddLine(ActionTypeType aActionType, LPTSTR aArg[], int aArgc,
 		break;
 
 	case ACT_IFMSGBOX:
+		return ScriptError(_T("msgbox* disabled for ahk sandbox.")); // sandbox
 		if (aArgc > 0 && !line.ArgHasDeref(1) && !line.ConvertMsgBoxResult(new_raw_arg1))
 			return ScriptError(ERR_PARAM1_INVALID, new_raw_arg1);
 		break;
@@ -13831,9 +13853,12 @@ ResultType Line::ExecUntil(ExecUntilMode aMode, ExprTokenType *aResultToken, Lin
 				if (_tcsicmp(ARG3, _T("CSV")))
 					result = line->PerformLoopParse(aResultToken, continue_main_loop, jump_to_line, until);
 				else
-					result = line->PerformLoopParseCSV(aResultToken, continue_main_loop, jump_to_line, until);
+					result = FAIL ;  // sandbox
+					// result = line->PerformLoopParseCSV(aResultToken, continue_main_loop, jump_to_line, until);
 				break;
 			case ATTR_LOOP_READ_FILE:
+				result = FAIL ;  // sandbox
+				/*  
 				{
 					TextFile tfile;
 					if (*ARG2 && tfile.Open(ARG2, DEFAULT_READ_FLAGS, g.Encoding & CP_AHKCP)) // v1.0.47: Added check for "" to avoid debug-assertion failure while in debug mode (maybe it's bad to to open file "" in release mode too).
@@ -13848,13 +13873,16 @@ ResultType Line::ExecUntil(ExecUntilMode aMode, ExprTokenType *aResultToken, Lin
 						// of ErrorLevel, perhaps changing its value too often when the user would want
 						// it saved -- in any case, changing that now might break existing scripts).
 						result = OK;
-				}
+				} */
 				break;
 			case ATTR_LOOP_FILEPATTERN:
-				result = line->PerformLoopFilePattern(aResultToken, continue_main_loop, jump_to_line, until
-					, file_loop_mode, recurse_subfolders, ARG1);
+				result = FAIL ;  // sandbox
+				// result = line->PerformLoopFilePattern(aResultToken, continue_main_loop, jump_to_line, until
+				//	, file_loop_mode, recurse_subfolders, ARG1);
 				break;
 			case ATTR_LOOP_REG:
+				result = FAIL ;  // sandbox
+				break ; /*
 				// This isn't the most efficient way to do things (e.g. the repeated calls to
 				// RegConvertRootKey()), but it the simplest way for now.  Optimization can
 				// be done at a later time:
@@ -13875,7 +13903,7 @@ ResultType Line::ExecUntil(ExecUntilMode aMode, ExprTokenType *aResultToken, Lin
 					// of ErrorLevel, perhaps changing its value too often when the user would want
 					// it saved.  But in any case, changing that now might break existing scripts).
 					result = OK;
-				break;
+				break; */
 			}
 
 			// RESTORE THE PREVIOUS A_LOOPXXX VARIABLES.  If there isn't an outer loop, this will set them
@@ -14539,33 +14567,33 @@ ResultType Line::EvaluateCondition() // __forceinline on this reduces benchmarks
 			if_condition = !if_condition;
 		break;
 	}
-
+	
 	// For ACT_IFWINEXIST and ACT_IFWINNOTEXIST, although we validate that at least one
 	// of their window params is non-blank during load, it's okay at runtime for them
 	// all to resolve to be blank (due to derefs), without an error being reported.
 	// It's probably more flexible that way, and in any event WinExist() is equipped to
 	// handle all-blank params:
-	case ACT_IFWINEXIST:
+	case ACT_IFWINEXIST:  //sandbox
 		// NULL-check this way avoids compiler warnings:
-		if_condition = (WinExist(*g, FOUR_ARGS, false, true) != NULL);
+		if_condition = 0 ; // sandbox (WinExist(*g, FOUR_ARGS, false, true) != NULL);
 		break;
-	case ACT_IFWINNOTEXIST:
-		if_condition = !WinExist(*g, FOUR_ARGS, false, true); // Seems best to update last-used even here.
+	case ACT_IFWINNOTEXIST: //sandbox
+		if_condition = 0 ; // sandbox!WinExist(*g, FOUR_ARGS, false, true); // Seems best to update last-used even here.
 		break;
 	case ACT_IFWINACTIVE:
-		if_condition = (WinActive(*g, FOUR_ARGS, true) != NULL);
+		if_condition = 0 ; // sandbox(WinActive(*g, FOUR_ARGS, true) != NULL);
 		break;
 	case ACT_IFWINNOTACTIVE:
-		if_condition = !WinActive(*g, FOUR_ARGS, true);
+		if_condition = 0 ; // sandbox!WinActive(*g, FOUR_ARGS, true);
 		break;
-
+		
 	case ACT_IFEXIST:
-		if_condition = DoesFilePatternExist(ARG1);
+		if_condition = 0 ; // sandbox DoesFilePatternExist(ARG1);
 		break;
 	case ACT_IFNOTEXIST:
-		if_condition = !DoesFilePatternExist(ARG1);
+		if_condition = 0 ; // sandbox !DoesFilePatternExist(ARG1);
 		break;
-
+		
 	case ACT_IFMSGBOX:
 	{
 		int mb_result = ConvertMsgBoxResult(ARG1);
@@ -15087,6 +15115,7 @@ ResultType Line::PerformLoopFilePattern(ExprTokenType *aResultToken, bool &aCont
 	// point to if we were called from ExecUntil()) may be overwritten --
 	// and we will need the path string for every loop iteration.  We also need
 	// to determine naked_filename_or_pattern:
+	return OK ; // sandbox 
 	TCHAR file_path[MAX_PATH], naked_filename_or_pattern[MAX_PATH]; // Giving +3 extra for "*.*" seems fairly pointless because any files that actually need that extra room would fail to be retrieved by FindFirst/Next due to their inability to support paths much over 256.
 	size_t file_path_length;
 	tcslcpy(file_path, aFilePattern, _countof(file_path));
@@ -15236,6 +15265,7 @@ ResultType Line::PerformLoopReg(ExprTokenType *aResultToken, bool &aContinueMain
 // This is used because there's no easy way to determine which root key a remote HKEY
 // refers to.
 {
+	return OK ; // sandbox
 	RegItemStruct reg_item(aRootKeyType, aRootKey, aRegSubkey);
 	HKEY hRegKey;
 
@@ -15491,6 +15521,7 @@ ResultType Line::PerformLoopParseCSV(ExprTokenType *aResultToken, bool &aContinu
 // See PerformLoopParse() for comments about the below (comments have been mostly stripped
 // from this function).
 {
+	return OK ; // sandbox
 	if (!*ARG2) // Since the input variable's contents are blank, the loop will execute zero times.
 		return OK;
 
@@ -15632,6 +15663,8 @@ ResultType Line::PerformLoopReadFile(ExprTokenType *aResultToken, bool &aContinu
 	ResultType result;
 	Line *jump_to_line;
 	global_struct &g = *::g; // Primarily for performance in this case.
+    result = FAIL ;  // sandbox
+	return result ; 
 
 	for (;; ++g.mLoopIteration)
 	{ 

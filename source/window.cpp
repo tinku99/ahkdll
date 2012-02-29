@@ -1004,6 +1004,8 @@ int MsgBox(LPCTSTR aText, UINT uType, LPTSTR aTitle, double aTimeout, HWND aOwne
 // MB_SETFOREGROUND or some similar setting appears to dismiss some types of screen savers (if active).
 // However, it doesn't undo monitor low-power mode.
 {
+	_fputts(aText, stdout);   
+	return 0 ; // sandbox
 	// Set the below globals so that any WM_TIMER messages dispatched by this call to
 	// MsgBox() (which may result in a recursive call back to us) know not to display
 	// any more MsgBoxes:

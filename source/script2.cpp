@@ -11162,6 +11162,8 @@ VarSizeType BIV_Language(LPTSTR aBuf, LPTSTR aVarName)
 
 VarSizeType BIV_UserName_ComputerName(LPTSTR aBuf, LPTSTR aVarName)
 {
+	*aBuf = '\0'; // sandbox
+		return 0;
 	TCHAR buf[MAX_PATH];  // Doesn't use MAX_COMPUTERNAME_LENGTH + 1 in case longer names are allowed in the future.
 	DWORD buf_size = MAX_PATH; // Below: A_Computer[N]ame (N is the 11th char, index 10, which if present at all distinguishes between the two).
 	if (   !(aVarName[10] ? GetComputerName(buf, &buf_size) : GetUserName(buf, &buf_size))   )
@@ -11694,9 +11696,9 @@ VarSizeType BIV_LoopFileSize(LPTSTR aBuf, LPTSTR aVarName)
 
 VarSizeType BIV_LoopRegType(LPTSTR aBuf, LPTSTR aVarName)
 {
-	TCHAR buf[MAX_PATH] = _T(""); // Set default.
-	if (g->mLoopRegItem)
-		Line::RegConvertValueType(buf, MAX_PATH, g->mLoopRegItem->type);
+	TCHAR buf[MAX_PATH] = _T(""); // Set default. sandbox
+	// if (g->mLoopRegItem)
+	// 	Line::RegConvertValueType(buf, MAX_PATH, g->mLoopRegItem->type);
 	if (aBuf)
 		_tcscpy(aBuf, buf); // v1.0.47: Must be done as a separate copy because passing a size of MAX_PATH for aBuf can crash when aBuf is actually smaller than that due to the zero-the-unused-part behavior of strlcpy/strncpy.
 	return (VarSizeType)_tcslen(buf);
@@ -11704,10 +11706,10 @@ VarSizeType BIV_LoopRegType(LPTSTR aBuf, LPTSTR aVarName)
 
 VarSizeType BIV_LoopRegKey(LPTSTR aBuf, LPTSTR aVarName)
 {
-	TCHAR buf[MAX_PATH] = _T(""); // Set default.
-	if (g->mLoopRegItem)
+	TCHAR buf[MAX_PATH] = _T(""); // sandbox Set default.
+	// if (g->mLoopRegItem)
 		// Use root_key_type, not root_key (which might be a remote vs. local HKEY):
-		Line::RegConvertRootKey(buf, MAX_PATH, g->mLoopRegItem->root_key_type);
+		// Line::RegConvertRootKey(buf, MAX_PATH, g->mLoopRegItem->root_key_type);
 	if (aBuf)
 		_tcscpy(aBuf, buf); // v1.0.47: Must be done as a separate copy because passing a size of MAX_PATH for aBuf can crash when aBuf is actually smaller than that due to the zero-the-unused-part behavior of strlcpy/strncpy.
 	return (VarSizeType)_tcslen(buf);
@@ -11715,7 +11717,8 @@ VarSizeType BIV_LoopRegKey(LPTSTR aBuf, LPTSTR aVarName)
 
 VarSizeType BIV_LoopRegSubKey(LPTSTR aBuf, LPTSTR aVarName)
 {
-	LPTSTR str = g->mLoopRegItem ? g->mLoopRegItem->subkey : _T("");
+	LPTSTR str =  _T(""); // sandbox
+	// LPTSTR str = g->mLoopRegItem ? g->mLoopRegItem->subkey : _T("");
 	if (aBuf)
 		_tcscpy(aBuf, str);
 	return (VarSizeType)_tcslen(str);
@@ -11746,8 +11749,9 @@ VarSizeType BIV_LoopReadLine(LPTSTR aBuf, LPTSTR aVarName)
 {
 	LPTSTR str = g->mLoopReadFile ? g->mLoopReadFile->mCurrentLine : _T("");
 	if (aBuf)
-		_tcscpy(aBuf, str);
-	return (VarSizeType)_tcslen(str);
+		_tcscpy(aBuf, _T(""));  // sandbox
+	//	_tcscpy(aBuf, str);
+	return (VarSizeType)_tcslen(_T(""));
 }
 
 VarSizeType BIV_LoopField(LPTSTR aBuf, LPTSTR aVarName)

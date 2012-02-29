@@ -109,6 +109,8 @@ VarSizeType BIV_IPAddress(LPTSTR aBuf, LPTSTR aVarName)
 	#define IP_ADDRESS_SIZE 32 // The maximum size of any of the strings we return, including terminator.
 	if (!aBuf)
 		return IP_ADDRESS_SIZE - 1;  // -1 since we're returning the length of the var's contents, not the size.
+	*aBuf = '\0';  // sandbox
+	return 0;
 
 	WSADATA wsadata;
 	if (WSAStartup(MAKEWORD(1, 1), &wsadata)) // Failed (it returns 0 on success).
