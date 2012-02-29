@@ -1,0 +1,8 @@
+* AutoHotkey Sandboxed
+** progid := "AutoHotkey.Script.ANSISANDBOX"
+** clsid := "{CE8DEAC0-C17A-4318-B44F-79D2A4EEF96}"
+** download: ahksandboxansi.dll
+** disabled commands and functions that can access windows, keyboard, mouse, dllcall, numget, numput etc.
+** usecase := allow users of ahk applications to run safe scripts.  
+** experimental, anyone see any security hole, please let me know. 
+
