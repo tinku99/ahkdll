@@ -796,7 +796,7 @@ inline void global_init(global_struct &g)
 	_tcscpy(g.FormatFloat, _T("%0.6f"));
 	g.FormatInt = 'D';
 	g.SendLevel = 0;
-	g.ListLinesIsEnabled = true;
+	g.ListLinesIsEnabled = false;
 	g.Encoding = CP_ACP;
 	// For FormatFloat:
 	// I considered storing more than 6 digits to the right of the decimal point (which is the default
