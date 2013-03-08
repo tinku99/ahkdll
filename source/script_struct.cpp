@@ -35,6 +35,7 @@ Struct *Struct::Create(ExprTokenType *aParam[], int aParamCount)
 	ExprTokenType *param[] = {&Var1,&Var2,&Var3};
 	Var1.symbol = SYM_VAR;
 	Var2.symbol = SYM_INTEGER;
+	Var3.symbol = SYM_INTEGER;
 
 	// will hold pointer to structure definition string while we parse trough it
 	TCHAR *buf;
@@ -141,8 +142,13 @@ Struct *Struct::Create(ExprTokenType *aParam[], int aParamCount)
 			// last item in union or structure, update offset now if not struct, for struct offset is up to date
 			if (--uniondepth == 0)
 			{
+				// end of structure, align it
+				if (totalunionsize % aligntotal)
+					totalunionsize += aligntotal - (totalunionsize % aligntotal);
 				if (!unionisstruct[uniondepth + 1]) // because it was decreased above
 					offset += totalunionsize;
+				else if (offset % aligntotal)
+					offset += aligntotal - (offset % aligntotal);
 			}
 			else 
 				offset = unionoffset[uniondepth];
@@ -242,7 +248,7 @@ Struct *Struct::Create(ExprTokenType *aParam[], int aParamCount)
 				if (offset % thissize)
 					offset += thissize - (offset % thissize);
 				if (thissize > aligntotal)
-					aligntotal = thissize;
+					aligntotal = thissize > ptrsize ? ptrsize : thissize;
 			}
 			if (!(field = obj->Insert(keybuf, insert_pos++,ispointer,offset,arraydef,NULL,ispointer ? ptrsize : thissize
 						,ispointer ? true : !tcscasestr(_T(" FLOAT DOUBLE PFLOAT PDOUBLE "),defbuf)
@@ -348,7 +354,8 @@ Struct *Struct::Create(ExprTokenType *aParam[], int aParamCount)
 				if (!ispointer)
 				{
 					param[1]->value_int64 = (__int64)ispointer ? 0 : offset;
-					BIF_sizeof(Result,ResultToken,param,ispointer ? 1 : 2);
+					param[2]->value_int64 = (__int64)&aligntotal;
+					BIF_sizeof(Result,ResultToken,param,ispointer ? 1 : 3);
 					if (ResultToken.symbol != SYM_INTEGER)
 					{	// could not resolve structure
 						obj->Release();
@@ -372,7 +379,7 @@ Struct *Struct::Create(ExprTokenType *aParam[], int aParamCount)
 					offset += (int)ptrsize * (arraydef ? arraydef : 1);
 				else
 				// sizeof was given an offset that it applied and aligned if necessary, so set offset =  and not +=
-					offset = (int)ResultToken.value_int64 * (arraydef ? arraydef : 1);
+					offset = (int)ResultToken.value_int64 + (arraydef ? ((arraydef - 1) * ((int)ResultToken.value_int64 - offset)) : 0);
 			}
 			else // No variable was found and it is not default type so we can't determine size.
 			{
@@ -1417,9 +1424,9 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 					objclone->Release();
 					return g_script.ScriptError(ERR_MUST_INIT_STRUCT);
 			}
-			if (field->mSize > 2 && (!*((UINT_PTR*)((UINT_PTR)target + field->mOffset)) || (field->mMemAllocated > 0 && (field->mMemAllocated < ((source_length + 1) * (field->mEncoding == 1200 ? sizeof(WCHAR) : sizeof(CHAR)))))))
+			if (field->mSize > 2 && (!target || !*((UINT_PTR*)((UINT_PTR)target + field->mOffset)) || (field->mMemAllocated > 0 && (field->mMemAllocated < ((source_length + 1) * (int)(field->mEncoding == 1200 ? sizeof(WCHAR) : sizeof(CHAR)))))))
 			{   // no memory allocated yet, allocate now
-				if (field->mMemAllocated == -1 && !*((UINT_PTR*)((UINT_PTR)target + field->mOffset))){
+				if (field->mMemAllocated == -1 && (!target || !*((UINT_PTR*)((UINT_PTR)target + field->mOffset)))){
 					if (deletefield) // we created the field from a structure so no memory can be allocated
 						delete field;
 					if (releaseobj)
@@ -1456,7 +1463,7 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 					length = char_count;
 					char_count = MultiByteToWideChar(CP_ACP, 0, (LPCSTR)source_string, source_length, (LPWSTR)(field->mSize > 2 ? *((UINT_PTR*)((UINT_PTR)target + field->mOffset)) : ((UINT_PTR)target + field->mOffset)), length);
 					if (field->mSize > 2 && char_count && char_count < length)
-						((LPWSTR)(field->mSize > 2 ? *((UINT_PTR*)((UINT_PTR)target + field->mOffset)) : ((UINT_PTR)target + field->mOffset)))[char_count++] = '\0';
+						((LPWSTR)*(UINT_PTR*)((UINT_PTR)target + field->mOffset))[char_count] = '\0';
 				}
 				else // encoding != CP_UTF16
 				{
@@ -1491,6 +1498,7 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 					length = char_count;
 					// Convert to target encoding.
 					char_count = WideCharToMultiByte(field->mEncoding, flags, (LPCWSTR)source_string, source_length, (LPSTR)(field->mSize > 2 ? *((UINT_PTR*)((UINT_PTR)target + field->mOffset)) : ((UINT_PTR)target + field->mOffset)), char_count, NULL, NULL);
+					
 					// Since above did not null-terminate, check for buffer space and null-terminate if there's room.
 					// It is tempting to always null-terminate (potentially replacing the last byte of data),
 					// but that would exclude this function as a means to copy a string into a fixed-length array.
@@ -1503,8 +1511,8 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 			aResultToken.symbol = SYM_INTEGER;
 			aResultToken.value_int64 = char_count;
 		}
-		else
-		{
+		else // NumPut
+		{	 // code stolen from BIF_NumPut
 			switch(field->mSize)
 			{
 			case 4: // Listed first for performance.
@@ -1867,41 +1875,4 @@ Struct::FieldType *Struct::Insert(LPTSTR key, IndexType at,UCHAR aIspointer,int 
 	field.mMemAllocated = 0;
 	return &field;
 }
-#ifdef CONFIG_DEBUGGER
 
-void Struct::DebugWriteProperty(IDebugProperties *aDebugger, int aPage, int aPageSize, int aDepth)
-{
-	DebugCookie cookie;
-	aDebugger->BeginProperty(NULL, "object", (int)mFieldCount, cookie);
-
-	if (aDepth)
-	{
-		int i = aPageSize * aPage, j = aPageSize * (aPage + 1);
-
-		if (j > (int)mFieldCount)
-			j = (int)mFieldCount;
-		// For each field in the requested page...
-		for ( ; i < j; ++i)
-		{
-			Struct::FieldType &field = mFields[i];
-			
-			ExprTokenType value;
-			TCHAR buf[MAX_PATH];
-			value.buf = buf;
-			ExprTokenType aThisToken;
-			aThisToken.symbol = SYM_OBJECT;
-			aThisToken.object = this;
-			ExprTokenType *aVarToken = new ExprTokenType();
-			aVarToken->symbol = SYM_STRING;
-			aVarToken->marker = field.key;
-			this->Invoke(value,aThisToken,0,&aVarToken,1);
-			delete aVarToken;
-
-			if (field.mEncoding != 65535) // String
-				aDebugger->WriteProperty(CStringUTF8FromTChar(field.key), value);
-		}
-	}
-
-	aDebugger->EndProperty(cookie);
-}
-#endif

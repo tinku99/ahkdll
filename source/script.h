@@ -25,9 +25,6 @@ GNU General Public License for more details.
 #include "WinGroup.h" // for a script's Window Groups.
 #include "Util.h" // for FileTimeToYYYYMMDD(), strlcpy()
 #include "resources/resource.h"  // For tray icon.
-#ifdef ENABLE_EXEARC
-	#include "lib/exearc_read.h"
-#endif
 #include "script_object.h"
 #include "Debugger.h"
 #include "exports.h"  // for addfile in script2.cpp
@@ -2157,6 +2154,7 @@ public:
 struct MsgMonitorStruct
 {
 	Func *func;
+	HWND hwnd;
 	UINT msg;
 	// Keep any members smaller than 4 bytes adjacent to save memory:
 	short instance_count;  // Distinct from func.mInstances because the script might have called the function explicitly.
@@ -2870,6 +2868,11 @@ VarSizeType BIV_IsUnicode(LPTSTR aBuf, LPTSTR aVarName);
 VarSizeType BIV_FileEncoding(LPTSTR aBuf, LPTSTR aVarName);
 VarSizeType BIV_RegView(LPTSTR aBuf, LPTSTR aVarName);
 VarSizeType BIV_LastError(LPTSTR aBuf, LPTSTR aVarName);
+VarSizeType BIV_GlobalStruct(LPTSTR aBuf, LPTSTR aVarName);
+VarSizeType BIV_ScriptStruct(LPTSTR aBuf, LPTSTR aVarName);
+VarSizeType BIV_ModuleHandle(LPTSTR aBuf, LPTSTR aVarName);
+VarSizeType BIV_IsDll(LPTSTR aBuf, LPTSTR aVarName);
+VarSizeType BIV_CoordMode(LPTSTR aBuf, LPTSTR aVarName);
 #ifndef MINIDLL
 VarSizeType BIV_IconHidden(LPTSTR aBuf, LPTSTR aVarName);
 VarSizeType BIV_IconTip(LPTSTR aBuf, LPTSTR aVarName);

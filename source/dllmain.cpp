@@ -175,8 +175,8 @@ int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	for (i = 0; i < dllargc; ++i) // Start at 1 because 0 contains the program name.
 	{
 #ifndef _UNICODE
-		param = (TCHAR *) _alloca((wcslen(dllargv[i])+1)*sizeof(CHAR));
-		WideCharToMultiByte(CP_ACP,0,wargv,-1,param,(wcslen(dllargv[i])+1)*sizeof(CHAR),0,0);
+		param = (TCHAR *) _alloca(wcslen(dllargv[i])+1);
+		WideCharToMultiByte(CP_ACP,0,dllargv[i],-1,param,(wcslen(dllargv[i])+1),0,0);
 #else
 		param = dllargv[i]; // For performance and convenience.
 #endif
@@ -536,7 +536,7 @@ int setscriptstrings(LPTSTR fileName, LPTSTR argv, LPTSTR args)
 
 EXPORT UINT_PTR ahkdll(LPTSTR fileName, LPTSTR argv, LPTSTR args)
 {
-	if (setscriptstrings(*fileName ? fileName : aDefaultDllScript, argv, args))
+	if (setscriptstrings(fileName && *fileName ? fileName : aDefaultDllScript, argv && *argv ? argv : _T(""), args && *args ? args : _T("")))
 		return 0;
 	nameHinstanceP.istext = *fileName ? 0 : 1;
 	return runThread();
@@ -545,7 +545,7 @@ EXPORT UINT_PTR ahkdll(LPTSTR fileName, LPTSTR argv, LPTSTR args)
 // HotKeyIt ahktextdll
 EXPORT UINT_PTR ahktextdll(LPTSTR fileName, LPTSTR argv, LPTSTR args)
 {
-	if (setscriptstrings(*fileName ? fileName : aDefaultDllScript, argv, args))
+	if (setscriptstrings(fileName && *fileName ? fileName : aDefaultDllScript, argv && *argv ? argv : _T(""), args && *args ? args : _T("")))
 		return 0;
 	nameHinstanceP.istext = 1;
 	return runThread();
@@ -736,6 +736,13 @@ HRESULT __stdcall CoCOMServer::ahkReady(/*out*/BOOL* ready)
 	if (ready==NULL)
 		return ERROR_INVALID_PARAMETER;
 	*ready = com_ahkReady();
+	return S_OK;
+}
+HRESULT __stdcall CoCOMServer::ahkIsUnicode(/*out*/BOOL* IsUnicode)
+{
+	if (IsUnicode==NULL)
+		return ERROR_INVALID_PARAMETER;
+	*IsUnicode = com_ahkIsUnicode();
 	return S_OK;
 }
 HRESULT __stdcall CoCOMServer::ahkFindLabel(/*in*/VARIANT aLabelName,/*out*/UINT_PTR* aLabelPointer)

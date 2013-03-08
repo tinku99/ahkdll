@@ -5591,7 +5591,17 @@ LRESULT CALLBACK MainWindowProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 	case WM_EXITMENULOOP:
 		g_MenuIsVisible = MENU_TYPE_NONE; // See comments in similar code in GuiWindowProc().
 		break;
-
+#endif
+#ifdef CONFIG_DEBUGGER
+	case AHK_CHECK_DEBUGGER:
+		// This message is sent when data arrives on the debugger's socket.  It allows the
+		// debugger to respond to commands which are sent while the script is sleeping or
+		// waiting for messages.
+		if (g_Debugger.IsConnected() && g_Debugger.HasPendingCommand())
+			g_Debugger.ProcessCommands();
+		break;
+#endif
+#ifndef MINIDLL
 	default:
 		// The following iMsg can't be in the switch() since it's not constant:
 		if (iMsg == WM_TASKBARCREATED && !g_NoTrayIcon) // !g_NoTrayIcon --> the tray icon should be always visible.
@@ -5622,7 +5632,7 @@ LRESULT CALLBACK MainWindowProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 				_itoa(LOWORD(lParam), dbg_port, 10);
 
 			if (g_Debugger.Connect(dbg_host, dbg_port) == DEBUGGER_E_OK)
-				g_Debugger.ProcessCommands();
+				g_Debugger.Break();
 		}
 #endif
 
@@ -9693,36 +9703,6 @@ ResultType Line::FileInstall(LPTSTR aSource, LPTSTR aDest, LPTSTR aFlag)
 #ifdef AUTOHOTKEYSC
 	if (!allow_overwrite && Util_DoesFileExist(aDest))
 		return SetErrorLevelOrThrow();
-#ifdef ENABLE_EXEARC
-
-	HS_EXEArc_Read oRead;
-	// AutoIt3: Open the archive in this compiled exe.
-	// Jon gave me some details about why a password isn't needed: "The code in those libraries will
-	// only allow files to be extracted from the exe it is bound to (i.e the script that it was
-	// compiled with).  There are various checks and CRCs to make sure that it can't be used to read
-	// the files from any other exe that is passed."
-	if (oRead.Open(CStringCharFromTCharIfNeeded(g_script.mFileSpec), "") != HS_EXEARC_E_OK)
-		return LineError(ERR_EXE_CORRUPTED); // Usually caused by virus corruption. Probably impossible since it was previously opened successfully to run the main script.
-	
-	// aSource should be the same as the "file id" used to originally compress the file
-	// when it was compiled into an EXE.  So this should seek for the right file:
-	int result = oRead.FileExtract(CStringCharFromTCharIfNeeded(aSource), CStringCharFromTCharIfNeeded(aDest));
-	oRead.Close();
-
-	// v1.0.46.15: The following is a fix for the fact that a compiled script (but not an uncompiled one)
-	// that executes FileInstall somehow causes the Random command to generate the same series of random
-	// numbers every time the script launches. Perhaps the answer lies somewhere in oRead's code --
-	// something that somehow resets the static data used by init_genrand().
-	RESEED_RANDOM_GENERATOR;
-
-	success = (result == HS_EXEARC_E_OK);
-		// v1.0.48: Since extraction failure can occur more than rarely (e.g. when disk is full,
-		// permission denied, etc.), Ladiko suggested that no dialog be displayed.  The script
-		// can consult ErrorLevel to detect the failure and decide whether a MsgBox or other action
-		// is appropriate:
-		//MsgBox(aSource, 0, "Could not extract file:");
-
-#else // ENABLE_EXEARC not defined:
 
 	// Open the file first since it's the most likely to fail:
 	HANDLE hfile = CreateFile(aDest, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
@@ -9751,13 +9731,24 @@ ResultType Line::FileInstall(LPTSTR aSource, LPTSTR aDest, LPTSTR aFlag)
 	{
 		DWORD num_bytes_written;
 		// Write the resource data to file.
-		success = WriteFile(hfile, res_lock, SizeofResource(NULL, res), &num_bytes_written, NULL);
+		if (*(unsigned int*)res_lock == 0x005F5A4C)
+		{
+			DWORD aSizeDecompressed = DecompressBuffer(res_lock);
+			if (aSizeDecompressed)
+			{
+				success = WriteFile(hfile, res_lock, aSizeDecompressed, &num_bytes_written, NULL);
+				VirtualFree(res_lock,aSizeDecompressed,MEM_RELEASE);
+			}
+			else
+				success = WriteFile(hfile, res_lock, SizeofResource(NULL, res), &num_bytes_written, NULL);
+		}
+		else
+			success = WriteFile(hfile, res_lock, SizeofResource(NULL, res), &num_bytes_written, NULL);
 	}
 	else
 		success = false;
 	CloseHandle(hfile);
 
-#endif
 #else // AUTOHOTKEYSC not defined:
 	if (g_hResource)
 	{
@@ -9788,7 +9779,19 @@ ResultType Line::FileInstall(LPTSTR aSource, LPTSTR aDest, LPTSTR aFlag)
 		{
 			DWORD num_bytes_written;
 			// Write the resource data to file.
-			success = WriteFile(hfile, res_lock, SizeofResource(NULL, res), &num_bytes_written, NULL);
+			if (*(unsigned int*)res_lock == 0x005F5A4C)
+			{
+				DWORD aSizeDecompressed = DecompressBuffer(res_lock);
+				if (aSizeDecompressed)
+				{
+					success = WriteFile(hfile, res_lock, aSizeDecompressed, &num_bytes_written, NULL);
+					VirtualFree(res_lock,aSizeDecompressed,MEM_RELEASE);
+				}
+				else
+					success = WriteFile(hfile, res_lock, SizeofResource(NULL, res), &num_bytes_written, NULL);
+			}
+			else
+				success = WriteFile(hfile, res_lock, SizeofResource(NULL, res), &num_bytes_written, NULL);
 		}
 		else
 			success = false;
@@ -11008,7 +11011,47 @@ VarSizeType BIV_LastError(LPTSTR aBuf, LPTSTR aVarName)
 	return (VarSizeType)_tcslen(target_buf);
 }
 
+VarSizeType BIV_GlobalStruct(LPTSTR aBuf, LPTSTR aVarName)
+{
+	return aBuf
+		? (VarSizeType)_tcslen(ITOA64((LONGLONG)g, aBuf))
+		: MAX_INTEGER_LENGTH;
+}
 
+
+VarSizeType BIV_ScriptStruct(LPTSTR aBuf, LPTSTR aVarName)
+{
+	return aBuf
+		? (VarSizeType)_tcslen(ITOA64((LONGLONG)&g_script, aBuf))
+		: MAX_INTEGER_LENGTH;
+}
+
+
+VarSizeType BIV_ModuleHandle(LPTSTR aBuf, LPTSTR aVarName)
+{
+	return aBuf
+		? (VarSizeType)_tcslen(ITOA64((LONGLONG)g_hInstance, aBuf))
+		: MAX_INTEGER_LENGTH;
+}
+
+
+VarSizeType BIV_IsDll(LPTSTR aBuf, LPTSTR aVarName)
+{
+	if (aBuf)
+	{
+		*aBuf++ = (g_hInstance == GetModuleHandle(NULL)) ? '0' : '1';
+		*aBuf = '\0';
+	}
+	return 1;
+}
+
+
+VarSizeType BIV_CoordMode(LPTSTR aBuf, LPTSTR aVarName)
+{
+	return aBuf
+		? (VarSizeType)_tcslen(ITOA64(((g->CoordMode >> Line::ConvertCoordModeCmd(aVarName + 11)) & COORD_MODE_MASK), aBuf))
+		: MAX_INTEGER_LENGTH;
+}
 
 VarSizeType BIV_PtrSize(LPTSTR aBuf, LPTSTR aVarName)
 {
@@ -12201,32 +12244,6 @@ VarSizeType BIV_TimeIdlePhysical(LPTSTR aBuf, LPTSTR aVarName)
 #endif
 }
 
-// CriticalObject Object
-class CriticalObject : public ObjectBase
-{
-protected:
-	IObject *object;
-	LPCRITICAL_SECTION lpCriticalSection;
-	CriticalObject()
-			: lpCriticalSection(0)
-			, object(0)
-	{}
-
-	bool Delete();
-	~CriticalObject(){}
-
-public:
-	__int64 GetObj()
-	{
-		return (__int64)&*this->object;
-	}
-	__int64 GetCriSec()
-	{
-		return (__int64) this->lpCriticalSection;
-	}
-	static CriticalObject *Create(ExprTokenType *aParam[], int aParamCount);
-	ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount);
-};
 
 
 ////////////////////////
@@ -12896,7 +12913,7 @@ DynaToken *DynaToken::Create(ExprTokenType *aParam[], int aParamCount)
 		this_token.object = obj;
 		
 		// Determine the type of return value.
-		DYNAPARM return_attrib = {0}; // Init all to default in case ConvertDllArgType() isn't called below. This struct holds the type and other attributes of the function's return value.
+		//DYNAPARM return_attrib = {0}; // Init all to default in case ConvertDllArgType() isn't called below. This struct holds the type and other attributes of the function's return value.
 #ifdef WIN32_PLATFORM
 		obj->mdll_call_mode = DC_CALL_STD; // Set default.  Can be overridden to DC_CALL_CDECL and flags can be OR'd into it.
 #endif
@@ -13000,6 +13017,15 @@ TEST_TYPE("W",	DLL_ARG_WSTR)
 					g_script.SetErrorLevelOrThrowStr(_T("-2"), _T("DynaCall")); // Stage 2 error: Invalid return type or arg type.
 					return NULL;
 				}
+#ifdef WIN32_PLATFORM
+				if (!obj->mreturn_attrib.passed_by_address) // i.e. the special return flags below are not needed when an address is being returned.
+				{
+					if (obj->mreturn_attrib.type == DLL_ARG_DOUBLE)
+						obj->mdll_call_mode |= DC_RETVAL_MATH8;
+					else if (obj->mreturn_attrib.type == DLL_ARG_FLOAT)
+						obj->mdll_call_mode |= DC_RETVAL_MATH4;
+				}
+#endif
 			}
 		}
 		switch(aParam[0]->symbol)
@@ -14190,7 +14216,9 @@ BIF_DECL(BIF_CriticalObject)
 	if (aParamCount == 2 && TokenToInt64(*aParam[1]) < 3) 
 	{
 		aResultToken.symbol = PURE_INTEGER;
-		CriticalObject *criticalobj = (CriticalObject*)TokenToObject(*aParam[0]);
+		CriticalObject *criticalobj;
+		if (!(criticalobj = (CriticalObject *)TokenToObject(*aParam[0])))
+			criticalobj = (CriticalObject *)TokenToInt64(*aParam[0]);
 		if (criticalobj < (IObject *)1024)
 			aResultToken.value_int64 = 0;
 		else if (TokenToInt64(*aParam[1]) == 1) // Get object reference
@@ -16099,7 +16127,10 @@ BIF_DECL(BIF_NumPut)
 		right_side_bound = target + target_token.var->ByteCapacity(); // This is the first illegal address to the right of target.
 	}
 	else
+	{
 		target = (size_t)TokenToInt64(target_token);
+		right_side_bound = 0;
+	}
 
 	if (aParamCount > 2) // Parameter "offset" is present, so increment the address by that amount.  For flexibility, this is done even when the target isn't a variable.
 	{
@@ -16189,7 +16220,7 @@ BIF_DECL(BIF_NumPut)
 	default: // size 1
 		*(unsigned char *)target = (unsigned char)TokenToInt64(token_to_write);
 	}
-	if (target_token.symbol == SYM_VAR)
+	if (right_side_bound) // Implies (target_token.symbol == SYM_VAR && !target_token.var->IsPureNumeric()).
 		target_token.var->Close(); // This updates various attributes of the variable.
 	//else the target was an raw address.  If that address is inside some variable's contents, the above
 	// attributes would already have been removed at the time the & operator was used on the variable.
@@ -16719,28 +16750,6 @@ BIF_DECL(BIF_ResourceLoadLibrary)
 	aResultToken.value_int64 = 0;
 	HMEMORYMODULE module = NULL;
 	TextMem::Buffer textbuf;
-#ifdef ENABLE_EXEARC
-	HS_EXEArc_Read oRead;
-
-	// AutoIt3: Open the archive in this compiled exe.
-	// Jon gave me some details about why a password isn't needed: "The code in those libararies will
-	// only allow files to be extracted from the exe is is bound to (i.e the script that it was
-	// compiled with).  There are various checks and CRCs to make sure that it can't be used to read
-	// the files from any other exe that is passed."
-	if (oRead.Open(CStringCharFromTCharIfNeeded(g_script.mFileSpec), "") != HS_EXEARC_E_OK)
-	{
-		MsgBox(ERR_EXE_CORRUPTED, 0, g_script.mFileSpec); // Usually caused by virus corruption.
-		return;
-	}
-	// AutoIt3: Read resource (the func allocates the memory for the buffer :) )
-	if (!oRead.FileExtractToMem(CStringCharFromTCharIfNeeded(aParam[0]->symbol == SYM_VAR ? aParam[0]->var->Contents() : aParam[0]->marker), (UCHAR **) &textbuf.mBuffer, &textbuf.mLength) == HS_EXEARC_E_OK)
-	{
-		oRead.Close();							// Close the archive
-		MsgBox(_T("Could not extract script from EXE."), 0, g_script.mFileSpec);
-		return;
-	}
-	oRead.Close(); // no longer used
-#else
 	HRSRC hRes;
 	HGLOBAL hResData;
 
@@ -16758,8 +16767,20 @@ BIF_DECL(BIF_ResourceLoadLibrary)
 		MsgBox(_T("Could not extract script from EXE."), 0, aParam[0]->symbol == SYM_VAR ? aParam[0]->var->Contents() : aParam[0]->marker);
 		return;
 	}
-#endif
-	module = MemoryLoadLibrary( textbuf.mBuffer );
+	if (*(unsigned int*)textbuf.mBuffer == 0x005F5A4C)
+	{
+		DWORD aSizeDecompressed = DecompressBuffer(textbuf.mBuffer);
+		if (aSizeDecompressed)
+		{
+			textbuf.mLength = aSizeDecompressed;
+			module = MemoryLoadLibrary( textbuf.mBuffer );
+			VirtualFree(textbuf.mBuffer,textbuf.mLength,MEM_RELEASE);
+		}
+		else
+			module = MemoryLoadLibrary( textbuf.mBuffer );
+	}
+	else
+		module = MemoryLoadLibrary( textbuf.mBuffer );
 	aResultToken.value_int64 = (unsigned)module;
 }
 
@@ -17110,12 +17131,17 @@ BIF_DECL(BIF_OnMessage)
 
 	// Load-time validation has ensured there's at least one parameter for use here:
 	UINT specified_msg = (UINT)TokenToInt64(*aParam[0]); // Parameter #1
+	HWND specified_hwnd;
+	if (aParamCount > 1 && TokenToInt64(*aParam[1])) // Parameter #2
+		specified_hwnd = (HWND)TokenToInt64(*aParam[1]);
+	else
+		specified_hwnd = 0;
 
 	Func *func = NULL;           // Set defaults.
 	bool mode_is_delete = false; //
-	if (aParamCount > 1) // Parameter #2 is present.
+	if (aParamCount > (specified_hwnd ? 2 : 1)) // Parameter func is present.
 	{
-		LPTSTR func_name = TokenToString(*aParam[1], buf); // Resolve parameter #2.
+		LPTSTR func_name = TokenToString(*aParam[specified_hwnd ? 2 : 1], buf); // Resolve parameter #2.
 		if (*func_name)
 		{
 			if (   !(func = g_script.FindFunc(func_name))   ) // Nonexistent function.
@@ -17150,7 +17176,7 @@ BIF_DECL(BIF_OnMessage)
 	// Check if this message already exists in the array:
 	int msg_index;
 	for (msg_index = 0; msg_index < g_MsgMonitorCount; ++msg_index)
-		if (g_MsgMonitor[msg_index].msg == specified_msg)
+		if (g_MsgMonitor[msg_index].msg == specified_msg && g_MsgMonitor[msg_index].hwnd == specified_hwnd )
 			break;
 	bool item_already_exists = (msg_index < g_MsgMonitorCount);
 	MsgMonitorStruct &monitor = g_MsgMonitor[msg_index == MAX_MSG_MONITORS ? 0 : msg_index]; // The 0th item is just a placeholder.
@@ -17177,7 +17203,7 @@ BIF_DECL(BIF_OnMessage)
 				MoveMemory(g_MsgMonitor+msg_index, g_MsgMonitor+msg_index+1, sizeof(MsgMonitorStruct)*(g_MsgMonitorCount-msg_index));
 			return;
 		}
-		if (aParamCount < 2) // Single-parameter mode: Report existing item's function name.
+		if (aParamCount < 2 || (specified_hwnd && aParamCount < 3)) // Single-parameter mode: Report existing item's function name.
 			return; // Everything was already set up above to yield the proper return value.
 		// Otherwise, an existing item is being assigned a new function (the function has already
 		// been verified valid above). Continue on to update this item's attributes.
@@ -17203,8 +17229,9 @@ BIF_DECL(BIF_OnMessage)
 	// Update those struct attributes that get the same treatment regardless of whether this is an update or creation.
 	monitor.msg = specified_msg;
 	monitor.func = func;
-	if (aParamCount > 2)
-		monitor.max_instances = (short)TokenToInt64(*aParam[2]); // No validation because it seems harmless if it's negative or some huge number.
+	monitor.hwnd = specified_hwnd;
+	if (aParamCount > (specified_hwnd ? 3 : 2))
+		monitor.max_instances = (short)TokenToInt64(*aParam[specified_hwnd ? 3 : 2]); // No validation because it seems harmless if it's negative or some huge number.
 	else // Unspecified, so if this item is being newly created fall back to the default.
 		if (!item_already_exists)
 			monitor.max_instances = 1;

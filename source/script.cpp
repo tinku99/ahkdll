@@ -494,7 +494,8 @@ ResultType Script::Init(global_struct &g, LPTSTR aScriptFilename, bool aIsRestar
 						}
 						else
 						{
-							_tcscpy(buf,param);
+							if (!GetFullPathName(param, _countof(buf), buf, NULL)) // This is also relied upon by mIncludeLibraryFunctionsThenExit.  Succeeds even on nonexistent files.
+								return FAIL;
 						}
 						break;  // No more switches allowed after this point.
 					}
@@ -3159,7 +3160,18 @@ ResultType Script::LoadIncludedFile(LPTSTR aFileSpec, bool aAllowDuplicateInclud
 			MsgBox(_T("Could not extract script from EXE."), 0, aFileSpec);
 			return FAIL;
 		}
-
+		if (*(unsigned int*)textbuf.mBuffer == 0x005F5A4C)
+		{
+			DWORD aSizeDecompressed = DecompressBuffer(textbuf.mBuffer);
+			if (aSizeDecompressed)
+			{
+				LPVOID buff = _alloca(aSizeDecompressed); // will be freed when function returns
+				memmove(buff,textbuf.mBuffer,aSizeDecompressed);
+				VirtualFree(textbuf.mBuffer,aSizeDecompressed,MEM_RELEASE);
+				textbuf.mLength = aSizeDecompressed;
+				textbuf.mBuffer = buff;
+			}
+		}
 		fp = &tmem;
 		// NOTE: Ahk2Exe strips off the UTF-8 BOM.
 		tmem.Open(textbuf, TextStream::READ | TextStream::EOL_CRLF | TextStream::EOL_ORPHAN_CR, CP_UTF8);
@@ -3169,36 +3181,6 @@ ResultType Script::LoadIncludedFile(LPTSTR aFileSpec, bool aAllowDuplicateInclud
 #else // Stand-alone mode (there are no include files in this mode since all of them were merged into the main script at the time of compiling).
 	TextMem::Buffer textbuf(NULL, 0, false);
 
-#ifdef ENABLE_EXEARC
-	HS_EXEArc_Read oRead;
-
-	// AutoIt3: Open the archive in this compiled exe.
-	// Jon gave me some details about why a password isn't needed: "The code in those libraries will
-	// only allow files to be extracted from the exe it is bound to (i.e the script that it was
-	// compiled with).  There are various checks and CRCs to make sure that it can't be used to read
-	// the files from any other exe that is passed."
-	if (oRead.Open(CStringCharFromTCharIfNeeded(aFileSpec), "") != HS_EXEARC_E_OK)
-	{
-		MsgBox(ERR_EXE_CORRUPTED, 0, aFileSpec); // Usually caused by virus corruption.
-		return FAIL;
-	}
-	// AutoIt3: Read the script (the func allocates the memory for the buffer :) )
-	if (oRead.FileExtractToMem(">AUTOHOTKEY SCRIPT<", (UCHAR **) &textbuf.mBuffer, &textbuf.mLength) == HS_EXEARC_E_OK)
-		mCompiledHasCustomIcon = false;
-	else if (oRead.FileExtractToMem(">AHK WITH ICON<", (UCHAR **) &textbuf.mBuffer, &textbuf.mLength) == HS_EXEARC_E_OK)
-		mCompiledHasCustomIcon = true;
-	else
-	{
-		oRead.Close();							// Close the archive
-		MsgBox(_T("Could not extract script from EXE."), 0, aFileSpec);
-		return FAIL;
-	}
-
-	// AutoIt3: We have the data in RAW BINARY FORM, the script is a text file, so
-	// this means that instead of a newline character, there may also be carriage
-	// returns 0x0d 0x0a (\r\n)
-	oRead.Close(); // no longer used
-#else
 	HRSRC hRes;
 	HGLOBAL hResData;
 
@@ -3219,8 +3201,18 @@ ResultType Script::LoadIncludedFile(LPTSTR aFileSpec, bool aAllowDuplicateInclud
 		MsgBox(_T("Could not extract script from EXE."), 0, aFileSpec);
 		return FAIL;
 	}
-#endif
-
+	if (*(unsigned int*)textbuf.mBuffer == 0x005F5A4C)
+	{
+		DWORD aSizeDecompressed = DecompressBuffer(textbuf.mBuffer);
+		if (aSizeDecompressed)
+		{
+			LPVOID buff = _alloca(aSizeDecompressed); // will be freed when function returns
+			memmove(buff,textbuf.mBuffer,aSizeDecompressed);
+			VirtualFree(textbuf.mBuffer,aSizeDecompressed,MEM_RELEASE);
+			textbuf.mLength = aSizeDecompressed;
+			textbuf.mBuffer = buff;
+		}
+	}
 	fp = &tmem;
 	// NOTE: Ahk2Exe strips off the UTF-8 BOM.
 	tmem.Open(textbuf, TextStream::READ | TextStream::EOL_CRLF | TextStream::EOL_ORPHAN_CR, CP_UTF8);
@@ -9673,6 +9665,18 @@ Func *Script::FindFuncInLibrary(LPTSTR aFuncName, size_t aFuncNameLength, bool &
 		// aErrorWasShown = true; // Do not display errors here
 		return NULL;
 	}
+	if (*(unsigned int*)textbuf.mBuffer == 0x005F5A4C)
+	{
+		DWORD aSizeDecompressed = DecompressBuffer(textbuf.mBuffer);
+		if (aSizeDecompressed)
+		{
+			LPVOID buff = _alloca(aSizeDecompressed); // will be freed when function returns
+			memmove(buff,textbuf.mBuffer,aSizeDecompressed);
+			VirtualFree(textbuf.mBuffer,aSizeDecompressed,MEM_RELEASE);
+			textbuf.mLength = aSizeDecompressed;
+			textbuf.mBuffer = buff;
+		}
+	}
 	aFileWasFound = true;
 	// NOTE: Ahk2Exe strips off the UTF-8 BOM.
 	TextMem tmem;
@@ -11331,6 +11335,12 @@ void *Script::GetVarType(LPTSTR aVarName)
 	if (!_tcscmp(lower, _T("endchar"))) return BIV_EndChar;
 #endif
 	if (!_tcscmp(lower, _T("lasterror"))) return BIV_LastError;
+	
+	if (!_tcscmp(lower, _T("globalstruct"))) return BIV_GlobalStruct;
+	if (!_tcscmp(lower, _T("scriptstruct"))) return BIV_ScriptStruct;
+	if (!_tcscmp(lower, _T("modulehandle"))) return BIV_ModuleHandle;
+	if (!_tcscmp(lower, _T("isdll"))) return BIV_IsDll;
+	if (!_tcsncmp(lower, _T("coordmode"), 9)) return BIV_CoordMode;
 
 	if (!_tcscmp(lower, _T("eventinfo"))) return BIV_EventInfo; // It's called "EventInfo" vs. "GuiEventInfo" because it applies to non-Gui events such as OnClipboardChange.
 #ifndef MINIDLL
@@ -11720,6 +11730,9 @@ Line *Script::PreparseIfElse(Line *aStartingLine, ExecUntilMode aMode, Attribute
 					// Let the caller handle this else, since it can't be ours:
 					return line_temp;
 				}
+				// Fix for v1.1.09: Correct the line hierarchy for ELSE nested in an IF/ELSE/LOOP
+				// without braces.  This is needed for named loops and perhaps other things.
+				line_temp->mParentLine = line->mParentLine;
 				// Now use line vs. line_temp to hold the new values, so that line_temp
 				// stays as a marker to the ELSE line itself:
 				line = line_temp->mNextLine;  // Set it to the else's action line.
