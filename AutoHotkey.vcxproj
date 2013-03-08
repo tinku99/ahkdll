@@ -129,16 +129,14 @@
   </PropertyGroup>
   <!-- x64 toolset: must precede the import below -->
   <PropertyGroup Label="Configuration" Condition="'$(Platform)'=='x64'">
-    <PlatformToolset>
-    </PlatformToolset>
+    <PlatformToolset>Windows7.1SDK</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <PlatformToolset>
     </PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDllMini(mbcs)|Win32'" Label="Configuration">
-    <PlatformToolset>
-    </PlatformToolset>
+    <PlatformToolset>v100</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDllMini|Win32'" Label="Configuration">
     <PlatformToolset>
@@ -160,8 +158,7 @@
     </PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDll(mbcs)|Win32'" Label="Configuration">
-    <PlatformToolset>
-    </PlatformToolset>
+    <PlatformToolset>v100</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='DebugDll|Win32'">
     <PlatformToolset>
@@ -219,7 +216,7 @@
   <!-- platform: x64 -->
   <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
     <ClCompile>
-      <PreprocessorDefinitions>_WIN64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN64;AUTOCOMSERVER_EXPORTS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <TargetMachine>MachineX64</TargetMachine>
