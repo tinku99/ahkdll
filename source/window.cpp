@@ -788,9 +788,7 @@ ResultType StatusBarUtil(Var *aOutputVar, HWND aBarHwnd, int aPartNumber, LPTSTR
 		|| !(remote_buf = AllocInterProcMem(handle, _TSIZE(WINDOW_TEXT_SIZE + 1), aBarHwnd))) // Alloc mem last.
 		goto error;
 
-	TCHAR buf_for_nt[WINDOW_TEXT_SIZE + 1]; // Needed only for NT/2k/XP: the local counterpart to the buf allocated remotely above.
-	bool is_win9x = g_os.IsWin9x();
-	LPTSTR local_buf = is_win9x ? (LPTSTR)remote_buf : buf_for_nt; // Local is the same as remote for Win9x.
+	TCHAR local_buf[WINDOW_TEXT_SIZE + 1]; // The local counterpart to the buf allocated remotely above.
 
 	DWORD_PTR result, start_time;
 	--aPartNumber; // Convert to zero-based for use below.
@@ -809,16 +807,12 @@ ResultType StatusBarUtil(Var *aOutputVar, HWND aBarHwnd, int aPartNumber, LPTSTR
 			// Retrieve the bar's text:
 			if (SendMessageTimeout(aBarHwnd, SB_GETTEXT, aPartNumber, (LPARAM)remote_buf, SMTO_ABORTIFHUNG, SB_TIMEOUT, &result))
 			{
-				if (!is_win9x)
+				if (!ReadProcessMemory(handle, remote_buf, local_buf, _TSIZE(LOWORD(result) + 1), NULL)) // +1 to include the terminator (verified: length doesn't include zero terminator).
 				{
-					if (!ReadProcessMemory(handle, remote_buf, local_buf, _TSIZE(LOWORD(result) + 1), NULL)) // +1 to include the terminator (verified: length doesn't include zero terminator).
-					{
-						// Fairly critical error (though rare) so seems best to abort.
-						*local_buf = '\0';  // In case it changed the buf before failing.
-						break;
-					}
+					// Fairly critical error (though rare) so seems best to abort.
+					*local_buf = '\0';  // In case it changed the buf before failing.
+					break;
 				}
-				//else Win9x, in which case the local and remote buffers are the same (no copying is needed).
 
 				// Check if the retrieved text matches the caller's criteria. In addition to
 				// normal/intuitive matching, a match is also achieved if both are empty strings.
@@ -861,7 +855,7 @@ ResultType StatusBarUtil(Var *aOutputVar, HWND aBarHwnd, int aPartNumber, LPTSTR
 	// Note we use a temp buf rather than writing directly to the var contents above, because
 	// we don't know how long the text will be until after the above operation finishes.
 	ResultType result_to_return = aOutputVar ? aOutputVar->Assign(local_buf) : OK;
-	FreeInterProcMem(handle, remote_buf); // Don't free until after the above because above needs file mapping for Win9x.
+	FreeInterProcMem(handle, remote_buf);
 	return result_to_return;
 
 error:
@@ -1562,32 +1556,53 @@ ResultType WindowSearch::SetCriteria(global_struct &aSettings, LPTSTR aTitle, LP
 			mCriteria |= CRITERION_PID;
 			mCriterionPID = ATOU(cp);
 		}
-		else if (!_tcsnicmp(cp, _T("exe"), 3))
-		{
-			cp += 3;
-			mCriteria |= CRITERION_PATH;
-			tcslcpy(mCriterionPath, omit_leading_whitespace(cp), _countof(mCriterionPath));
-			// Allow something like "ahk_exe firefox.exe" to be an exact match for the process name
-			// instead of full path, but for flexibility, always use full path when in regex mode.
-			mCriterionPathIsNameOnly = mSettings->TitleMatchMode != FIND_REGEX && !_tcschr(mCriterionPath, '\\');
-		}
-		else if (!_tcsnicmp(cp, _T("class"), 5))
+		else if (!_tcsnicmp(cp, _T("group"), 5))
 		{
 			cp += 5;
-			mCriteria |= CRITERION_CLASS;
+			mCriteria |= CRITERION_GROUP;
+			tcslcpy(buf, omit_leading_whitespace(cp), _countof(buf));
+			if (cp = StrChrAny(buf, _T(" \t"))) // Group names can't contain spaces, so terminate at the first one to exclude any "ahk_" criteria that come afterward.
+				*cp = '\0';
+			if (   !(mCriterionGroup = g_script.FindGroup(buf))   )
+				return FAIL; // No such group: Inform caller of invalid criteria.  No need to do anything else further below.
+		}
+		else
+		{
+			// Fix for v1.1.09: ahk_exe is handled with ahk_class so that it can be followed by
+			// another criterion, such as in "ahk_exe explorer.exe ahk_class CabinetWClass".
+			TCHAR *criterion = NULL;
+			if (!_tcsnicmp(cp, _T("exe"), 3))
+			{
+				cp += 3;
+				mCriteria |= CRITERION_PATH;
+				criterion = mCriterionPath;
+				
+			}
+			else if (!_tcsnicmp(cp, _T("class"), 5))
+			{
+				cp += 5;
+				mCriteria |= CRITERION_CLASS;
+				criterion = mCriterionClass;
+			}
+			else // It doesn't qualify as a special criteria name even though it starts with "ahk_".
+			{
+				--criteria_count; // Decrement criteria_count to compensate for the loop's increment.
+				continue;
+			}
+
 			// In the following line, it may have been preferable to skip only zero or one spaces rather than
 			// calling omit_leading_whitespace().  But now this should probably be kept for backward compatibility.
 			// Besides, even if it's possible for a class name to start with a space, a RegEx dot or other symbol
 			// can be used to match it via SetTitleMatchMode RegEx.
-			tcslcpy(mCriterionClass, omit_leading_whitespace(cp), _countof(mCriterionClass)); // Copy all of the remaining string to simplify the below.
-			for (cp = mCriterionClass; cp = tcscasestr(cp, _T("ahk_")); cp += 4)  // Fix for v1.0.47.06: strstr() changed to strcasestr() for consistency with the other sections.
+			tcslcpy(criterion, omit_leading_whitespace(cp), SEARCH_PHRASE_SIZE); // Copy all of the remaining string to simplify the below.
+			for (cp = criterion; cp = tcscasestr(cp, _T("ahk_")); cp += 4)  // Fix for v1.0.47.06: strstr() changed to strcasestr() for consistency with the other sections.
 			{
 				// This loop truncates any other criteria from the class criteria.  It's not a complete
 				// solution because it doesn't validate that what comes after the "ahk_" string is a
 				// valid criterion name. But for it not to be and yet also be part of some valid class
 				// name seems far too unlikely to worry about.  It would have to be a legitimate class name
 				// such as "ahk_class SomeClassName ahk_wrong".
-				if (cp == mCriterionClass) // This check prevents underflow in the next check.
+				if (cp == criterion) // This check prevents underflow in the next check.
 				{
 					*cp = '\0';
 					break;
@@ -1601,21 +1616,13 @@ ResultType WindowSearch::SetCriteria(global_struct &aSettings, LPTSTR aTitle, LP
 					//else assume this "ahk_" string is part of the literal text, continue looping in case
 					// there is a legitimate "ahk_" string after this one.
 			} // for()
-		}
-		else if (!_tcsnicmp(cp, _T("group"), 5))
-		{
-			cp += 5;
-			mCriteria |= CRITERION_GROUP;
-			tcslcpy(buf, omit_leading_whitespace(cp), _countof(buf));
-			if (cp = StrChrAny(buf, _T(" \t"))) // Group names can't contain spaces, so terminate at the first one to exclude any "ahk_" criteria that come afterward.
-				*cp = '\0';
-			if (   !(mCriterionGroup = g_script.FindGroup(buf))   )
-				return FAIL; // No such group: Inform caller of invalid criteria.  No need to do anything else further below.
-		}
-		else // It doesn't qualify as a special criteria name even though it starts with "ahk_".
-		{
-			--criteria_count; // Decrement criteria_count to compensate for the loop's increment.
-			continue;
+
+			if (criterion == mCriterionPath)
+			{
+				// Allow something like "ahk_exe firefox.exe" to be an exact match for the process name
+				// instead of full path, but for flexibility, always use full path when in regex mode.
+				mCriterionPathIsNameOnly = mSettings->TitleMatchMode != FIND_REGEX && !_tcschr(mCriterionPath, '\\');
+			}
 		}
 		// Since above didn't return or continue, a valid "ahk_" criterion has been discovered.
 		// If this is the first such criterion, any text that lies to its left should be interpreted

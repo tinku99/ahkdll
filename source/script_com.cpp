@@ -3,8 +3,7 @@
 #include "script.h"
 #include "script_object.h"
 #include "script_com.h"
-
-
+#include "MemoryModule.h"
 // IID__IObject -- .NET's System.Object:
 const IID IID__Object = {0x65074F7F, 0x63C0, 0x304E, 0xAF, 0x0A, 0xD5, 0x17, 0x41, 0xCB, 0x4A, 0x8D};
 
@@ -49,6 +48,95 @@ BIF_DECL(BIF_ComObjCreate)
 	ComError(hr);
 }
 
+BIF_DECL(BIF_ComObjMemDll)
+{ // ComObjMemDll(MemoryModuleHandle,CLSID)
+	if ((aParam[0]->symbol != SYM_INTEGER && aParam[0]->symbol != SYM_VAR)
+		|| (aParam[1]->symbol != SYM_STRING && aParam[1]->symbol != SYM_VAR))
+	{
+		aResultToken.symbol = SYM_STRING;
+		aResultToken.marker = _T("");
+		return; // simply exit
+	}
+    HMEMORYMODULE hDLL = (HMEMORYMODULE)TokenToInt64(*aParam[0]);
+	
+	typedef HRESULT (__stdcall *pDllGetClassObject)(IN REFCLSID clsid,IN REFIID iid,OUT LPVOID FAR* ppv);
+	pDllGetClassObject GetClassObject = (pDllGetClassObject)::MemoryGetProcAddress(hDLL,"DllGetClassObject");
+    IClassFactory* pClassFactory = NULL;
+	CLSID clsid;
+	CLSIDFromString(CStringWCharFromTCharIfNeeded(TokenToString(*aParam[1])), &clsid);
+	HRESULT hr;
+    hr = GetClassObject(clsid, IID_IClassFactory, (LPVOID*)&pClassFactory);
+    if(FAILED(hr)){
+        ComError(hr);
+		aResultToken.symbol = SYM_STRING;
+		aResultToken.marker = _T("");
+		return;
+    }
+	IDispatch *pdisp;
+    hr = pClassFactory->CreateInstance(NULL, IID_IUnknown, (void**)&pdisp);
+    pClassFactory->Release();
+    if(FAILED(hr))
+    {
+        ComError(hr);
+		aResultToken.symbol = SYM_STRING;
+		aResultToken.marker = _T("");
+		return;
+    }
+	if (aResultToken.object = new ComObject(pdisp))
+	{
+		aResultToken.symbol = SYM_OBJECT;
+		return;
+	}
+	pdisp->Release();
+    ComError(hr);
+	aResultToken.symbol = SYM_STRING;
+	aResultToken.marker = _T("");
+}
+
+BIF_DECL(BIF_ComObjDll)
+{ // ComObjDll(moduleHandle,CLSID)
+	if ((aParam[0]->symbol != SYM_INTEGER && aParam[0]->symbol != SYM_VAR)
+		|| (aParam[1]->symbol != SYM_STRING && aParam[1]->symbol != SYM_VAR))
+	{
+		aResultToken.symbol = SYM_STRING;
+		aResultToken.marker = _T("");
+		return; // simply exit
+	}
+    HMODULE hDLL = (HMODULE)TokenToInt64(*aParam[0]);
+	
+	typedef HRESULT (__stdcall *pDllGetClassObject)(IN REFCLSID clsid,IN REFIID iid,OUT LPVOID FAR* ppv);
+	pDllGetClassObject GetClassObject = (pDllGetClassObject)::GetProcAddress(hDLL,"DllGetClassObject");
+    IClassFactory* pClassFactory = NULL;
+	CLSID clsid;
+	CLSIDFromString(CStringWCharFromTCharIfNeeded(TokenToString(*aParam[1])), &clsid);
+	HRESULT hr;
+    hr = GetClassObject(clsid, IID_IClassFactory, (LPVOID*)&pClassFactory);
+    if(FAILED(hr)){
+        ComError(hr);
+		aResultToken.symbol = SYM_STRING;
+		aResultToken.marker = _T("");
+		return;
+    }
+	IDispatch *pdisp;
+    hr = pClassFactory->CreateInstance(NULL, IID_IUnknown, (void**)&pdisp);
+    pClassFactory->Release();
+    if(FAILED(hr))
+    {
+        ComError(hr);
+		aResultToken.symbol = SYM_STRING;
+		aResultToken.marker = _T("");
+		return;
+    }
+	if (aResultToken.object = new ComObject(pdisp))
+	{
+		aResultToken.symbol = SYM_OBJECT;
+		return;
+	}
+	pdisp->Release();
+    ComError(hr);
+	aResultToken.symbol = SYM_STRING;
+	aResultToken.marker = _T("");
+}
 
 BIF_DECL(BIF_ComObjGet)
 {
@@ -432,7 +520,7 @@ BIF_DECL(BIF_ComObjArray)
 		bound[i].lLbound = 0;
 	}
 	SAFEARRAY *psa = SafeArrayCreate(vt, dims, bound);
-	if (psa && !SafeSetTokenObject(aResultToken, new ComObject((__int64)psa, VT_ARRAY | vt, ComObject::F_OWNVALUE)))
+	if (!SafeSetTokenObject(aResultToken, psa ? new ComObject((__int64)psa, VT_ARRAY | vt, ComObject::F_OWNVALUE) : NULL) && psa)
 		SafeArrayDestroy(psa);
 }
 
@@ -1346,4 +1434,64 @@ IObject *GuiType::ControlGetActiveX(HWND aWnd)
 	}
 	return NULL;
 }
+#endif
+
+#ifdef CONFIG_DEBUGGER
+
+void WriteComObjType(IDebugProperties *aDebugger, ComObject *aObject, LPCSTR aName, LPTSTR aWhichType)
+{
+	TCHAR buf[MAX_NUMBER_SIZE];
+	ExprTokenType resultToken, paramToken[2], *param[2] = { &paramToken[0], &paramToken[1] };
+	paramToken[0].symbol = SYM_OBJECT;
+	paramToken[0].object = aObject;
+	paramToken[1].symbol = SYM_STRING;
+	paramToken[1].marker = aWhichType;
+	resultToken.symbol = SYM_INTEGER;
+	resultToken.marker = _T("ComObjType");
+	resultToken.mem_to_free = NULL;
+	resultToken.buf = buf;
+	ResultType result = OK;
+	BIF_ComObjTypeOrValue(result, resultToken, param, 2);
+	aDebugger->WriteProperty(aName, resultToken);
+	if (resultToken.mem_to_free)
+		free(resultToken.mem_to_free);
+}
+
+void ComObject::DebugWriteProperty(IDebugProperties *aDebugger, int aPage, int aPageSize, int aDepth)
+{
+	DebugCookie rootCookie;
+	aDebugger->BeginProperty(NULL, "object", 2 + (mVarType == VT_DISPATCH)*2 + (mEventSink != NULL), rootCookie);
+	if (aPage == 0)
+	{
+		// For simplicity, assume they all fit within aPageSize.
+		
+		aDebugger->WriteProperty("Value", mVal64);
+		aDebugger->WriteProperty("VarType", mVarType);
+
+		if (mVarType == VT_DISPATCH)
+		{
+			WriteComObjType(aDebugger, this, "DispatchType", _T("Name"));
+			WriteComObjType(aDebugger, this, "DispatchIID", _T("IID"));
+		}
+		
+		if (mEventSink)
+		{
+			DebugCookie sinkCookie;
+			aDebugger->BeginProperty("EventSink", "object", 2, sinkCookie);
+			
+			if (mEventSink->mAhkObject)
+				aDebugger->WriteProperty("Object", mEventSink->mAhkObject);
+			else
+				aDebugger->WriteProperty("Prefix", mEventSink->mPrefix);
+			
+			OLECHAR buf[40];
+			if (!StringFromGUID2(mEventSink->mIID, buf, _countof(buf)))
+				*buf = 0;
+			aDebugger->WriteProperty("IID", (LPTSTR)(LPCTSTR)CStringTCharFromWCharIfNeeded(buf));
+			aDebugger->EndProperty(sinkCookie);
+		}
+	}
+	aDebugger->EndProperty(rootCookie);
+}
+
 #endif

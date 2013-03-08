@@ -25,13 +25,12 @@ GNU General Public License for more details.
 #include "WinGroup.h" // for a script's Window Groups.
 #include "Util.h" // for FileTimeToYYYYMMDD(), strlcpy()
 #include "resources/resource.h"  // For tray icon.
-#ifdef ENABLE_EXEARC
-	#include "lib/exearc_read.h"
-#endif
 #include "script_object.h"
 #include "Debugger.h"
 #include "exports.h"  // for addfile in script2.cpp
 #include "os_version.h" // For the global OS_Version object
+
+#include "Winternl.h"
 EXTERN_OSVER; // For the access to the g_os version object without having to include globaldata.h
 EXTERN_G;
 
@@ -200,10 +199,11 @@ enum CommandIDs {CONTROL_ID_FIRST = IDCANCEL + 1
 #define ERR_INVALID_LINE_IN_CLASS_DEF _T("Expected assignment or class/method definition.")
 #define ERR_INVALID_GUI_NAME _T("Invalid Gui name.")
 #define ERR_INVALID_OPTION _T("Invalid option.") // Generic message used by Gui and GuiControl/Get.
+#define ERR_MUST_INIT_STRUCT _T("Empty pointer, dynamic Structure fields must be initialized manually first.")
 
-#define WARNING_USE_UNSET_VARIABLE _T("Using value of uninitialized variable.")
-#define WARNING_LOCAL_SAME_AS_GLOBAL _T("Local variable with same name as global.")
-#define WARNING_USE_ENV_VARIABLE _T("Using value of environment variable.")
+#define WARNING_USE_UNSET_VARIABLE _T("This variable has not been assigned a value.")
+#define WARNING_LOCAL_SAME_AS_GLOBAL _T("This local variable has the same name as a global variable.")
+#define WARNING_USE_ENV_VARIABLE _T("An environment variable is being accessed; see #NoEnv.")
 
 //----------------------------------------------------------------------------------
 
@@ -1135,7 +1135,8 @@ public:
 		ArgStruct &arg = mArg[aArgIndex]; // For performance.
 		// Return false if it's not of a type caller wants deemed to have derefs.
 		if (arg.type == ARG_TYPE_NORMAL)
-			return arg.deref && arg.deref[0].marker; // Relies on short-circuit boolean evaluation order to prevent NULL-deref.
+			return arg.deref && arg.deref[0].marker // Relies on short-circuit boolean evaluation order to prevent NULL-deref.
+				|| arg.is_expression; // Return true for this case since most callers assume the arg is a simple literal string if we return false.
 		else // Callers rely on input variables being seen as "true" because sometimes single isolated derefs are converted into ARG_TYPE_INPUT_VAR at load-time.
 			return (arg.type == ARG_TYPE_INPUT_VAR);
 	}
@@ -1224,6 +1225,17 @@ public:
 		case REG_SUBKEY: tcslcpy(aBuf, _T("KEY"), aBufSize); return aBuf;  // Custom (non-standard) type.
 		default: if (aBufSize) *aBuf = '\0'; return aBuf;  // Make it be the empty string for REG_NONE and anything else.
 		}
+	}
+	static DWORD RegConvertView(LPTSTR aBuf)
+	{
+		if (!_tcsicmp(aBuf, _T("Default")))
+			return 0;
+		else if (!_tcscmp(aBuf, _T("32")))
+			return KEY_WOW64_32KEY;
+		else if (!_tcscmp(aBuf, _T("64")))
+			return KEY_WOW64_64KEY;
+		else
+			return -1;
 	}
 
 	static DWORD SoundConvertComponentType(LPTSTR aBuf, int *aInstanceNumber = NULL)
@@ -1981,9 +1993,11 @@ public:
 	FuncParam *mParam;  // Will hold an array of FuncParams.
 	int mParamCount; // The number of items in the above array.  This is also the function's maximum number of params.
 	int mMinParams;  // The number of mandatory parameters (populated for both UDFs and built-in's).
+	Var **mGlobalVar; // Array of global declarations
 	Var **mVar, **mLazyVar; // Array of pointers-to-variable, allocated upon first use and later expanded as needed.
-	Var **mGlobalVar; // Array of global declarations.
-	int mVarCount, mVarCountMax, mLazyVarCount, mGlobalVarCount; // Count of items in the above array as well as the maximum capacity.
+	Var **mStaticVar, **mStaticLazyVar;
+	// Count of items in the above array as well as the maximum capacity.
+	int mGlobalVarCount, mVarCount, mVarCountMax, mLazyVarCount, mStaticVarCount, mStaticVarCountMax, mStaticLazyVarCount; 
 	int mInstances; // How many instances currently exist on the call stack (due to recursion or thread interruption).  Future use: Might be used to limit how deep recursion can go to help prevent stack overflow.
 
 	// Keep small members adjacent to each other to save space and improve perf. due to byte alignment:
@@ -2071,12 +2085,16 @@ public:
 	ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount);
 	ULONG STDMETHODCALLTYPE AddRef() { return 1; }
 	ULONG STDMETHODCALLTYPE Release() { return 1; }
+#ifdef CONFIG_DEBUGGER
+	void DebugWriteProperty(IDebugProperties *, int aPage, int aPageSize, int aDepth);
+#endif
 
 	Func(LPTSTR aFuncName, bool aIsBuiltIn) // Constructor.
 		: mName(aFuncName) // Caller gave us a pointer to dynamic memory for this.
 		, mBIF(NULL)
 		, mParam(NULL), mParamCount(0), mMinParams(0)
 		, mVar(NULL), mVarCount(0), mVarCountMax(0), mLazyVar(NULL), mLazyVarCount(0)
+		, mStaticVar(NULL), mStaticVarCount(0), mStaticVarCountMax(0), mStaticLazyVar(NULL), mStaticLazyVarCount(0)
 		, mGlobalVar(NULL), mGlobalVarCount(0)
 		, mInstances(0)
 		, mDefaultVarType(VAR_DECLARE_NONE)
@@ -2136,6 +2154,7 @@ public:
 struct MsgMonitorStruct
 {
 	Func *func;
+	HWND hwnd;
 	UINT msg;
 	// Keep any members smaller than 4 bytes adjacent to save memory:
 	short instance_count;  // Distinct from func.mInstances because the script might have called the function explicitly.
@@ -2555,6 +2574,13 @@ public:
 };
 #endif // MINIDLL
 
+typedef NTSTATUS (NTAPI *PFN_NT_QUERY_INFORMATION_PROCESS) (
+    HANDLE ProcessHandle,
+    PROCESSINFOCLASS ProcessInformationClass,
+    PVOID ProcessInformation,
+    ULONG ProcessInformationLength,
+    PULONG ReturnLength OPTIONAL);
+
 typedef int (* ahkx_int_str)(LPTSTR ahkx_str); // ahkx N11
 typedef int (* ahkx_int_str_str)(LPTSTR ahkx_str, LPTSTR ahkx_str2); // ahkx N11
 
@@ -2733,6 +2759,7 @@ public:
 	#define FINDVAR_DEFAULT  (VAR_LOCAL | VAR_GLOBAL)
 	#define FINDVAR_GLOBAL   VAR_GLOBAL
 	#define FINDVAR_LOCAL    VAR_LOCAL
+	#define FINDVAR_STATIC    (VAR_LOCAL | VAR_LOCAL_STATIC)
 	Var *FindOrAddVar(LPTSTR aVarName, size_t aVarNameLength = 0, int aScope = FINDVAR_DEFAULT);
 	Var *FindVar(LPTSTR aVarName, size_t aVarNameLength = 0, int *apInsertPos = NULL
 		, int aScope = FINDVAR_DEFAULT
@@ -2839,7 +2866,13 @@ VarSizeType BIV_IsCompiled(LPTSTR aBuf, LPTSTR aVarName);
 //#endif
 VarSizeType BIV_IsUnicode(LPTSTR aBuf, LPTSTR aVarName);
 VarSizeType BIV_FileEncoding(LPTSTR aBuf, LPTSTR aVarName);
+VarSizeType BIV_RegView(LPTSTR aBuf, LPTSTR aVarName);
 VarSizeType BIV_LastError(LPTSTR aBuf, LPTSTR aVarName);
+VarSizeType BIV_GlobalStruct(LPTSTR aBuf, LPTSTR aVarName);
+VarSizeType BIV_ScriptStruct(LPTSTR aBuf, LPTSTR aVarName);
+VarSizeType BIV_ModuleHandle(LPTSTR aBuf, LPTSTR aVarName);
+VarSizeType BIV_IsDll(LPTSTR aBuf, LPTSTR aVarName);
+VarSizeType BIV_CoordMode(LPTSTR aBuf, LPTSTR aVarName);
 #ifndef MINIDLL
 VarSizeType BIV_IconHidden(LPTSTR aBuf, LPTSTR aVarName);
 VarSizeType BIV_IconTip(LPTSTR aBuf, LPTSTR aVarName);
@@ -2855,6 +2888,7 @@ VarSizeType BIV_TickCount(LPTSTR aBuf, LPTSTR aVarName);
 VarSizeType BIV_Now(LPTSTR aBuf, LPTSTR aVarName);
 VarSizeType BIV_OSType(LPTSTR aBuf, LPTSTR aVarName);
 VarSizeType BIV_OSVersion(LPTSTR aBuf, LPTSTR aVarName);
+VarSizeType BIV_Is64bitOS(LPTSTR aBuf, LPTSTR aVarName);
 VarSizeType BIV_Language(LPTSTR aBuf, LPTSTR aVarName);
 VarSizeType BIV_UserName_ComputerName(LPTSTR aBuf, LPTSTR aVarName);
 VarSizeType BIV_WorkingDir(LPTSTR aBuf, LPTSTR aVarName);
@@ -2932,13 +2966,16 @@ BIF_DECL(BIF_DllCall);
 BIF_DECL(BIF_DynaCall);
 #endif
 
+BIF_DECL(BIF_Struct);
+BIF_DECL(BIF_sizeof);
+
 BIF_DECL(BIF_FindFunc);
 BIF_DECL(BIF_FindLabel);
 BIF_DECL(BIF_Getvar);
-BIF_DECL(BIF_Static) ;
-BIF_DECL(BIF_Alias) ;
-BIF_DECL(BIF_CacheEnable) ;
-BIF_DECL(BIF_getTokenValue) ;
+BIF_DECL(BIF_Static);
+BIF_DECL(BIF_Alias);
+BIF_DECL(BIF_CacheEnable);
+BIF_DECL(BIF_getTokenValue);
 BIF_DECL(BIF_ResourceLoadLibrary);
 BIF_DECL(BIF_MemoryLoadLibrary);
 BIF_DECL(BIF_MemoryGetProcAddress);
@@ -3009,6 +3046,8 @@ BIF_DECL(BIF_IsObject);
 BIF_DECL(BIF_ObjCreate);
 BIF_DECL(BIF_ObjArray);
 BIF_DECL(BIF_CriticalObject);
+BIF_DECL(BIF_sizeof);
+BIF_DECL(BIF_Struct);
 BIF_DECL(BIF_ObjInvoke); // Pseudo-operator. See script_object.cpp for comments.
 BIF_DECL(BIF_ObjGetInPlace); // Pseudo-operator.
 BIF_DECL(BIF_ObjNew); // Pseudo-operator.
@@ -3032,6 +3071,8 @@ BIF_DECL(BIF_FileOpen);
 BIF_DECL(BIF_ComObjActive);
 BIF_DECL(BIF_ComObjCreate);
 BIF_DECL(BIF_ComObjGet);
+BIF_DECL(BIF_ComObjMemDll);
+BIF_DECL(BIF_ComObjDll);
 BIF_DECL(BIF_ComObjConnect);
 BIF_DECL(BIF_ComObjError);
 BIF_DECL(BIF_ComObjTypeOrValue);

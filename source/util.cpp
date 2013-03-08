@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "stdafx.h" // pre-compiled headers
 #include <olectl.h> // for OleLoadPicture()
 #include <gdiplus.h> // Used by LoadPicture().
+#include "Shlwapi.h"
 #include "util.h"
 #include "globaldata.h"
 
@@ -1663,7 +1664,7 @@ DWORD GetEnvVarReliable(LPCTSTR aEnvVarName, LPTSTR aBuf)
 
 
 
-DWORD ReadRegString(HKEY aRootKey, LPTSTR aSubkey, LPTSTR aValueName, LPTSTR aBuf, DWORD aBufSize)
+DWORD ReadRegString(HKEY aRootKey, LPTSTR aSubkey, LPTSTR aValueName, LPTSTR aBuf, DWORD aBufSize, DWORD aFlag)
 // Returns the length of the string (0 if empty).
 // Caller must ensure that size of aBuf is REALLY aBufSize (even when it knows aBufSize is more than
 // it needs) because the API apparently reads/writes parts of the buffer beyond the string it writes!
@@ -1672,7 +1673,7 @@ DWORD ReadRegString(HKEY aRootKey, LPTSTR aSubkey, LPTSTR aValueName, LPTSTR aBu
 // sure is probably to actually fetch the data and check if the terminator is present.
 {
 	HKEY hkey;
-	if (RegOpenKeyEx(aRootKey, aSubkey, 0, KEY_QUERY_VALUE, &hkey) != ERROR_SUCCESS)
+	if (RegOpenKeyEx(aRootKey, aSubkey, 0, KEY_QUERY_VALUE | aFlag, &hkey) != ERROR_SUCCESS)
 	{
 		*aBuf = '\0';
 		return 0;
@@ -1716,58 +1717,87 @@ DWORD ReadRegString(HKEY aRootKey, LPTSTR aSubkey, LPTSTR aValueName, LPTSTR aBu
 
 
 
-LPVOID AllocInterProcMem(HANDLE &aHandle, DWORD aSize, HWND aHwnd)
-// aHandle is an output parameter that holds the mapping for Win9x and the process handle for NT.
+#ifndef _WIN64
+// Load function dynamically to allow the program to launch on Win2k/XPSP1:
+typedef BOOL (WINAPI *PFN_IsWow64Process)(HANDLE, PBOOL);
+static PFN_IsWow64Process _IsWow64Process = (PFN_IsWow64Process)GetProcAddress(GetModuleHandle(_T("kernel32"))
+	, "IsWow64Process");
+#endif
+
+BOOL IsProcess64Bit(HANDLE aHandle)
+{
+	BOOL is32on64;
+#ifdef _WIN64
+	// No need to load the function dynamically in this case since it should exist on all OSes
+	// which are able to load 64-bit executables (such as ours):
+	if (IsWow64Process(aHandle, &is32on64))
+		return !is32on64; // 64-bit if not running under WOW64.
+	// Since above didn't return, an error occurred.  MSDN isn't clear about what conditions can
+	// cause this, so for simplicity just assume the target process is 64-bit (like this one).
+	return TRUE;
+#else
+	if (_IsWow64Process && _IsWow64Process(GetCurrentProcess(), &is32on64))
+	{
+		if (is32on64)
+		{
+			// We're running under WOW64.  Since WOW64 only exists on 64-bit systems and on such systems
+			// 32-bit processes can run ONLY under WOW64, if the target process is also running under
+			// WOW64 it must be 32-bit; otherwise it must be 64-bit.
+			if (_IsWow64Process(aHandle, &is32on64))
+				return !is32on64;
+		}
+	}
+	// Since above didn't return, one of the following is true:
+	//  a) IsWow64Process doesn't exist, so the OS and all running processes must be 32-bit.
+	//  b) IsWow64Process failed on the first or second call.  MSDN isn't clear about what conditions
+	//     can cause this, so for simplicity just assume the target process is 32-bit (like this one).
+	//  c) The current process is not running under WOW64.  Since we know it is 32-bit (due to our use
+	//     of conditional compilation), the OS and all running processes must be 32-bit.
+	return FALSE;
+#endif
+}
+
+BOOL IsOS64Bit()
+{
+#ifdef _WIN64
+	// OS must be 64-bit to run this program.
+	return TRUE;
+#else
+	// If OS is 64-bit, this program must be running in WOW64.
+	BOOL is32on64;
+	if (_IsWow64Process && _IsWow64Process(GetCurrentProcess(), &is32on64))
+		return is32on64;
+	return FALSE;
+#endif
+}
+
+
+
+LPVOID AllocInterProcMem(HANDLE &aHandle, DWORD aSize, HWND aHwnd, DWORD aExtraAccess)
+// aHandle is an output parameter that receives the process handle.
 // Returns NULL on failure (in which case caller should ignore the value of aHandle).
 {
-	// ALLOCATE APPROPRIATE TYPE OF MEMORY (depending on OS type)
 	LPVOID mem;
-	if (g_os.IsWin9x()) // Use file-mapping method.
-	{
-		if (   !(aHandle = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, aSize, NULL))   )
-			return NULL;
-		mem = MapViewOfFile(aHandle, FILE_MAP_ALL_ACCESS, 0, 0, 0);
-	}
-	else // NT/2k/XP/2003 or later.  Use the VirtualAllocEx() so that caller can use Read/WriteProcessMemory().
-	{
-		DWORD pid;
-		GetWindowThreadProcessId(aHwnd, &pid);
-		// Even if the PID is our own, open the process anyway to simplify the code. After all, it would be
-		// pretty silly for a script to access its own ListViews via this method.
-		if (   !(aHandle = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, FALSE, pid))   )
-			return NULL; // Let ErrorLevel tell the story.
-		// Load function dynamically to allow program to launch on win9x:
-		typedef LPVOID (WINAPI *MyVirtualAllocExType)(HANDLE, LPVOID, SIZE_T, DWORD, DWORD);
-		static MyVirtualAllocExType MyVirtualAllocEx = (MyVirtualAllocExType)GetProcAddress(GetModuleHandle(_T("kernel32"))
-			, "VirtualAllocEx");
-		// Reason for using VirtualAllocEx(): When sending LVITEM structures to a control in a remote process, the
-		// structure and its pszText buffer must both be memory inside the remote process rather than in our own.
-		mem = MyVirtualAllocEx(aHandle, NULL, aSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-	}
+	DWORD pid;
+	GetWindowThreadProcessId(aHwnd, &pid);
+	// Even if the PID is our own, open the process anyway to simplify the code. After all, it would be
+	// pretty silly for a script to access its own ListViews via this method.
+	if (   !(aHandle = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE | aExtraAccess, FALSE, pid))   )
+		return NULL; // Let ErrorLevel tell the story.
+	// Reason for using VirtualAllocEx(): When sending LVITEM structures to a control in a remote process, the
+	// structure and its pszText buffer must both be memory inside the remote process rather than in our own.
+	mem = VirtualAllocEx(aHandle, NULL, aSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	if (!mem)
-		CloseHandle(aHandle); // Closes the mapping for Win9x and the process handle for other OSes. Caller should ignore the value of aHandle when return value is NULL.
-	//else leave the handle open (required for both methods).  It's the caller's responsibility to close it.
+		CloseHandle(aHandle); // Caller should ignore the value of aHandle when return value is NULL.
+	//else leave the handle open.  It's the caller's responsibility to close it.
 	return mem;
 }
 
 
 
 void FreeInterProcMem(HANDLE aHandle, LPVOID aMem)
-// Caller has ensured that aMem is a file-mapping for Win9x and a VirtualAllocEx block for NT/2k/XP+.
-// Similarly, it has ensured that aHandle is a file-mapping handle for Win9x and a process handle for NT/2k/XP+.
 {
-	if (g_os.IsWin9x())
-		UnmapViewOfFile(aMem);
-	else
-	{
-		// Load function dynamically to allow program to launch on win9x:
-		typedef BOOL (WINAPI *MyVirtualFreeExType)(HANDLE, LPVOID, SIZE_T, DWORD);
-		static MyVirtualFreeExType MyVirtualFreeEx = (MyVirtualFreeExType)GetProcAddress(GetModuleHandle(_T("kernel32"))
-			, "VirtualFreeEx");
-		MyVirtualFreeEx(aHandle, aMem, 0, MEM_RELEASE); // Size 0 is used with MEM_RELEASE.
-	}
-	// The following closes either the mapping or the process handle, depending on OS type.
-	// But close it only after the above is done using it.
+	VirtualFreeEx(aHandle, aMem, 0, MEM_RELEASE); // Size 0 is used with MEM_RELEASE.
 	CloseHandle(aHandle);
 }
 
@@ -2652,6 +2682,80 @@ bool IsStringInList(LPTSTR aStr, LPTSTR aList, bool aFindExactMatch)
 	return false;  // No match found.
 }
 
+short IsDefaultType(LPTSTR aTypeDef){
+	static LPTSTR sTypeDef[8] = {_T(" CHAR UCHAR BOOLEAN BYTE ")
+#ifndef _WIN64
+			,_T(" ATOM LANGID WCHAR WORD SHORT USHORT BYTE TCHAR HALF_PTR UHALF_PTR ")
+#else
+			,_T(" ATOM LANGID WCHAR WORD SHORT USHORT BYTE TCHAR ")
+#endif
+			,_T("")
+#ifdef _WIN64
+			,_T(" INT UINT FLOAT INT32 LONG LONG32 HFILE HRESULT BOOL COLORREF DWORD DWORD32 LCID LCTYPE LGRPID LRESULT UINT32 ULONG ULONG32 HALF_PTR UHALF_PTR ")
+#else
+			,_T(" INT UINT FLOAT INT32 LONG LONG32 HFILE HRESULT BOOL COLORREF DWORD DWORD32 LCID LCTYPE LGRPID LRESULT UINT32 ULONG ULONG32 PTR UPTR INT_PTR LONG_PTR POINTER_64 POINTER_SIGNED SSIZE_T WPARAM PBOOL PBOOLEAN PBYTE PCHAR PCSTR PCTSTR PCWSTR PDWORD PDWORDLONG PDWORD_PTR PDWORD32 PDWORD64 PFLOAT PHALF_PTR DWORD_PTR HACCEL HANDLE HBITMAP HBRUSH HCOLORSPACE HCONV HCONVLIST HCURSOR HDC HDDEDATA HDESK HDROP HDWP HENHMETAFILE HFONT HGDIOBJ HGLOBAL HHOOK HICON HINSTANCE HKEY HKL HLOCAL HMENU HMETAFILE HMODULE HMONITOR HPALETTE HPEN HRGN HRSRC HSZ HWINSTA HWND LPARAM LPBOOL LPBYTE LPCOLORREF LPCSTR LPCTSTR LPCVOID LPCWSTR LPDWORD LPHANDLE LPINT LPLONG LPSTR LPTSTR LPVOID LPWORD LPWSTR PHANDLE PHKEY PINT PINT_PTR PINT32 PINT64 PLCID PLONG PLONGLONG PLONG_PTR PLONG32 PLONG64 POINTER_32 POINTER_UNSIGNED PSHORT PSIZE_T PSSIZE_T PSTR PTBYTE PTCHAR PTSTR PUCHAR PUHALF_PTR PUINT PUINT_PTR PUINT32 PUINT64 PULONG PULONGLONG PULONG_PTR PULONG32 PULONG64 PUSHORT PVOID PWCHAR PWORD PWSTR SC_HANDLE SC_LOCK SERVICE_STATUS_HANDLE SIZE_T UINT_PTR ULONG_PTR VOID ")
+#endif
+			,_T(""),_T(""),_T("")
+#ifdef _WIN64
+			,_T(" INT64 UINT64 DOUBLE __int64 LONGLONG LONG64 USN DWORDLONG DWORD64 ULONGLONG ULONG64 PTR UPTR INT_PTR LONG_PTR POINTER_64 POINTER_SIGNED SSIZE_T WPARAM PBOOL PBOOLEAN PBYTE PCHAR PCSTR PCTSTR PCWSTR PDWORD PDWORDLONG PDWORD_PTR PDWORD32 PDWORD64 PFLOAT PHALF_PTR DWORD_PTR HACCEL HANDLE HBITMAP HBRUSH HCOLORSPACE HCONV HCONVLIST HCURSOR HDC HDDEDATA HDESK HDROP HDWP HENHMETAFILE HFONT HGDIOBJ HGLOBAL HHOOK HICON HINSTANCE HKEY HKL HLOCAL HMENU HMETAFILE HMODULE HMONITOR HPALETTE HPEN HRGN HRSRC HSZ HWINSTA HWND LPARAM LPBOOL LPBYTE LPCOLORREF LPCSTR LPCTSTR LPCVOID LPCWSTR LPDWORD LPHANDLE LPINT LPLONG LPSTR LPTSTR LPVOID LPWORD LPWSTR PHANDLE PHKEY PINT PINT_PTR PINT32 PINT64 PLCID PLONG PLONGLONG PLONG_PTR PLONG32 PLONG64 POINTER_32 POINTER_UNSIGNED PSHORT PSIZE_T PSSIZE_T PSTR PTBYTE PTCHAR PTSTR PUCHAR PUHALF_PTR PUINT PUINT_PTR PUINT32 PUINT64 PULONG PULONGLONG PULONG_PTR PULONG32 PULONG64 PUSHORT PVOID PWCHAR PWORD PWSTR SC_HANDLE SC_LOCK SERVICE_STATUS_HANDLE SIZE_T UINT_PTR ULONG_PTR VOID ")
+#else
+			,_T(" INT64 UINT64 DOUBLE __int64 LONGLONG LONG64 USN DWORDLONG DWORD64 ULONGLONG ULONG64 ")
+#endif
+			};
+	for (int i=0;i<8;i++)
+	{
+		if (tcscasestr(sTypeDef[i],aTypeDef))
+			return i + 1;
+	}
+	// type was not found
+	return NULL;
+}
+
+DWORD DecompressBuffer(LPVOID &aBuffer)
+{
+	unsigned int hdrsz = 18;
+	ULONG aSizeCompressed = *(ULONG*)((ULONG)aBuffer + 14);
+	DWORD hash;
+	HashData((LPBYTE)aBuffer+8,aSizeCompressed+10,(LPBYTE)&hash,4);
+	if (hash == *(ULONG*)((ULONG)aBuffer + 4))
+	{
+		USHORT CompressionMode = *(USHORT*)((ULONG)aBuffer + 8);
+		ULONG aSizeDecompressed = *(ULONG*)((ULONG)aBuffer + 10);
+		ULONG aSizeUncompressed = 0;
+		typedef NTSTATUS (WINAPI * RtlDecompressBuffer)(USHORT, PUCHAR, ULONG, PUCHAR, ULONG, PULONG);
+		RtlDecompressBuffer xRtlDecompressBuffer;
+		xRtlDecompressBuffer = RtlDecompressBuffer(GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "RtlDecompressBuffer"));
+		//aResData = (LPCWSTR)_alloca(aSizeDecompressed);
+		LPVOID aResData = VirtualAlloc(NULL, aSizeDecompressed, MEM_COMMIT, PAGE_READWRITE);
+		xRtlDecompressBuffer(CompressionMode,(PUCHAR)aResData,aSizeDecompressed,(PUCHAR)aBuffer + hdrsz,aSizeCompressed,&aSizeUncompressed);
+		if (*(unsigned int*)aResData == 0x315F5A4C)
+		{
+			*(unsigned int*)aResData = 0x005F5A4C;
+			aSizeCompressed = *(ULONG*)((ULONG)aResData + 14);
+			HashData((LPBYTE)aResData+8,aSizeCompressed+10,(LPBYTE)&hash,4);
+			if (hash == *(ULONG*)((ULONG)aResData + 4))
+			{
+				ULONG aSizeMultiDecompressed = *(ULONG*)((ULONG)aResData + 10);
+				LPVOID aResMultiData = VirtualAlloc(NULL, aSizeMultiDecompressed, MEM_COMMIT, PAGE_READWRITE);
+				xRtlDecompressBuffer(CompressionMode,(PUCHAR)aResMultiData,aSizeMultiDecompressed,(PUCHAR)aResData + hdrsz,aSizeCompressed,&aSizeUncompressed);
+				VirtualFree(aResData,aSizeDecompressed,MEM_RELEASE);
+				aBuffer = aResMultiData;
+				return aSizeUncompressed + hdrsz;
+			}
+			else
+			{
+				aBuffer = aResData;
+				return aSizeUncompressed + hdrsz;
+			}
+		}
+		else
+		{
+			aBuffer = aResData;
+			return aSizeUncompressed + hdrsz;
+		}
+	}
+	return 0;
+}
 #if defined(_MSC_VER) && defined(_DEBUG)
 void OutputDebugStringFormat(LPCTSTR fmt, ...)
 {

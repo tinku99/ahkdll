@@ -13,10 +13,6 @@
 	#endif
 #endif
 
-#if defined(AUTOHOTKEYSC) && !defined(_WIN64)
-//#define ENABLE_EXEARC
-#endif
-
 #if !defined(_MBCS) && !defined(_UNICODE) && !defined(UNICODE) // If not set in project settings...
 
 // L: Comment out the next line to enable UNICODE:
@@ -40,9 +36,4 @@
 // These should be defined if the compiler supports these platforms, otherwise run-time OS checks may be inaccurate.
 #define CONFIG_WIN9X
 #define CONFIG_WINNT4
-#endif
-
-// pcre
-#ifdef UNICODE
-#define PCRE_USE_UTF16
 #endif

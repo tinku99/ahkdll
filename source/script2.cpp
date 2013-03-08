@@ -705,6 +705,7 @@ ResultType Line::ToolTip(LPTSTR aText, LPTSTR aX, LPTSTR aY, LPTSTR aID)
 	if (window_index < 0 || window_index >= MAX_TOOLTIPS)
 		return LineError(_T("Max window number is ") MAX_TOOLTIPS_STR _T("."), FAIL, aID);
 	HWND tip_hwnd = g_hWndToolTip[window_index];
+
 	// Destroy windows except the first (for performance) so that resources/mem are conserved.
 	// The first window will be hidden by the TTM_UPDATETIPTEXT message if aText is blank.
 	// UPDATE: For simplicity, destroy even the first in this way, because otherwise a script
@@ -1653,6 +1654,7 @@ ResultType Line::Input()
 	g_input.FindAnywhere = false;
 	int timeout = 0;  // Set default.
 	TCHAR input_buf[INPUT_BUFFER_SIZE] = _T(""); // Will contain the actual input from the user.
+	TCHAR prev_buf[INPUT_BUFFER_SIZE] = _T("");
 	g_input.buffer = input_buf;
 	g_input.BufferLength = 0;
 	g_input.BufferLengthMax = INPUT_BUFFER_SIZE - 1;
@@ -1662,8 +1664,14 @@ ResultType Line::Input()
 		switch(ctoupper(*cp))
 		{
 		case 'A':
-			_tcscpy(g_input.buffer,output_var->Contents());
-			g_input.BufferLength = (int)_tcslen(g_input.buffer);
+			if (_tcslen(output_var->Contents()))  // Append value if variable is not empty (only strings allowed)
+			{
+				g_input.BufferLength = (int) _tcslen(output_var->Contents());
+				if (g_input.BufferLength > INPUT_BUFFER_SIZE - 1)
+					g_input.BufferLength = INPUT_BUFFER_SIZE - 1;
+				_tcsncpy(input_buf,output_var->Contents(),g_input.BufferLength);
+				_tcscpy(prev_buf,input_buf);
+			}
 			break;
 		case 'B':
 			g_input.BackspaceIsUndo = false;
@@ -1723,29 +1731,36 @@ ResultType Line::Input()
 	// 2) A thread that interrupts us with a new Input of its own;
 	// 3) The timer we put in effect for our timeout (if we have one).
 	//////////////////////////////////////////////////////////////////
-	// HotKeyIt H24 check for vars contents and updatebuffer
-	TCHAR prev_buf[INPUT_BUFFER_SIZE];
-	if ((int)output_var->Length() <= INPUT_BUFFER_SIZE)
-		_tcscpy(prev_buf,output_var->Contents());
 	for (;;)
 	{
+		int output_var_len;
 		// Rather than monitoring the timeout here, just wait for the incoming WM_TIMER message
 		// to take effect as a TimerProc() call during the MsgSleep():
 		MsgSleep();
-		// HotKeyIt H15 added for multithreading support so variable can be read from other threads while input is in progress
-		if (_tcscmp(prev_buf,output_var->Contents())) // HotKeyIt H24 check for vars contents and updatebuffer
+		// HotKeyIt added multi-threading support so variable can be read from other threads while input is in progress
+		output_var_len = (int) _tcslen(output_var->Contents());
+		if (output_var_len > INPUT_BUFFER_SIZE - 1)
+			output_var_len = INPUT_BUFFER_SIZE - 1;
+		if (_tcsncmp(prev_buf,output_var->Contents(),output_var_len ? output_var_len : 1)) // Check for vars contents and updatebuffer
 		{
-			if ((int)output_var->Length() <= INPUT_BUFFER_SIZE)
-			{
-				g_input.BufferLength = (int)output_var->Length();
-				_tcscpy(g_input.buffer,output_var->Contents());
-				_tcscpy(prev_buf,output_var->Contents());
-			}
+			g_input.BufferLength = output_var_len;
+			_tcsncpy(input_buf,output_var->Contents(),output_var_len);
+			input_buf[output_var_len] = '\0';
+			_tcsncpy(prev_buf,input_buf,output_var_len);
+			prev_buf[output_var_len] = '\0';
 		}
 		else if (_tcscmp(prev_buf,input_buf))
 		{
-			output_var->Assign(input_buf);
-			_tcscpy(prev_buf,output_var->Contents());
+			if (_tcslen(input_buf) || !output_var->CharCapacity()) // Assign will free memory if input_buf empty
+			{
+				output_var->Assign(input_buf);
+				_tcscpy(prev_buf,input_buf);
+			}
+			else
+			{  // Assign empty string
+				output_var->Assign(_T(""));
+				*prev_buf = '\0';
+			}
 		}
 		if (g_input.status != INPUT_IN_PROGRESS)
 			break;
@@ -1802,7 +1817,13 @@ ResultType Line::Input()
 	// Seems ok to assign after the kill/purge above since input_buf is our own stack variable
 	// and its contents shouldn't be affected even if KILL_AND_PURGE_INPUT_TIMER's MsgSleep()
 	// results in a new thread being created that starts a new Input:
-	return output_var->Assign(input_buf);
+	if (_tcslen(input_buf) || !output_var->CharCapacity()) // Assign will free memory if input_buf empty
+		return output_var->Assign(input_buf);
+	else
+	{
+		output_var->Assign(_T("")); // Assign empty string
+		return OK;
+	}
 }
 #endif
 
@@ -2777,21 +2798,75 @@ ResultType Line::ControlGetListView(Var &aOutputVar, HWND aHwnd, LPTSTR aOptions
 	// FINAL CHECKS
 	if (row_count < 1 || !col_count) // But don't return when col_count == -1 (i.e. always make the attempt when col count is undetermined).
 		return g_ErrorLevel->Assign(ERRORLEVEL_NONE);  // No text in the control, so indicate success.
+	
+	// Notes about the following struct definitions:  The layout of LVITEM depends on
+	// which platform THIS executable was compiled for, but we need it to match what
+	// the TARGET process expects.  If the target process is 32-bit and we are 64-bit
+	// or vice versa, LVITEM can't be used.  The following structs are copies of
+	// LVITEM with UINT (32-bit) or UINT64 (64-bit) in place of the pointer fields.
+	struct LVITEM32
+	{
+		UINT mask;
+		int iItem;
+		int iSubItem;
+		UINT state;
+		UINT stateMask;
+		UINT pszText;
+		int cchTextMax;
+		int iImage;
+		UINT lParam;
+		int iIndent;
+		int iGroupId;
+		UINT cColumns;
+		UINT puColumns;
+		UINT piColFmt;
+		int iGroup;
+	};
+	struct LVITEM64
+	{
+		UINT mask;
+		int iItem;
+		int iSubItem;
+		UINT state;
+		UINT stateMask;
+		UINT64 pszText;
+		int cchTextMax;
+		int iImage;
+		UINT64 lParam;
+		int iIndent;
+		int iGroupId;
+		UINT cColumns;
+		UINT64 puColumns;
+		UINT64 piColFmt;
+		int iGroup;
+	};
+	union
+	{
+		LVITEM32 i32;
+		LVITEM64 i64;
+	} local_lvi;
 
 	// ALLOCATE INTERPROCESS MEMORY FOR TEXT RETRIEVAL
 	HANDLE handle;
 	LPVOID p_remote_lvi; // Not of type LPLVITEM to help catch bugs where p_remote_lvi->member is wrongly accessed here in our process.
-	if (   !(p_remote_lvi = AllocInterProcMem(handle, LV_REMOTE_BUF_SIZE + sizeof(LVITEM), aHwnd))   ) // Allocate the right type of memory (depending on OS type). Allocate both the LVITEM struct and its internal string buffer in one go because MyVirtualAllocEx() is probably a high overhead call.
+	if (   !(p_remote_lvi = AllocInterProcMem(handle, sizeof(local_lvi) + _TSIZE(LV_REMOTE_BUF_SIZE), aHwnd, PROCESS_QUERY_INFORMATION))   ) // Allocate both the LVITEM struct and its internal string buffer in one go because VirtualAllocEx() is probably a high overhead call.
 		return SetErrorLevelOrThrow();
-	bool is_win9x = g_os.IsWin9x(); // Resolve once for possible slight perf./code size benefit.
-
+	LPVOID p_remote_text = (LPVOID)((UINT_PTR)p_remote_lvi + sizeof(local_lvi)); // The next buffer is the memory area adjacent to, but after the struct.
+	
 	// PREPARE LVI STRUCT MEMBERS FOR TEXT RETRIEVAL
-	LVITEM lvi_for_nt; // Only used for NT/2k/XP method.
-	LVITEM &local_lvi = is_win9x ? *(LPLVITEM)p_remote_lvi : lvi_for_nt; // Local is the same as remote for Win9x.
-	// Subtract 1 because of that nagging doubt about size vs. length. Some MSDN examples subtract one,
-	// such as TabCtrl_GetItem()'s cchTextMax:
-	local_lvi.cchTextMax = LV_REMOTE_BUF_SIZE - 1; // Note that LVM_GETITEM doesn't update this member to reflect the new length.
-	local_lvi.pszText = (LPTSTR)p_remote_lvi + sizeof(LVITEM); // The next buffer is the memory area adjacent to, but after the struct.
+	if (IsProcess64Bit(handle))
+	{
+		// See the section below for comments.
+		local_lvi.i64.cchTextMax = LV_REMOTE_BUF_SIZE - 1;
+		local_lvi.i64.pszText = (UINT64)p_remote_text;
+	}
+	else
+	{
+		// Subtract 1 because of that nagging doubt about size vs. length. Some MSDN examples subtract one,
+		// such as TabCtrl_GetItem()'s cchTextMax:
+		local_lvi.i32.cchTextMax = LV_REMOTE_BUF_SIZE - 1; // Note that LVM_GETITEM doesn't update this member to reflect the new length.
+		local_lvi.i32.pszText = (UINT)p_remote_text; 
+	}
 
 	LRESULT i, next, length, total_length;
 	bool is_selective = include_focused_only || include_selected_only;
@@ -2823,11 +2898,11 @@ ResultType Line::ControlGetListView(Var &aOutputVar, HWND aHwnd, LPTSTR aOptions
 		}
 		else
 			next = i;
-		for (local_lvi.iSubItem = (requested_col > -1) ? requested_col : 0 // iSubItem is which field to fetch. If it's zero, the item vs. subitem will be fetched.
-			; col_count == -1 || local_lvi.iSubItem < col_count // If column count is undetermined (-1), always make the attempt.
-			; ++local_lvi.iSubItem) // For each column:
+		for (local_lvi.i32.iSubItem = (requested_col > -1) ? requested_col : 0 // iSubItem is which field to fetch. If it's zero, the item vs. subitem will be fetched.
+			; col_count == -1 || local_lvi.i32.iSubItem < col_count // If column count is undetermined (-1), always make the attempt.
+			; ++local_lvi.i32.iSubItem) // For each column:
 		{
-			if ((is_win9x || WriteProcessMemory(handle, p_remote_lvi, &local_lvi, sizeof(LVITEM), NULL)) // Relies on short-circuit boolean order.
+			if (WriteProcessMemory(handle, p_remote_lvi, &local_lvi, sizeof(local_lvi), NULL)
 				&& SendMessageTimeout(aHwnd, LVM_GETITEMTEXT, next, (LPARAM)p_remote_lvi, SMTO_ABORTIFHUNG, 2000, (PDWORD_PTR)&length))
 				total_length += length;
 			//else timed out or failed, don't include the length in the estimate.  Instead, the
@@ -2871,18 +2946,18 @@ ResultType Line::ControlGetListView(Var &aOutputVar, HWND aHwnd, LPTSTR aOptions
 		}
 
 		// iSubItem is which field to fetch. If it's zero, the item vs. subitem will be fetched:
-		for (local_lvi.iSubItem = (requested_col > -1) ? requested_col : 0
-			; col_count == -1 || local_lvi.iSubItem < col_count // If column count is undetermined (-1), always make the attempt.
-			; ++local_lvi.iSubItem) // For each column:
+		for (local_lvi.i32.iSubItem = (requested_col > -1) ? requested_col : 0
+			; col_count == -1 || local_lvi.i32.iSubItem < col_count // If column count is undetermined (-1), always make the attempt.
+			; ++local_lvi.i32.iSubItem) // For each column:
 		{
 			// Insert a tab before each column except the first and except when in single-column mode:
-			if (!single_col_mode && local_lvi.iSubItem && total_length < capacity)  // If we're at capacity, it will exit the loops when the next field is read.
+			if (!single_col_mode && local_lvi.i32.iSubItem && total_length < capacity)  // If we're at capacity, it will exit the loops when the next field is read.
 			{
 				*contents++ = '\t';
 				++total_length;
 			}
 
-			if (!(is_win9x || WriteProcessMemory(handle, p_remote_lvi, &local_lvi, sizeof(LVITEM), NULL)) // Relies on short-circuit boolean order.
+			if (!WriteProcessMemory(handle, p_remote_lvi, &local_lvi, sizeof(local_lvi), NULL)
 				|| !SendMessageTimeout(aHwnd, LVM_GETITEMTEXT, next, (LPARAM)p_remote_lvi, SMTO_ABORTIFHUNG, 2000, (PDWORD_PTR)&length))
 				continue; // Timed out or failed. It seems more useful to continue getting text rather than aborting the operation.
 
@@ -2900,21 +2975,12 @@ ResultType Line::ControlGetListView(Var &aOutputVar, HWND aHwnd, LPTSTR aOptions
 				// should not assume that the text will necessarily be placed in the specified
 				// buffer. The control may instead change the pszText member of the structure
 				// to point to the new text, rather than place it in the buffer."
-				if (is_win9x)
+				if (ReadProcessMemory(handle, p_remote_text, contents, length * sizeof(TCHAR), NULL))
 				{
-					tmemcpy(contents, local_lvi.pszText, length); // Usually benches a little faster than _tcscpy().
 					contents += length; // Point it to the position where the next char will be written.
 					total_length += length; // Recalculate length in case its different than the estimate (for any reason).
 				}
-				else
-				{
-					if (ReadProcessMemory(handle, local_lvi.pszText, contents, length * sizeof(TCHAR), NULL)) // local_lvi.pszText == p_remote_lvi->pszText
-					{
-						contents += length; // Point it to the position where the next char will be written.
-						total_length += length; // Recalculate length in case its different than the estimate (for any reason).
-					}
-					//else it failed; but even so, continue on to put in a tab (if called for).
-				}
+				//else it failed; but even so, continue on to put in a tab (if called for).
 			}
 			//else length is zero; but even so, continue on to put in a tab (if called for).
 			if (single_col_mode)
@@ -5525,7 +5591,17 @@ LRESULT CALLBACK MainWindowProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 	case WM_EXITMENULOOP:
 		g_MenuIsVisible = MENU_TYPE_NONE; // See comments in similar code in GuiWindowProc().
 		break;
-
+#endif
+#ifdef CONFIG_DEBUGGER
+	case AHK_CHECK_DEBUGGER:
+		// This message is sent when data arrives on the debugger's socket.  It allows the
+		// debugger to respond to commands which are sent while the script is sleeping or
+		// waiting for messages.
+		if (g_Debugger.IsConnected() && g_Debugger.HasPendingCommand())
+			g_Debugger.ProcessCommands();
+		break;
+#endif
+#ifndef MINIDLL
 	default:
 		// The following iMsg can't be in the switch() since it's not constant:
 		if (iMsg == WM_TASKBARCREATED && !g_NoTrayIcon) // !g_NoTrayIcon --> the tray icon should be always visible.
@@ -5534,8 +5610,32 @@ LRESULT CALLBACK MainWindowProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 			g_script.UpdateTrayIcon(true);  // Force the icon into the correct pause, suspend, or mIconFrozen state.
 			// And now pass this iMsg on to DefWindowProc() in case it does anything with it.
 		}
-
+		
 #endif
+#ifdef CONFIG_DEBUGGER
+		static UINT sAttachDebuggerMessage = RegisterWindowMessage(_T("AHK_ATTACH_DEBUGGER"));
+		if (iMsg == sAttachDebuggerMessage && !g_Debugger.IsConnected())
+		{
+			char dbg_host[16] = "localhost"; // IPv4 max string len
+			char dbg_port[6] = "9000";
+
+			if (wParam)
+			{	// Convert 32-bit address to string for Debugger::Connect().
+				in_addr addr;
+				addr.S_un.S_addr = (ULONG)wParam;
+				char *tmp = inet_ntoa(addr);
+				if (tmp)
+					strcpy(dbg_host, tmp);
+			}
+			if (lParam)
+				// Convert 16-bit port number to string for Debugger::Connect().
+				_itoa(LOWORD(lParam), dbg_port, 10);
+
+			if (g_Debugger.Connect(dbg_host, dbg_port) == DEBUGGER_E_OK)
+				g_Debugger.Break();
+		}
+#endif
+
 	} // switch()
 
 	return DefWindowProc(hWnd, iMsg, wParam, lParam);
@@ -5800,7 +5900,19 @@ DWORD GetAHKInstallDir(LPTSTR aBuf)
 // Returns the length of the string (0 if empty).
 {
 	TCHAR buf[MAX_PATH];
-	DWORD length = ReadRegString(HKEY_LOCAL_MACHINE, _T("SOFTWARE\\AutoHotkey"), _T("InstallDir"), buf, MAX_PATH);
+	DWORD length;
+#ifdef _WIN64
+	// First try 64-bit registry, then 32-bit registry.
+	for (DWORD flag = 0; ; flag = KEY_WOW64_32KEY)
+#else
+	// First try 32-bit registry, then 64-bit registry.
+	for (DWORD flag = 0; ; flag = KEY_WOW64_64KEY)
+#endif
+	{
+		length = ReadRegString(HKEY_LOCAL_MACHINE, _T("SOFTWARE\\AutoHotkey"), _T("InstallDir"), buf, MAX_PATH, flag);
+		if (length || flag)
+			break;
+	}
 	if (aBuf)
 		_tcscpy(aBuf, buf); // v1.0.47: Must be done as a separate copy because passing a size of MAX_PATH for aBuf can crash when aBuf is actually smaller than that (even though it's large enough to hold the string).
 	return length;
@@ -9591,36 +9703,6 @@ ResultType Line::FileInstall(LPTSTR aSource, LPTSTR aDest, LPTSTR aFlag)
 #ifdef AUTOHOTKEYSC
 	if (!allow_overwrite && Util_DoesFileExist(aDest))
 		return SetErrorLevelOrThrow();
-#ifdef ENABLE_EXEARC
-
-	HS_EXEArc_Read oRead;
-	// AutoIt3: Open the archive in this compiled exe.
-	// Jon gave me some details about why a password isn't needed: "The code in those libraries will
-	// only allow files to be extracted from the exe it is bound to (i.e the script that it was
-	// compiled with).  There are various checks and CRCs to make sure that it can't be used to read
-	// the files from any other exe that is passed."
-	if (oRead.Open(CStringCharFromTCharIfNeeded(g_script.mFileSpec), "") != HS_EXEARC_E_OK)
-		return LineError(ERR_EXE_CORRUPTED); // Usually caused by virus corruption. Probably impossible since it was previously opened successfully to run the main script.
-	
-	// aSource should be the same as the "file id" used to originally compress the file
-	// when it was compiled into an EXE.  So this should seek for the right file:
-	int result = oRead.FileExtract(CStringCharFromTCharIfNeeded(aSource), CStringCharFromTCharIfNeeded(aDest));
-	oRead.Close();
-
-	// v1.0.46.15: The following is a fix for the fact that a compiled script (but not an uncompiled one)
-	// that executes FileInstall somehow causes the Random command to generate the same series of random
-	// numbers every time the script launches. Perhaps the answer lies somewhere in oRead's code --
-	// something that somehow resets the static data used by init_genrand().
-	RESEED_RANDOM_GENERATOR;
-
-	success = (result == HS_EXEARC_E_OK);
-		// v1.0.48: Since extraction failure can occur more than rarely (e.g. when disk is full,
-		// permission denied, etc.), Ladiko suggested that no dialog be displayed.  The script
-		// can consult ErrorLevel to detect the failure and decide whether a MsgBox or other action
-		// is appropriate:
-		//MsgBox(aSource, 0, "Could not extract file:");
-
-#else // ENABLE_EXEARC not defined:
 
 	// Open the file first since it's the most likely to fail:
 	HANDLE hfile = CreateFile(aDest, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
@@ -9649,13 +9731,24 @@ ResultType Line::FileInstall(LPTSTR aSource, LPTSTR aDest, LPTSTR aFlag)
 	{
 		DWORD num_bytes_written;
 		// Write the resource data to file.
-		success = WriteFile(hfile, res_lock, SizeofResource(NULL, res), &num_bytes_written, NULL);
+		if (*(unsigned int*)res_lock == 0x005F5A4C)
+		{
+			DWORD aSizeDecompressed = DecompressBuffer(res_lock);
+			if (aSizeDecompressed)
+			{
+				success = WriteFile(hfile, res_lock, aSizeDecompressed, &num_bytes_written, NULL);
+				VirtualFree(res_lock,aSizeDecompressed,MEM_RELEASE);
+			}
+			else
+				success = WriteFile(hfile, res_lock, SizeofResource(NULL, res), &num_bytes_written, NULL);
+		}
+		else
+			success = WriteFile(hfile, res_lock, SizeofResource(NULL, res), &num_bytes_written, NULL);
 	}
 	else
 		success = false;
 	CloseHandle(hfile);
 
-#endif
 #else // AUTOHOTKEYSC not defined:
 	if (g_hResource)
 	{
@@ -9686,7 +9779,19 @@ ResultType Line::FileInstall(LPTSTR aSource, LPTSTR aDest, LPTSTR aFlag)
 		{
 			DWORD num_bytes_written;
 			// Write the resource data to file.
-			success = WriteFile(hfile, res_lock, SizeofResource(NULL, res), &num_bytes_written, NULL);
+			if (*(unsigned int*)res_lock == 0x005F5A4C)
+			{
+				DWORD aSizeDecompressed = DecompressBuffer(res_lock);
+				if (aSizeDecompressed)
+				{
+					success = WriteFile(hfile, res_lock, aSizeDecompressed, &num_bytes_written, NULL);
+					VirtualFree(res_lock,aSizeDecompressed,MEM_RELEASE);
+				}
+				else
+					success = WriteFile(hfile, res_lock, SizeofResource(NULL, res), &num_bytes_written, NULL);
+			}
+			else
+				success = WriteFile(hfile, res_lock, SizeofResource(NULL, res), &num_bytes_written, NULL);
 		}
 		else
 			success = false;
@@ -10882,6 +10987,22 @@ VarSizeType BIV_FileEncoding(LPTSTR aBuf, LPTSTR aVarName)
 
 
 
+VarSizeType BIV_RegView(LPTSTR aBuf, LPTSTR aVarName)
+{
+	LPCTSTR value;
+	switch (g->RegView)
+	{
+	case KEY_WOW64_32KEY: value = _T("32"); break;
+	case KEY_WOW64_64KEY: value = _T("64"); break;
+	default: value = _T("Default"); break;
+	}
+	if (aBuf)
+		_tcscpy(aBuf, value);
+	return (VarSizeType)_tcslen(value);
+}
+
+
+
 VarSizeType BIV_LastError(LPTSTR aBuf, LPTSTR aVarName)
 {
 	TCHAR buf[MAX_INTEGER_SIZE];
@@ -10890,7 +11011,47 @@ VarSizeType BIV_LastError(LPTSTR aBuf, LPTSTR aVarName)
 	return (VarSizeType)_tcslen(target_buf);
 }
 
+VarSizeType BIV_GlobalStruct(LPTSTR aBuf, LPTSTR aVarName)
+{
+	return aBuf
+		? (VarSizeType)_tcslen(ITOA64((LONGLONG)g, aBuf))
+		: MAX_INTEGER_LENGTH;
+}
 
+
+VarSizeType BIV_ScriptStruct(LPTSTR aBuf, LPTSTR aVarName)
+{
+	return aBuf
+		? (VarSizeType)_tcslen(ITOA64((LONGLONG)&g_script, aBuf))
+		: MAX_INTEGER_LENGTH;
+}
+
+
+VarSizeType BIV_ModuleHandle(LPTSTR aBuf, LPTSTR aVarName)
+{
+	return aBuf
+		? (VarSizeType)_tcslen(ITOA64((LONGLONG)g_hInstance, aBuf))
+		: MAX_INTEGER_LENGTH;
+}
+
+
+VarSizeType BIV_IsDll(LPTSTR aBuf, LPTSTR aVarName)
+{
+	if (aBuf)
+	{
+		*aBuf++ = (g_hInstance == GetModuleHandle(NULL)) ? '0' : '1';
+		*aBuf = '\0';
+	}
+	return 1;
+}
+
+
+VarSizeType BIV_CoordMode(LPTSTR aBuf, LPTSTR aVarName)
+{
+	return aBuf
+		? (VarSizeType)_tcslen(ITOA64(((g->CoordMode >> Line::ConvertCoordModeCmd(aVarName + 11)) & COORD_MODE_MASK), aBuf))
+		: MAX_INTEGER_LENGTH;
+}
 
 VarSizeType BIV_PtrSize(LPTSTR aBuf, LPTSTR aVarName)
 {
@@ -11101,13 +11262,15 @@ VarSizeType BIV_OSType(LPTSTR aBuf, LPTSTR aVarName)
 
 VarSizeType BIV_OSVersion(LPTSTR aBuf, LPTSTR aVarName)
 {
-	LPCTSTR version = _T("");  // Init in case OS is something later than Win2003.
+	LPCTSTR version = _T("");  // Init in case OS is something later than Win8.
 	if (g_os.IsWinNT()) // "NT" includes all NT-kernel OSes: NT4/2000/XP/2003/Vista/7.
 	{
 		if (g_os.IsWinXP())
 			version = _T("WIN_XP");
 		else if (g_os.IsWin7())
 			version = _T("WIN_7");
+		else if (g_os.IsWin8())
+			version = _T("WIN_8");
 		else if (g_os.IsWinVista())
 			version = _T("WIN_VISTA");
 		else if (g_os.IsWin2003())
@@ -11116,7 +11279,7 @@ VarSizeType BIV_OSVersion(LPTSTR aBuf, LPTSTR aVarName)
 		{
 			if (g_os.IsWin2000())
 				version = _T("WIN_2000");
-			else
+			else if (g_os.IsWinNT4())
 				version = _T("WIN_NT4");
 		}
 	}
@@ -11135,6 +11298,16 @@ VarSizeType BIV_OSVersion(LPTSTR aBuf, LPTSTR aVarName)
 	if (aBuf)
 		_tcscpy(aBuf, version);
 	return (VarSizeType)_tcslen(version); // Always return the length of version, not aBuf.
+}
+
+VarSizeType BIV_Is64bitOS(LPTSTR aBuf, LPTSTR aVarName)
+{
+	if (aBuf)
+	{
+		*aBuf++ = IsOS64Bit() ? '1' : '0';
+		*aBuf = '\0';
+	}
+	return 1;
 }
 
 VarSizeType BIV_Language(LPTSTR aBuf, LPTSTR aVarName)
@@ -12075,32 +12248,6 @@ VarSizeType BIV_TimeIdlePhysical(LPTSTR aBuf, LPTSTR aVarName)
 #endif
 }
 
-// CriticalObject Object
-class CriticalObject : public ObjectBase
-{
-protected:
-	IObject *object;
-	LPCRITICAL_SECTION lpCriticalSection;
-	CriticalObject()
-			: lpCriticalSection(0)
-			, object(0)
-	{}
-
-	bool Delete();
-	~CriticalObject(){}
-
-public:
-	__int64 GetObj()
-	{
-		return (__int64)&*this->object;
-	}
-	__int64 GetCriSec()
-	{
-		return (__int64) this->lpCriticalSection;
-	}
-	static IObject *Create(ExprTokenType *aParam[], int aParamCount);
-	ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount);
-};
 
 
 ////////////////////////
@@ -12181,7 +12328,7 @@ protected:
 	~DynaToken();
 
 public:
-	static IObject *Create(ExprTokenType *aParam[], int aParamCount);
+	static DynaToken *Create(ExprTokenType *aParam[], int aParamCount);
 	ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount);
 };
 
@@ -12710,104 +12857,6 @@ void *GetDllProcAddress(LPCTSTR aDllFileFunc, HMODULE *hmodule_to_free) // L31: 
 
 
 
-BIF_DECL(BIF_CriticalObject)
-{
-	IObject *obj = NULL;
-	// If 2 parameters are given and second parameter is 1 or 2,
-	// means we want to get the reference to obj(1) or crisec(2)
-	if (aParamCount == 2 && TokenToInt64(*aParam[1]) < 3) 
-	{
-		aResultToken.symbol = PURE_INTEGER;
-		CriticalObject *criticalobj = (CriticalObject*)TokenToObject(*aParam[0]);
-		if (criticalobj < (IObject *)1024)
-			aResultToken.value_int64 = 0;
-		else if (TokenToInt64(*aParam[1]) == 1) // Get object reference
-			aResultToken.value_int64 = criticalobj->GetObj();
-		else if (TokenToInt64(*aParam[1]) == 2) // Get critical section reference
-			aResultToken.value_int64 = criticalobj->GetCriSec();
-	} 
-	else if (obj = CriticalObject::Create(aParam,aParamCount))
-	{
-		aResultToken.symbol = SYM_OBJECT;
-		aResultToken.object = obj;
-		// DO NOT ADDREF: after we return, the only reference will be in aResultToken.
-	}
-	else
-	{
-		aResultToken.symbol = SYM_STRING;
-		aResultToken.marker = _T("");
-	}
-}
-
-IObject *CriticalObject::Create(ExprTokenType *aParam[], int aParamCount)
-{
-	IObject *obj = NULL;
-	if (aParamCount == 0) // No parameters given, create new object
-		obj = Object::Create(0,0);
-	else if (IS_NUMERIC(aParam[0]->symbol) || IS_OPERAND(aParam[0]->symbol))
-	{	
-		obj = (IObject *)TokenToInt64(*aParam[0]); // object reference
-		if (obj < (IObject *)1024) // Prevent some obvious errors.
-			obj = NULL;
-		else
-			obj->AddRef();
-	}
-	if (!obj) // Check if it is an object or var containing object
-	{
-		obj = TokenToObject(*aParam[0]);
-		if (obj < (IObject *)1024) // Prevent some obvious errors.
-			return 0;
-		else
-			obj->AddRef();
-	}
-
-	// create new critical object and save reference
-	CriticalObject *criticalobj = new CriticalObject();
-	criticalobj->object = obj;
-
-	if (aParamCount < 2)
-	{	// no Critical Section reference was given, create one
-		criticalobj->lpCriticalSection = (LPCRITICAL_SECTION)malloc(sizeof(CRITICAL_SECTION));
-		InitializeCriticalSection(criticalobj->lpCriticalSection);
-	}
-	else
-		// An already initialized Critical Section reference was given, use it
-		criticalobj->lpCriticalSection = (LPCRITICAL_SECTION)TokenToInt64(*aParam[1]);
-	return criticalobj;
-}
-
-//
-// CriticalObject::Delete - Called immediately before the object is deleted.
-//					Returns false if object should not be deleted yet.
-//
-
-bool CriticalObject::Delete()
-{
-	// Check if we own the critical section and release it
-	if (TryEnterCriticalSection(this->lpCriticalSection))
-	{
-		LeaveCriticalSection(this->lpCriticalSection);
-	}
-	return ObjectBase::Delete();
-}
-
-ResultType STDMETHODCALLTYPE CriticalObject::Invoke(
-                                            ExprTokenType &aResultToken,
-                                            ExprTokenType &aThisToken,
-                                            int aFlags,
-                                            ExprTokenType *aParam[],
-                                            int aParamCount
-                                            )
- {
-	 // Avoid deadlocking the process so messages can still be processed
-	 while (!TryEnterCriticalSection(this->lpCriticalSection))
-		 MsgSleep(-1);
-	 // Invoke original object as if it was called
-	 ResultType r = this->object->Invoke(aResultToken,aThisToken,aFlags,aParam,aParamCount);
-	 LeaveCriticalSection(this->lpCriticalSection);
-	 return r;
-}
-
 BIF_DECL(BIF_DynaCall)
 {
 	IObject *obj = NULL;
@@ -12815,7 +12864,7 @@ BIF_DECL(BIF_DynaCall)
 	{
 		aParam[0]->object->Invoke(aResultToken,*aParam[0],IT_SET,aParam+1,aParamCount-1);
 	}
-	else if (aParamCount == 1) // L33: POTENTIALLY UNSAFE - Cast IObject address to object reference.
+	else if (aParamCount == 1 && aParam[0]->symbol == PURE_INTEGER) // L33: POTENTIALLY UNSAFE - Cast IObject address to object reference.
 	{
 		obj = (IObject *)TokenToInt64(*aParam[0]);
 		if (obj < (IObject *)1024) // Prevent some obvious errors.
@@ -12843,7 +12892,7 @@ BIF_DECL(BIF_DynaCall)
 // DynaToken::Create - Called by BIF_DynaCall to create a new object, optionally passing key/value pairs to set.
 //
 
-IObject *DynaToken::Create(ExprTokenType *aParam[], int aParamCount)
+DynaToken *DynaToken::Create(ExprTokenType *aParam[], int aParamCount)
 {
 	DynaToken *obj = new DynaToken();
 
@@ -12857,6 +12906,9 @@ IObject *DynaToken::Create(ExprTokenType *aParam[], int aParamCount)
 	ExprTokenType oParam = {0};
 	ExprTokenType *param[1] = {&oParam};
 
+	DYNAPARM *dyna_param;
+	ExprTokenType token;
+
 	if (obj && aParamCount)
 	{
 		ExprTokenType this_token;
@@ -12865,87 +12917,89 @@ IObject *DynaToken::Create(ExprTokenType *aParam[], int aParamCount)
 		this_token.object = obj;
 		
 		// Determine the type of return value.
-		DYNAPARM return_attrib = {0}; // Init all to default in case ConvertDllArgType() isn't called below. This struct holds the type and other attributes of the function's return value.
+		//DYNAPARM return_attrib = {0}; // Init all to default in case ConvertDllArgType() isn't called below. This struct holds the type and other attributes of the function's return value.
 #ifdef WIN32_PLATFORM
 		obj->mdll_call_mode = DC_CALL_STD; // Set default.  Can be overridden to DC_CALL_CDECL and flags can be OR'd into it.
 #endif
 		obj->mreturn_attrib.type = DLL_ARG_INT;
 		// Check validity of this arg's return type:
-		if (IS_NUMERIC(aParam[1]->symbol)) // The return type should be a string, not something purely numeric.
+		if (aParamCount > 1)
 		{
-			g_ErrorLevel->Assign(_T("-2")); // Stage 2 error: Invalid return type or arg type.
-			return NULL;
-		}
-		else if (aParam[1]->symbol == SYM_OBJECT)
-		{
-			oParam.symbol = PURE_INTEGER;
-			oParam.value_int64 =1;
-			aParam[1]->object->Invoke(result_token,*aParam[1],IT_GET,param,1);
-			if (IS_NUMERIC(result_token.symbol) || result_token.symbol == SYM_OBJECT)
+			if (IS_NUMERIC(aParam[1]->symbol)) // The return type should be a string, not something purely numeric.
 			{
-				g_script.SetErrorLevelOrThrowStr(_T("-2"), _T("DynaCall")); // Stage 2 error: Invalid return type or arg type.
+				g_ErrorLevel->Assign(_T("-2")); // Stage 2 error: Invalid return type or arg type.
 				return NULL;
 			}
-		}
-		else if (aParam[1]->symbol == SYM_VAR && aParam[1]->var->HasObject())
-		{
-			oParam.symbol = PURE_INTEGER;
-			oParam.value_int64 =1;
-			aParam[1]->var->mObject->Invoke(result_token,*aParam[1],IT_GET,param,1);
-			if (IS_NUMERIC(result_token.symbol) || result_token.symbol == SYM_OBJECT)
+			else if (aParam[1]->symbol == SYM_OBJECT)
 			{
-				g_script.SetErrorLevelOrThrowStr(_T("-2"), _T("DynaCall")); // Stage 2 error: Invalid return type or arg type.
-				return NULL;
+				oParam.symbol = PURE_INTEGER;
+				oParam.value_int64 =1;
+				aParam[1]->object->Invoke(result_token,*aParam[1],IT_GET,param,1);
+				if (IS_NUMERIC(result_token.symbol) || result_token.symbol == SYM_OBJECT)
+				{
+					g_script.SetErrorLevelOrThrowStr(_T("-2"), _T("DynaCall")); // Stage 2 error: Invalid return type or arg type.
+					return NULL;
+				}
 			}
-		}
-		ExprTokenType token = (aParam[1]->symbol == SYM_OBJECT || (aParam[1]->symbol == SYM_VAR && aParam[1]->var->HasObject())) ? result_token : *aParam[1];
-		LPTSTR return_type_string[1];
-		if (token.symbol == SYM_VAR) // SYM_VAR's Type() is always VAR_NORMAL (except lvalues in expressions).
-		{
-			return_type_string[0] = token.var->Contents(TRUE,TRUE);
-		}
-		else
-		{
-			return_type_string[0] = token.marker;
-		}
+			else if (aParam[1]->symbol == SYM_VAR && aParam[1]->var->HasObject())
+			{
+				oParam.symbol = PURE_INTEGER;
+				oParam.value_int64 =1;
+				aParam[1]->var->mObject->Invoke(result_token,*aParam[1],IT_GET,param,1);
+				if (IS_NUMERIC(result_token.symbol) || result_token.symbol == SYM_OBJECT)
+				{
+					g_script.SetErrorLevelOrThrowStr(_T("-2"), _T("DynaCall")); // Stage 2 error: Invalid return type or arg type.
+					return NULL;
+				}
+			}
+			token = (aParam[1]->symbol == SYM_OBJECT || (aParam[1]->symbol == SYM_VAR && aParam[1]->var->HasObject())) ? result_token : *aParam[1];
+			LPTSTR return_type_string[1];
+			if (token.symbol == SYM_VAR) // SYM_VAR's Type() is always VAR_NORMAL (except lvalues in expressions).
+			{
+				return_type_string[0] = token.var->Contents(TRUE,TRUE);
+			}
+			else
+			{
+				return_type_string[0] = token.marker;
+			}
 
-		int i = 0;
-		for (;return_type_string[0][i];i++)
-		{
-			if ( !(_tcschr(return_type_string[0]+i,'=') || ctoupper(return_type_string[0][i]) == 'U' || ctoupper(return_type_string[0][i]) == 'P' || (return_type_string[0][i] == '*')) )// Unsigned
-				obj->marg_count++;
-		}
-		DYNAPARM *dyna_param = (DYNAPARM *)_alloca(obj->marg_count * sizeof(DYNAPARM));
-		if (obj->marg_count != ConvertDllArgTypes(return_type_string[0],dyna_param))
-		{
-			g_script.SetErrorLevelOrThrowStr(_T("-2"), _T("DynaCall")); // Stage 2 error: Invalid return type or arg type.
-			return NULL;
-		}
-		if (_tcschr(return_type_string[0],'='))
-		{
-#ifdef WIN32_PLATFORM
-			if (_tcschr((_tcschr(return_type_string[0],'=') + 1),'='))
-				obj->mdll_call_mode = DC_CALL_CDECL;
-#endif
-			obj->mreturn_attrib.type = DLL_ARG_INT;
-			TCHAR retrurn_type_arg[3]; // maximal length of return type
-			for (i=0;_tcschr(return_type_string[0] + i + 1,'=');i++)
-				retrurn_type_arg[i] = return_type_string[0][i];
-			retrurn_type_arg[i] = '\0';
-			if (StrChrAny(retrurn_type_arg, _T("uU")))
+			int i = 0;
+			for (;return_type_string[0][i];i++)
 			{
-				_tcsncpy(retrurn_type_arg,retrurn_type_arg + 1,sizeof(TCHAR));
-				_tcsncpy(retrurn_type_arg + 1,retrurn_type_arg + 2,sizeof(TCHAR));
-				//*(retrurn_type_arg + 2) = '\0';
-				obj->mreturn_attrib.is_unsigned = true;
+				if ( !(_tcschr(return_type_string[0]+i,'=') || ctoupper(return_type_string[0][i]) == 'U' || ctoupper(return_type_string[0][i]) == 'P' || (return_type_string[0][i] == '*')) )// Unsigned
+					obj->marg_count++;
 			}
-			else
-				obj->mreturn_attrib.is_unsigned = false;
-			if (StrChrAny(retrurn_type_arg + 1, _T("*pP")))
-				obj->mreturn_attrib.passed_by_address = true;
-			else
-				obj->mreturn_attrib.passed_by_address = false;
-			if (false) {} // To simplify the macro below.  It should have no effect on the compiled code.
+			dyna_param = (DYNAPARM *)_alloca(obj->marg_count * sizeof(DYNAPARM));
+			if (obj->marg_count != ConvertDllArgTypes(return_type_string[0],dyna_param))
+			{
+				g_script.SetErrorLevelOrThrowStr(_T("-2"), _T("DynaCall")); // Stage 2 error: Invalid return type or arg type.
+				return NULL;
+			}
+			if (_tcschr(return_type_string[0],'='))
+			{
+#ifdef WIN32_PLATFORM
+				if (_tcschr((_tcschr(return_type_string[0],'=') + 1),'='))
+					obj->mdll_call_mode = DC_CALL_CDECL;
+#endif
+				obj->mreturn_attrib.type = DLL_ARG_INT;
+				TCHAR retrurn_type_arg[3]; // maximal length of return type
+				for (i=0;_tcschr(return_type_string[0] + i + 1,'=');i++)
+					retrurn_type_arg[i] = return_type_string[0][i];
+				retrurn_type_arg[i] = '\0';
+				if (StrChrAny(retrurn_type_arg, _T("uU")))
+				{
+					_tcsncpy(retrurn_type_arg,retrurn_type_arg + 1,sizeof(TCHAR));
+					_tcsncpy(retrurn_type_arg + 1,retrurn_type_arg + 2,sizeof(TCHAR));
+					//*(retrurn_type_arg + 2) = '\0';
+					obj->mreturn_attrib.is_unsigned = true;
+				}
+				else
+					obj->mreturn_attrib.is_unsigned = false;
+				if (StrChrAny(retrurn_type_arg + 1, _T("*pP")))
+					obj->mreturn_attrib.passed_by_address = true;
+				else
+					obj->mreturn_attrib.passed_by_address = false;
+				if (false) {} // To simplify the macro below.  It should have no effect on the compiled code.
 #define TEST_TYPE(t, n)  else if (!_tcsnicmp(retrurn_type_arg, _T(t), 1))  obj->mreturn_attrib.type = (n);
 TEST_TYPE("I",	DLL_ARG_INT) // The few most common types are kept up top for performance.
 TEST_TYPE("S",	DLL_ARG_STR)
@@ -12962,10 +13016,20 @@ TEST_TYPE("D",	DLL_ARG_DOUBLE)
 TEST_TYPE("A",	DLL_ARG_ASTR)
 TEST_TYPE("W",	DLL_ARG_WSTR)
 #undef TEST_TYPE
-			else
-			{
-				g_script.SetErrorLevelOrThrowStr(_T("-2"), _T("DynaCall")); // Stage 2 error: Invalid return type or arg type.
-				return NULL;
+				else
+				{
+					g_script.SetErrorLevelOrThrowStr(_T("-2"), _T("DynaCall")); // Stage 2 error: Invalid return type or arg type.
+					return NULL;
+				}
+#ifdef WIN32_PLATFORM
+				if (!obj->mreturn_attrib.passed_by_address) // i.e. the special return flags below are not needed when an address is being returned.
+				{
+					if (obj->mreturn_attrib.type == DLL_ARG_DOUBLE)
+						obj->mdll_call_mode |= DC_RETVAL_MATH8;
+					else if (obj->mreturn_attrib.type == DLL_ARG_FLOAT)
+						obj->mdll_call_mode |= DC_RETVAL_MATH4;
+				}
+#endif
 			}
 		}
 		switch(aParam[0]->symbol)
@@ -12999,7 +13063,7 @@ TEST_TYPE("W",	DLL_ARG_WSTR)
 		// it will be used instead of mdyna_param whenever parameters omitted
 		obj->mdyna_param = (DYNAPARM *)malloc(obj->marg_count * sizeof(DYNAPARM));
 		obj->mdefault_param = (DYNAPARM *)malloc(obj->marg_count * sizeof(DYNAPARM));
-		i = obj->marg_count * sizeof(void *);
+		int i = obj->marg_count * sizeof(void *);
 // for Unicode <-> ANSI charset conversion
 #ifdef UNICODE
 CStringA **pStr = (CStringA **)
@@ -13116,7 +13180,7 @@ CStringW **pStr = (CStringW **)
 					this_dyna_param.value_int = (int)this_dyna_param.value_int64; // Force a failure if compiler generates code for this that corrupts the union (since the same method is used for the more obscure float vs. double below).
 			} // switch (this_dyna_param.type)
 		} // for() each arg.
-		if (aParam[1]->symbol == SYM_OBJECT || (aParam[1]->symbol == SYM_VAR && aParam[1]->var->HasObject()))
+		if (aParamCount > 1 && aParam[1]->symbol == SYM_OBJECT || (aParam[1]->symbol == SYM_VAR && aParam[1]->var->HasObject()))
 		{
 			// Find out the length of array containing the definition and shift info for parameters
 			IObject *paramobj = ((aParam[1]->symbol == SYM_OBJECT) ? aParam[1]->object : aParam[1]->var->mObject); 
@@ -14147,6 +14211,107 @@ end:
 }
 
 #endif
+
+BIF_DECL(BIF_CriticalObject)
+{
+	IObject *obj = NULL;
+	// If 2 parameters are given and second parameter is 1 or 2,
+	// means we want to get the reference to obj(1) or crisec(2)
+	if (aParamCount == 2 && TokenToInt64(*aParam[1]) < 3) 
+	{
+		aResultToken.symbol = PURE_INTEGER;
+		CriticalObject *criticalobj;
+		if (!(criticalobj = (CriticalObject *)TokenToObject(*aParam[0])))
+			criticalobj = (CriticalObject *)TokenToInt64(*aParam[0]);
+		if (criticalobj < (IObject *)1024)
+			aResultToken.value_int64 = 0;
+		else if (TokenToInt64(*aParam[1]) == 1) // Get object reference
+			aResultToken.value_int64 = criticalobj->GetObj();
+		else if (TokenToInt64(*aParam[1]) == 2) // Get critical section reference
+			aResultToken.value_int64 = criticalobj->GetCriSec();
+	} 
+	else if (obj = CriticalObject::Create(aParam,aParamCount))
+	{
+		aResultToken.symbol = SYM_OBJECT;
+		aResultToken.object = obj;
+		// DO NOT ADDREF: after we return, the only reference will be in aResultToken.
+	}
+	else
+	{
+		aResultToken.symbol = SYM_STRING;
+		aResultToken.marker = _T("");
+	}
+}
+
+CriticalObject *CriticalObject::Create(ExprTokenType *aParam[], int aParamCount)
+{
+	IObject *obj = NULL;
+	if (aParamCount == 0) // No parameters given, create new object
+		obj = Object::Create(0,0);
+	else if (IS_NUMERIC(aParam[0]->symbol) || IS_OPERAND(aParam[0]->symbol))
+	{	
+		obj = (IObject *)TokenToInt64(*aParam[0]); // object reference
+		if (obj < (IObject *)1024) // Prevent some obvious errors.
+			obj = NULL;
+		else
+			obj->AddRef();
+	}
+	if (!obj) // Check if it is an object or var containing object
+	{
+		obj = TokenToObject(*aParam[0]);
+		if (obj < (IObject *)1024) // Prevent some obvious errors.
+			return 0;
+		else
+			obj->AddRef();
+	}
+
+	// create new critical object and save reference
+	CriticalObject *criticalobj = new CriticalObject();
+	criticalobj->object = obj;
+
+	if (aParamCount < 2)
+	{	// no Critical Section reference was given, create one
+		criticalobj->lpCriticalSection = (LPCRITICAL_SECTION)malloc(sizeof(CRITICAL_SECTION));
+		InitializeCriticalSection(criticalobj->lpCriticalSection);
+	}
+	else
+		// An already initialized Critical Section reference was given, use it
+		criticalobj->lpCriticalSection = (LPCRITICAL_SECTION)TokenToInt64(*aParam[1]);
+	return criticalobj;
+}
+
+//
+// CriticalObject::Delete - Called immediately before the object is deleted.
+//					Returns false if object should not be deleted yet.
+//
+
+bool CriticalObject::Delete()
+{
+	// Check if we own the critical section and release it
+	if (TryEnterCriticalSection(this->lpCriticalSection))
+	{
+		LeaveCriticalSection(this->lpCriticalSection);
+	}
+	return ObjectBase::Delete();
+}
+
+ResultType STDMETHODCALLTYPE CriticalObject::Invoke(
+                                            ExprTokenType &aResultToken,
+                                            ExprTokenType &aThisToken,
+                                            int aFlags,
+                                            ExprTokenType *aParam[],
+                                            int aParamCount
+                                            )
+ {
+	 // Avoid deadlocking the process so messages can still be processed
+	 while (!TryEnterCriticalSection(this->lpCriticalSection))
+		 MsgSleep(-1);
+	 // Invoke original object as if it was called
+	 ResultType r = this->object->Invoke(aResultToken,aThisToken,aFlags,aParam,aParamCount);
+	 LeaveCriticalSection(this->lpCriticalSection);
+	 return r;
+}
+
 BIF_DECL(BIF_Lock)
 {
 	aResultToken.symbol = SYM_STRING;
@@ -14298,7 +14463,7 @@ BIF_DECL(BIF_InStr)
 }
 
 
-void RegExSetSubpatternVars(LPCTSTR haystack, pcre *re, pcre_extra *extra, TCHAR output_mode, Var &output_var, int *offset, int pattern_count, int captured_pattern_count, LPTSTR &mem_to_free)
+void RegExSetSubpatternVars(LPCTSTR haystack, pcret *re, pcret_extra *extra, TCHAR output_mode, Var &output_var, int *offset, int pattern_count, int captured_pattern_count, LPTSTR &mem_to_free)
 {
 	// OTHERWISE, CONTINUE ON TO STORE THE SUBSTRINGS THAT MATCHED THE SUBPATTERNS (EVEN IF PCRE_ERROR_NOMATCH).
 	// For lookup performance, create a table of subpattern names indexed by subpattern number.
@@ -14306,13 +14471,13 @@ void RegExSetSubpatternVars(LPCTSTR haystack, pcre *re, pcre_extra *extra, TCHAR
 	bool allow_dupe_subpat_names = false; // Set default.
 	LPCTSTR name_table;
 	int name_count, name_entry_size;
-	if (   !pcre_fullinfo(re, extra, PCRE_INFO_NAMECOUNT, &name_count) // Success. Fix for v1.0.45.01: Don't check captured_pattern_count>=0 because PCRE_ERROR_NOMATCH can still have named patterns!
+	if (   !pcret_fullinfo(re, extra, PCRE_INFO_NAMECOUNT, &name_count) // Success. Fix for v1.0.45.01: Don't check captured_pattern_count>=0 because PCRE_ERROR_NOMATCH can still have named patterns!
 		&& name_count // There's at least one named subpattern.  Relies on short-circuit boolean order.
-		&& !pcre_fullinfo(re, extra, PCRE_INFO_NAMETABLE, &name_table) // Success.
-		&& !pcre_fullinfo(re, extra, PCRE_INFO_NAMEENTRYSIZE, &name_entry_size)   ) // Success.
+		&& !pcret_fullinfo(re, extra, PCRE_INFO_NAMETABLE, &name_table) // Success.
+		&& !pcret_fullinfo(re, extra, PCRE_INFO_NAMEENTRYSIZE, &name_entry_size)   ) // Success.
 	{
 		int pcre_options;
-		if (!pcre_fullinfo(re, extra, PCRE_INFO_OPTIONS, &pcre_options)) // Success.
+		if (!pcret_fullinfo(re, extra, PCRE_INFO_OPTIONS, &pcre_options)) // Success.
 			allow_dupe_subpat_names = pcre_options & PCRE_DUPNAMES;
 		// For indexing simplicity, also include an entry for the main/entire pattern at index 0 even though
 		// it's never used because the entire pattern can't have a name without enclosing it in parentheses
@@ -14324,7 +14489,11 @@ void RegExSetSubpatternVars(LPCTSTR haystack, pcre *re, pcre_extra *extra, TCHAR
 		{
 			// Below converts first two bytes of each name-table entry into the pattern number (it might be
 			// possible to simplify this, but I'm not sure if big vs. little-endian will ever be a concern).
+#ifdef UNICODE
+			subpat_name[name_table[0]] = name_table + 1;
+#else
 			subpat_name[(name_table[0] << 8) + name_table[1]] = name_table + 2; // For indexing simplicity, subpat_name[0] is for the main/entire pattern though it is never actually used for that because it can't be named without being enclosed in parentheses (in which case it becomes a subpattern).
+#endif
 			// For simplicity and unlike PHP, IsPureNumeric() isn't called to forbid numeric subpattern names.
 			// It seems the worst than could happen if it is numeric is that it would overlap/overwrite some of
 			// the numerically-indexed elements in the output-array.  Seems pretty harmless given the rarity.
@@ -14335,7 +14504,8 @@ void RegExSetSubpatternVars(LPCTSTR haystack, pcre *re, pcre_extra *extra, TCHAR
 
 	if (output_mode == 'O')
 	{
-		IObject *m = RegExMatchObject::Create(haystack, offset, subpat_name, pattern_count, captured_pattern_count);
+		LPTSTR mark = (extra->flags & PCRE_EXTRA_MARK) ? (LPTSTR)*extra->mark : NULL;
+		IObject *m = RegExMatchObject::Create(haystack, offset, subpat_name, pattern_count, captured_pattern_count, (LPTSTR) mark);
 		if (m)
 			output_var.AssignSkipAddRef(m);
 		else
@@ -14486,7 +14656,7 @@ void RegExSetSubpatternVars(LPCTSTR haystack, pcre *re, pcre_extra *extra, TCHAR
 
 
 RegExMatchObject *RegExMatchObject::Create(LPCTSTR aHaystack, int *aOffset, LPCTSTR *aPatternName
-	, int aPatternCount, int aCapturedPatternCount)
+	, int aPatternCount, int aCapturedPatternCount, LPCTSTR aMark)
 {
 	// If there was no match, seems best to not return an object:
 	if (aCapturedPatternCount < 1)
@@ -14495,6 +14665,12 @@ RegExMatchObject *RegExMatchObject::Create(LPCTSTR aHaystack, int *aOffset, LPCT
 	RegExMatchObject *m = new RegExMatchObject();
 	if (!m)
 		return NULL;
+
+	if (  aMark && !(m->mMark = _tcsdup(aMark))  )
+	{
+		m->Release();
+		return NULL;
+	}
 
 	ASSERT(aCapturedPatternCount >= 1);
 	ASSERT(aPatternCount >= aCapturedPatternCount);
@@ -14651,6 +14827,11 @@ ResultType STDMETHODCALLTYPE RegExMatchObject::Invoke(ExprTokenType &aResultToke
 				TokenSetResult(aResultToken, mPatternName[p]);
 			return OK;
 		}
+		else if (!_tcsicmp(name, _T("Mark")))
+		{
+			TokenSetResult(aResultToken, aParamCount == 1 && mMark ? mMark : _T(""));
+			return OK;
+		}
 		else if (_tcsicmp(name, _T("Value"))) // i.e. NOT "Value".
 		{
 			// This is something like m[n] where n is not a valid subpattern or property name,
@@ -14670,8 +14851,51 @@ ResultType STDMETHODCALLTYPE RegExMatchObject::Invoke(ExprTokenType &aResultToke
 	return INVOKE_NOT_HANDLED;
 }
 
+#ifdef CONFIG_DEBUGGER
+void RegExMatchObject::DebugWriteProperty(IDebugProperties *aDebugger, int aPage, int aPageSize, int aMaxDepth)
+{
+	DebugCookie rootCookie, cookie;
+	aDebugger->BeginProperty(NULL, "object", 5, rootCookie);
+	if (aPage == 0)
+	{
+		aDebugger->WriteProperty("Count", mPatternCount);
 
-void *RegExResolveUserCallout(LPCTSTR aCalloutParam, int aCalloutParamLength)
+		static LPSTR sNames[] = { "Value", "Pos", "Len", "Name" };
+#ifdef UNICODE
+		static LPWSTR sNamesT[] = { _T("Value"), _T("Pos"), _T("Len"), _T("Name") };
+#else
+		static LPSTR *sNamesT = sNames;
+#endif
+		char indexBuf[MAX_INTEGER_SIZE];
+		TCHAR resultBuf[MAX_NUMBER_SIZE];
+		ExprTokenType resultToken, thisTokenUnused, paramToken[2], *param[] = { &paramToken[0], &paramToken[1] };
+		for (int i = 0; i < _countof(sNames); i++)
+		{
+			aDebugger->BeginProperty(sNames[i], "array", mPatternCount - (i == 3), cookie);
+			paramToken[0].symbol = SYM_STRING;
+			paramToken[0].marker = sNamesT[i];
+			for (int p = (i == 3); p < mPatternCount; p++)
+			{
+				resultToken.symbol = SYM_STRING;
+				resultToken.marker = _T("");
+				resultToken.buf = resultBuf;
+				resultToken.mem_to_free = NULL;
+				paramToken[1].symbol = SYM_INTEGER;
+				paramToken[1].value_int64 = p;
+				Invoke(resultToken, thisTokenUnused, IT_GET, param, 2);
+				aDebugger->WriteProperty(_itoa(p, indexBuf, 10), resultToken);
+				if (resultToken.mem_to_free)
+					free(resultToken.mem_to_free);
+			}
+			aDebugger->EndProperty(cookie);
+		}
+	}
+	aDebugger->EndProperty(rootCookie);
+}
+#endif
+
+
+void *pcret_resolve_user_callout(LPCTSTR aCalloutParam, int aCalloutParamLength)
 {
 	// If no Func is found, pcre will handle the case where aCalloutParam is a pure integer.
 	// In that case, the callout param becomes an integer between 0 and 255. No valid pointer
@@ -14684,15 +14908,15 @@ void *RegExResolveUserCallout(LPCTSTR aCalloutParam, int aCalloutParamLength)
 
 struct RegExCalloutData // L14: Used by BIF_RegEx to pass necessary info to RegExCallout.
 {
-	pcre *re;
+	pcret *re;
 	LPTSTR re_text; // original NeedleRegEx
 	int options_length; // used to adjust cb->pattern_position
 	int pattern_count; // to save calling pcre_fullinfo unnecessarily for each callout
-	pcre_extra *extra;
+	pcret_extra *extra;
 	TCHAR output_mode;
 };
 
-int RegExCallout(pcre_callout_block *cb)
+int RegExCallout(pcret_callout_block *cb)
 {
 	// It should be documented that (?C) is ignored if encountered by the hook thread,
 	// which could happen if SetTitleMatchMode,Regex and #IfWin are used. This would be a
@@ -14786,7 +15010,8 @@ int RegExCallout(pcre_callout_block *cb)
 		// Temporarily set these for use by the function below:
 		cb->offset_vector[0] = cb->start_match;
 		cb->offset_vector[1] = cb->current_position;
-		
+		if (cd.extra->flags & PCRE_EXTRA_MARK)
+			*cd.extra->mark = UorA(wchar_t *, UCHAR *) cb->mark;
 		// Set up local vars for capturing subpatterns.
 		RegExSetSubpatternVars(cb->subject, cd.re, cd.extra, cd.output_mode, output_var, cb->offset_vector, cd.pattern_count, cb->capture_top, mem_to_free);
 
@@ -14857,7 +15082,7 @@ int RegExCallout(pcre_callout_block *cb)
 	return number_to_return;
 }
 
-pcre *get_compiled_regex(LPTSTR aRegEx, TCHAR &aOutputMode, pcre_extra *&aExtra
+pcret *get_compiled_regex(LPTSTR aRegEx, TCHAR &aOutputMode, pcret_extra *&aExtra
 	, int *aOptionsLength, ExprTokenType *aResultToken)
 // Returns the compiled RegEx, or NULL on failure.
 // This function is called by things other than built-in functions so it should be kept general-purpose.
@@ -14870,10 +15095,9 @@ pcre *get_compiled_regex(LPTSTR aRegEx, TCHAR &aOutputMode, pcre_extra *&aExtra
 //    (but it doesn't change ErrorLevel on success, not even if aResultToken!=NULL)
 // L14: aOptionsLength is used by callouts to adjust cb->pattern_position to be relative to beginning of actual user-specified NeedleRegEx instead of string seen by PCRE.
 {	
-	if (!pcre_callout)
-	{	// L14: Ensure these are initialized, even for ::RegExMatch() (to allow (?C) in window title regexes).
-		pcre_callout = &RegExCallout;
-		pcre_resolve_user_callout = &RegExResolveUserCallout;
+	if (!pcret_callout)
+	{	// Ensure this is initialized, even for ::RegExMatch() (to allow (?C) in window title regexes).
+		pcret_callout = &RegExCallout;
 	}
 
 	// While reading from or writing to the cache, don't allow another thread entry.  This is because
@@ -14902,8 +15126,8 @@ pcre *get_compiled_regex(LPTSTR aRegEx, TCHAR &aOutputMode, pcre_extra *&aExtra
 		// required to strip off some options prior to doing a cache search seems likely to offset much of the
 		// cache's benefit.  So for this reason, as well as rarity and code size issues, this policy seems best.
 		LPTSTR re_raw;      // The RegEx's literal string pattern such as "abc.*123".
-		pcre *re_compiled; // The RegEx in compiled form.
-		pcre_extra *extra; // NULL unless a study() was done (and NULL even then if study() didn't find anything).
+		pcret *re_compiled; // The RegEx in compiled form.
+		pcret_extra *extra; // NULL unless a study() was done (and NULL even then if study() didn't find anything).
 		// int pcre_options; // Not currently needed in the cache since options are implicitly inside re_compiled.
 		int options_length; // Lexikos: See aOptionsLength comment at beginning of this function.
 		TCHAR output_mode;
@@ -15074,19 +15298,19 @@ break_both:
 	// Reaching here means that pat has been set to the beginning of the RegEx pattern itself and all options
 	// are set properly.
 
-	LPCTSTR error_msg;
+	LPCSTR error_msg;
 	TCHAR error_buf[ERRORLEVEL_SAVED_SIZE];
 	int error_code, error_offset;
-	pcre *re_compiled;
+	pcret *re_compiled;
 
 	// COMPILE THE REGEX.
-	if (   !(re_compiled = pcre_compile2(pat, pcre_options, &error_code, &error_msg, &error_offset, NULL))   )
+	if (   !(re_compiled = pcret_compile2(pat, pcre_options, &error_code, &error_msg, &error_offset, NULL))   )
 	{
 		if (aResultToken) // Only when this is non-NULL does caller want ErrorLevel changed.
 		{
 			// Since both the error code and the offset are desirable outputs, it seems best to also
 			// include descriptive error text (debatable).
-			sntprintf(error_buf, _countof(error_buf), _T("Compile error %d at offset %d: %s"), error_code
+			sntprintf(error_buf, _countof(error_buf), _T("Compile error %d at offset %d: %hs"), error_code
 				, error_offset, error_msg);
 			g_script.SetErrorLevelOrThrowStr(error_buf, aResultToken->marker);
 		}
@@ -15095,10 +15319,9 @@ break_both:
 
 	if (do_study)
 	{
-		// Currently, PCRE has no study options so that parameter is always 0.
-		// Calling pcre_study currently adds about 1.5 KB of uncompressed code size; but it seems likely to be
-		// a worthwhile option for complex RegEx's that are executed many times in a loop.
-		aExtra = pcre_study(re_compiled, 0, &error_msg); // aExtra is an output parameter for caller.
+		// Enabling JIT compilation adds about 68 KB to the final executable size, which seems to outweigh
+		// the speed-up that a minority of scripts would get.  Pass the option anyway, in case it is enabled:
+		aExtra = pcret_study(re_compiled, PCRE_STUDY_JIT_COMPILE, &error_msg); // aExtra is an output parameter for caller.
 		// Above returns NULL on failure or inability to find anything worthwhile in its study.  NULL is exactly
 		// the right value to pass to exec() to indicate "no study info".
 		// The following isn't done because:
@@ -15128,7 +15351,9 @@ break_both:
 	{
 		// Free the old cache entry's attributes in preparation for overwriting them with the new one's.
 		free(this_entry.re_raw);           // Free the uncompiled pattern.
-		pcre_free(this_entry.re_compiled); // Free the compiled pattern.
+		pcret_free(this_entry.re_compiled); // Free the compiled pattern.
+		if (this_entry.extra)
+			pcret_free_study(this_entry.extra);
 	}
 	//else the insert-position is an empty slot, which is usually the case because most scripts contain fewer than
 	// PCRE_CACHE_SIZE unique regex's.  Nothing extra needs to be done.
@@ -15179,8 +15404,8 @@ LPTSTR RegExMatch(LPTSTR aHaystack, LPTSTR aNeedleRegEx)
 // Returns NULL if no match.  Otherwise, returns the address where the pattern was found in aHaystack.
 {
 	TCHAR output_mode; // Currently ignored.
-	pcre_extra *extra;
-	pcre *re;
+	pcret_extra *extra;
+	pcret *re;
 
 	// Compile the regex or get it from cache.
 	if (   !(re = get_compiled_regex(aNeedleRegEx, output_mode, extra, NULL, NULL))   ) // Compiling problem.
@@ -15193,7 +15418,7 @@ LPTSTR RegExMatch(LPTSTR aHaystack, LPTSTR aNeedleRegEx)
 	int offset[RXM_INT_COUNT];
 
 	// Execute the regex.
-	int captured_pattern_count = pcre_exec(re, extra, aHaystack, (int)_tcslen(aHaystack), 0, 0, offset, RXM_INT_COUNT);
+	int captured_pattern_count = pcret_exec(re, extra, aHaystack, (int)_tcslen(aHaystack), 0, 0, offset, RXM_INT_COUNT);
 	if (captured_pattern_count < 0) // PCRE_ERROR_NOMATCH or some kind of error.
 		return NULL;
 
@@ -15204,7 +15429,7 @@ LPTSTR RegExMatch(LPTSTR aHaystack, LPTSTR aNeedleRegEx)
 
 
 void RegExReplace(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount
-	, pcre *aRE, pcre_extra *aExtra, LPTSTR aHaystack, int aHaystackLength
+	, pcret *aRE, pcret_extra *aExtra, LPTSTR aHaystack, int aHaystackLength
 	, int aStartingOffset, int aOffset[], int aNumberOfIntsInOffset)
 {
 	// Set default return value in case of early return.
@@ -15262,7 +15487,7 @@ void RegExReplace(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aPar
 	{
 		// Execute the expression to find the next match.
 		captured_pattern_count = (limit == 0) ? PCRE_ERROR_NOMATCH // Only when limit is exactly 0 are we done replacing.  All negative values are "replace all".
-			: pcre_exec(aRE, aExtra, aHaystack, aHaystackLength, aStartingOffset
+			: pcret_exec(aRE, aExtra, aHaystack, aHaystackLength, aStartingOffset
 				, empty_string_is_not_a_match, aOffset, aNumberOfIntsInOffset);
 
 		if (captured_pattern_count == PCRE_ERROR_NOMATCH)
@@ -15309,7 +15534,7 @@ void RegExReplace(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aPar
 					// pcre_fullinfo() is a fast call, so it's called every time to simplify the code (I don't think
 					// this whole "empty_string_is_not_a_match" section of code executes for most patterns anyway,
 					// so performance seems less of a concern).
-					if (!pcre_fullinfo(aRE, aExtra, PCRE_INFO_OPTIONS, &pcre_options) // Success.
+					if (!pcret_fullinfo(aRE, aExtra, PCRE_INFO_OPTIONS, &pcre_options) // Success.
 						&& (pcre_options & PCRE_NEWLINE_ANY))
 					{
 						result[result_length++] = '\n'; // This can't overflow because the size calculations in a previous iteration reserved 3 bytes: 1 for this character, 1 for the possible LF that follows CR, and 1 for the terminator.
@@ -15460,7 +15685,7 @@ void RegExReplace(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aPar
 								if (IsPureNumeric(substring_name, true, false, true)) // Seems best to allow floating point such as 1.0 because it will then get truncated to an integer.  It seems to rare that anyone would want to use floats as names.
 									ref_num = _ttoi(substring_name); // Uses _ttoi() vs. ATOI to avoid potential overlap with non-numeric names such as ${0x5}, which should probably be considered a name not a number?  In other words, seems best not to make some names that start with numbers "special" just because they happen to be hex numbers.
 								else // For simplicity, no checking is done to ensure it consists of the "32 alphanumeric characters and underscores".  Let pcre_get_stringnumber() figure that out for us.
-									ref_num = pcre_get_stringnumber(aRE, substring_name); // Returns a negative on failure, which when stored in ref_num is relied upon as an indicator.
+									ref_num = pcret_get_stringnumber(aRE, substring_name); // Returns a negative on failure, which when stored in ref_num is relied upon as an indicator.
 							}
 							//else it's too long, so it seems best (debatable) to treat it as a unmatched/unfound name, i.e. "".
 							src = closing_brace; // Set things up for the next iteration to resume at the char after "${..}"
@@ -15609,8 +15834,8 @@ BIF_DECL(BIF_RegEx)
 	LPTSTR needle = TokenToString(*aParam[1], aResultToken.buf); // Load-time validation has already ensured that at least two actual parameters are present.
 
 	TCHAR output_mode;
-	pcre_extra *extra;
-	pcre *re;
+	pcret_extra *extra;
+	pcret *re;
 	int options_length;
 
 	// COMPILE THE REGEX OR GET IT FROM CACHE.
@@ -15646,13 +15871,13 @@ BIF_DECL(BIF_RegEx)
 
 	// SET UP THE OFFSET ARRAY, which consists of int-pairs containing the start/end offset of each match.
 	int pattern_count;
-	pcre_fullinfo(re, extra, PCRE_INFO_CAPTURECOUNT, &pattern_count); // The number of capturing subpatterns (i.e. all except (?:xxx) I think). Failure is not checked because it seems too unlikely in this case.
+	pcret_fullinfo(re, extra, PCRE_INFO_CAPTURECOUNT, &pattern_count); // The number of capturing subpatterns (i.e. all except (?:xxx) I think). Failure is not checked because it seems too unlikely in this case.
 	++pattern_count; // Increment to include room for the entire-pattern match.
 	int number_of_ints_in_offset = pattern_count * 3; // PCRE uses 3 ints for each (sub)pattern: 2 for offsets and 1 for its internal use.
 	int *offset = (int *)_alloca(number_of_ints_in_offset * sizeof(int)); // _alloca() boosts performance and seems safe because subpattern_count would usually have to be ridiculously high to cause a stack overflow.
 
-	// L14: Currently necessary only to support callouts (?C).
-	//
+	// The following section supports callouts (?C) and (*MARK:NAME).
+	LPTSTR mark;
 	RegExCalloutData callout_data;
 	callout_data.re = re;
 	callout_data.re_text = needle;
@@ -15661,18 +15886,19 @@ BIF_DECL(BIF_RegEx)
 	callout_data.output_mode = output_mode;
 	if (extra)
 	{	// S (study) option was specified, use existing pcre_extra struct.
-		extra->flags |= PCRE_EXTRA_CALLOUT_DATA;	
+		extra->flags |= PCRE_EXTRA_CALLOUT_DATA | PCRE_EXTRA_MARK;	
 	}
 	else
 	{	// Allocate a pcre_extra struct to pass callout_data.
-		extra = (pcre_extra *)_alloca(sizeof(pcre_extra));
-		extra->flags = PCRE_EXTRA_CALLOUT_DATA;
+		extra = (pcret_extra *)_alloca(sizeof(pcret_extra));
+		extra->flags = PCRE_EXTRA_CALLOUT_DATA | PCRE_EXTRA_MARK;
 	}
 	// extra->callout_data is used to pass callout_data to PCRE.
 	extra->callout_data = &callout_data;
 	// callout_data.extra is used by RegExCallout, which only receives a pointer to callout_data.
 	callout_data.extra = extra;
-
+	// extra->mark is used by PCRE to return the NAME of a (*MARK:NAME), if encountered.
+	extra->mark = UorA(wchar_t **, UCHAR **) &mark;
 	if (mode_is_replace) // Handle RegExReplace() completely then return.
 	{
 		RegExReplace(aResultToken, aParam, aParamCount, re, extra, haystack, haystack_length
@@ -15682,7 +15908,7 @@ BIF_DECL(BIF_RegEx)
 	// OTHERWISE, THIS IS RegExMatch() not RegExReplace().
 
 	// EXECUTE THE REGEX.
-	int captured_pattern_count = pcre_exec(re, extra, haystack, haystack_length
+	int captured_pattern_count = pcret_exec(re, extra, haystack, haystack_length
 		, starting_offset, 0, offset, number_of_ints_in_offset);
 
 	int match_offset = 0; // Set default for no match/error cases below.
@@ -15905,7 +16131,10 @@ BIF_DECL(BIF_NumPut)
 		right_side_bound = target + target_token.var->ByteCapacity(); // This is the first illegal address to the right of target.
 	}
 	else
+	{
 		target = (size_t)TokenToInt64(target_token);
+		right_side_bound = 0;
+	}
 
 	if (aParamCount > 2) // Parameter "offset" is present, so increment the address by that amount.  For flexibility, this is done even when the target isn't a variable.
 	{
@@ -15995,7 +16224,7 @@ BIF_DECL(BIF_NumPut)
 	default: // size 1
 		*(unsigned char *)target = (unsigned char)TokenToInt64(token_to_write);
 	}
-	if (target_token.symbol == SYM_VAR)
+	if (right_side_bound) // Implies (target_token.symbol == SYM_VAR && !target_token.var->IsPureNumeric()).
 		target_token.var->Close(); // This updates various attributes of the variable.
 	//else the target was an raw address.  If that address is inside some variable's contents, the above
 	// attributes would already have been removed at the time the & operator was used on the variable.
@@ -16525,28 +16754,6 @@ BIF_DECL(BIF_ResourceLoadLibrary)
 	aResultToken.value_int64 = 0;
 	HMEMORYMODULE module = NULL;
 	TextMem::Buffer textbuf;
-#ifdef ENABLE_EXEARC
-	HS_EXEArc_Read oRead;
-
-	// AutoIt3: Open the archive in this compiled exe.
-	// Jon gave me some details about why a password isn't needed: "The code in those libararies will
-	// only allow files to be extracted from the exe is is bound to (i.e the script that it was
-	// compiled with).  There are various checks and CRCs to make sure that it can't be used to read
-	// the files from any other exe that is passed."
-	if (oRead.Open(CStringCharFromTCharIfNeeded(g_script.mFileSpec), "") != HS_EXEARC_E_OK)
-	{
-		MsgBox(ERR_EXE_CORRUPTED, 0, g_script.mFileSpec); // Usually caused by virus corruption.
-		return;
-	}
-	// AutoIt3: Read resource (the func allocates the memory for the buffer :) )
-	if (!oRead.FileExtractToMem(CStringCharFromTCharIfNeeded(aParam[0]->symbol == SYM_VAR ? aParam[0]->var->Contents() : aParam[0]->marker), (UCHAR **) &textbuf.mBuffer, &textbuf.mLength) == HS_EXEARC_E_OK)
-	{
-		oRead.Close();							// Close the archive
-		MsgBox(_T("Could not extract script from EXE."), 0, g_script.mFileSpec);
-		return;
-	}
-	oRead.Close(); // no longer used
-#else
 	HRSRC hRes;
 	HGLOBAL hResData;
 
@@ -16564,8 +16771,20 @@ BIF_DECL(BIF_ResourceLoadLibrary)
 		MsgBox(_T("Could not extract script from EXE."), 0, aParam[0]->symbol == SYM_VAR ? aParam[0]->var->Contents() : aParam[0]->marker);
 		return;
 	}
-#endif
-	module = MemoryLoadLibrary( textbuf.mBuffer );
+	if (*(unsigned int*)textbuf.mBuffer == 0x005F5A4C)
+	{
+		DWORD aSizeDecompressed = DecompressBuffer(textbuf.mBuffer);
+		if (aSizeDecompressed)
+		{
+			textbuf.mLength = aSizeDecompressed;
+			module = MemoryLoadLibrary( textbuf.mBuffer );
+			VirtualFree(textbuf.mBuffer,textbuf.mLength,MEM_RELEASE);
+		}
+		else
+			module = MemoryLoadLibrary( textbuf.mBuffer );
+	}
+	else
+		module = MemoryLoadLibrary( textbuf.mBuffer );
 	aResultToken.value_int64 = (unsigned)module;
 }
 
@@ -16916,12 +17135,17 @@ BIF_DECL(BIF_OnMessage)
 
 	// Load-time validation has ensured there's at least one parameter for use here:
 	UINT specified_msg = (UINT)TokenToInt64(*aParam[0]); // Parameter #1
+	HWND specified_hwnd;
+	if (aParamCount > 1 && TokenToInt64(*aParam[1])) // Parameter #2
+		specified_hwnd = (HWND)TokenToInt64(*aParam[1]);
+	else
+		specified_hwnd = 0;
 
 	Func *func = NULL;           // Set defaults.
 	bool mode_is_delete = false; //
-	if (aParamCount > 1) // Parameter #2 is present.
+	if (aParamCount > (specified_hwnd ? 2 : 1)) // Parameter func is present.
 	{
-		LPTSTR func_name = TokenToString(*aParam[1], buf); // Resolve parameter #2.
+		LPTSTR func_name = TokenToString(*aParam[specified_hwnd ? 2 : 1], buf); // Resolve parameter #2.
 		if (*func_name)
 		{
 			if (   !(func = g_script.FindFunc(func_name))   ) // Nonexistent function.
@@ -16956,7 +17180,7 @@ BIF_DECL(BIF_OnMessage)
 	// Check if this message already exists in the array:
 	int msg_index;
 	for (msg_index = 0; msg_index < g_MsgMonitorCount; ++msg_index)
-		if (g_MsgMonitor[msg_index].msg == specified_msg)
+		if (g_MsgMonitor[msg_index].msg == specified_msg && g_MsgMonitor[msg_index].hwnd == specified_hwnd )
 			break;
 	bool item_already_exists = (msg_index < g_MsgMonitorCount);
 	MsgMonitorStruct &monitor = g_MsgMonitor[msg_index == MAX_MSG_MONITORS ? 0 : msg_index]; // The 0th item is just a placeholder.
@@ -16983,7 +17207,7 @@ BIF_DECL(BIF_OnMessage)
 				MoveMemory(g_MsgMonitor+msg_index, g_MsgMonitor+msg_index+1, sizeof(MsgMonitorStruct)*(g_MsgMonitorCount-msg_index));
 			return;
 		}
-		if (aParamCount < 2) // Single-parameter mode: Report existing item's function name.
+		if (aParamCount < 2 || (specified_hwnd && aParamCount < 3)) // Single-parameter mode: Report existing item's function name.
 			return; // Everything was already set up above to yield the proper return value.
 		// Otherwise, an existing item is being assigned a new function (the function has already
 		// been verified valid above). Continue on to update this item's attributes.
@@ -17009,8 +17233,9 @@ BIF_DECL(BIF_OnMessage)
 	// Update those struct attributes that get the same treatment regardless of whether this is an update or creation.
 	monitor.msg = specified_msg;
 	monitor.func = func;
-	if (aParamCount > 2)
-		monitor.max_instances = (short)TokenToInt64(*aParam[2]); // No validation because it seems harmless if it's negative or some huge number.
+	monitor.hwnd = specified_hwnd;
+	if (aParamCount > (specified_hwnd ? 3 : 2))
+		monitor.max_instances = (short)TokenToInt64(*aParam[specified_hwnd ? 3 : 2]); // No validation because it seems harmless if it's negative or some huge number.
 	else // Unspecified, so if this item is being newly created fall back to the default.
 		if (!item_already_exists)
 			monitor.max_instances = 1;
@@ -19195,7 +19420,15 @@ Func *TokenToFunc(ExprTokenType &aToken)
 	//TCHAR buf[MAX_NUMBER_SIZE];
 	Func *func;
 	if (  !(func = dynamic_cast<Func *>(TokenToObject(aToken)))  )
-		func = g_script.FindFunc(TokenToString(aToken));
+	{
+		LPTSTR func_name = TokenToString(aToken);
+		// Dynamic function calls rely on the following check to avoid a lengthy and
+		// futile search through all function and action names when aToken is an object
+		// emulating a function.  The check works because TokenToString() returns ""
+		// when aToken is an object (or a pure number, since no buffer was passed).
+		if (*func_name)
+			func = g_script.FindFunc(func_name);
+	}
 	return func;
 }
 

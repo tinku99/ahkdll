@@ -33,10 +33,20 @@ UINT_PTR com_ahkdll(LPTSTR fileName,LPTSTR argv,LPTSTR args){return ahkdll(fileN
 UINT_PTR com_ahktextdll(LPTSTR script,LPTSTR argv,LPTSTR args){return ahktextdll(script,argv,args);}
 BOOL com_ahkTerminate(int timeout){return ahkTerminate(timeout);}
 BOOL com_ahkReady(){return ahkReady();}
-BOOL com_ahkReload(){return ahkReload();}
+BOOL com_ahkIsUnicode(){return ahkIsUnicode();}
+BOOL com_ahkReload(int timeout){return ahkReload(timeout);}
 #endif
 #endif
 #endif
+
+EXPORT BOOL ahkIsUnicode()
+{
+#ifdef UNICODE
+	return true;
+#else
+	return false;
+#endif
+}
 
 EXPORT BOOL ahkPause(LPTSTR aChangeTo) //Change pause state of a running script
 {
@@ -106,7 +116,7 @@ EXPORT LPTSTR ahkgetvar(LPTSTR name,unsigned int getVar)
 		return _T("");
 	if (*ahkvar->mCharContents == '\0')
 	{
-		result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,(ahkvar->mByteCapacity ? ahkvar->mByteCapacity : ahkvar->mByteLength) + MAX_NUMBER_LENGTH + 1);
+		result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,(ahkvar->mByteCapacity ? ahkvar->mByteCapacity : ahkvar->mByteLength) + MAX_NUMBER_LENGTH + sizeof(TCHAR));
 		if ( ahkvar->mType == VAR_BUILTIN )
 			ahkvar->mBIV(result_to_return_dll,name); //Hotkeyit 
 		else if ( ahkvar->mType == VAR_ALIAS )
@@ -116,7 +126,7 @@ EXPORT LPTSTR ahkgetvar(LPTSTR name,unsigned int getVar)
 	}
 	else
 	{
-		result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,ahkvar->mByteLength+1);
+		result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,ahkvar->mByteLength + sizeof(TCHAR));
 		if ( ahkvar->mType == VAR_ALIAS )
 			ahkvar->mAliasFor->Get(result_to_return_dll); //Hotkeyit removed ebiv.cpp and made ahkgetvar return all vars
  		else if ( ahkvar->mType == VAR_NORMAL )
@@ -179,28 +189,42 @@ EXPORT unsigned int ahkPostFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, L
 	if (aFunc)
 	{	
 		int aParamCount = 0;
+		int aParamsCount = 0;
 		LPTSTR *params[10];
 		params[0]=&param1;params[1]=&param2;params[2]=&param3;params[3]=&param4;params[4]=&param5;
 		params[5]=&param6;params[6]=&param7;params[7]=&param8;params[8]=&param9;params[9]=&param10;
+		for (int i=0;i < 10;i++)
+		{
+			if (*params[i] && _tcscmp(*params[i],_T("")))
+				aParamsCount++;
+		}
 		if(aFunc->mIsBuiltIn)
 		{
 			ResultType aResult = OK;
 			ExprTokenType aResultToken;
-			ExprTokenType **aParam = (ExprTokenType**)alloca(sizeof(ExprTokenType)*10);
-			for (;aFunc->mParamCount > aParamCount && params[aParamCount] != NULL && *params[aParamCount];aParamCount++)
+			ExprTokenType **aParam = (ExprTokenType**)_alloca(sizeof(ExprTokenType)*10);
+			for (;aFunc->mParamCount > aParamCount && aParamsCount>aParamCount;aParamCount++)
 			{
-				aParam[aParamCount] = (ExprTokenType*)alloca(sizeof(ExprTokenType));
-				aParam[aParamCount]->symbol = SYM_STRING;aParam[aParamCount]->marker = *params[aParamCount];aParamCount++; // Assign parameter #1
+				aParam[aParamCount] = (ExprTokenType*)_alloca(sizeof(ExprTokenType));
+				aParam[aParamCount]->symbol = SYM_OPERAND;aParam[aParamCount]->marker = *params[aParamCount]; // Assign parameters
 			}
-			aResultToken.symbol = PURE_INTEGER;
+			aResultToken.symbol = SYM_INTEGER;
+			aResultToken.marker = aFunc->mName;
 			aFunc->mBIF(aResult,aResultToken,aParam,aParamCount);
 			return 0;
 		}
 		else
 		{
-			for (;aFunc->mParamCount > aParamCount && params[aParamCount] != NULL && *params[aParamCount];aParamCount++)
-				aFunc->mParam[aParamCount].var->Assign(*params[aParamCount]);
+
 			FuncAndToken & aFuncAndToken = aFuncAndTokenToReturn[returnCount];
+			aFuncAndToken.mParamCount = aParamsCount;
+			for (int i = 0;i < aParamsCount;i++)
+			{
+				aFuncAndToken.param[i] = (LPTSTR)realloc(aFuncAndToken.param[i],(_tcslen(*params[i])+1)*sizeof(TCHAR));
+				_tcscpy(aFuncAndToken.param[i],*params[i]);
+			}
+			//for (;aFunc->mParamCount > aParamCount && aParamsCount>aParamCount;aParamCount++)
+			//	aFunc->mParam[aParamCount].var->AssignString(*params[aParamCount]);
 			aFuncAndToken.mFunc = aFunc ;
 			returnCount++ ;
 			if (returnCount > 9)
@@ -252,7 +276,9 @@ BOOL FinalizeScript(Line *aFirstLine,int aFuncCount,int aHotkeyCount)
 		if (!func.mIsBuiltIn)
 		{
 			g_script.PreprocessLocalVars(func, func.mVar, func.mVarCount);
+			g_script.PreprocessLocalVars(func, func.mStaticVar, func.mStaticVarCount);
 			g_script.PreprocessLocalVars(func, func.mLazyVar, func.mLazyVarCount);
+			g_script.PreprocessLocalVars(func, func.mStaticLazyVar, func.mStaticLazyVarCount);
 		}
 	}
 
@@ -433,27 +459,34 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 	if (aFunc)
 	{	
 		int aParamCount = 0;
+		int aParamsCount = 0;
 		LPTSTR *params[10];
 		params[0]=&param1;params[1]=&param2;params[2]=&param3;params[3]=&param4;params[4]=&param5;
 		params[5]=&param6;params[6]=&param7;params[7]=&param8;params[8]=&param9;params[9]=&param10;
+		for (int i=0;i<10;i++)
+		{
+			if (*params[i] && _tcscmp(*params[i],_T("")))
+				aParamsCount++;
+		}
 		if(aFunc->mIsBuiltIn)
 		{
 			ResultType aResult = OK;
 			ExprTokenType aResultToken;
-			ExprTokenType **aParam = (ExprTokenType**)alloca(sizeof(ExprTokenType)*10);
-			for (;aFunc->mParamCount > aParamCount && params[aParamCount] != NULL && *params[aParamCount];aParamCount++)
+			ExprTokenType **aParam = (ExprTokenType**)_alloca(sizeof(ExprTokenType)*10);
+			for (;aFunc->mParamCount > aParamCount && aParamsCount>aParamCount;aParamCount++)
 			{
-				aParam[aParamCount] = (ExprTokenType*)alloca(sizeof(ExprTokenType));
-				aParam[aParamCount]->symbol = SYM_STRING;aParam[aParamCount]->marker = *params[aParamCount];aParamCount++; // Assign parameter #1
+				aParam[aParamCount] = (ExprTokenType*)_alloca(sizeof(ExprTokenType));
+				aParam[aParamCount]->symbol = SYM_OPERAND;aParam[aParamCount]->marker = *params[aParamCount]; // Assign parameters
 			}
-			aResultToken.symbol = PURE_INTEGER;
+			aResultToken.symbol = SYM_INTEGER;
+			aResultToken.marker = aFunc->mName;
 			aFunc->mBIF(aResult,aResultToken,aParam,aParamCount);
 			switch (aResultToken.symbol)
 			{
 			case SYM_VAR: // Caller has ensured that any SYM_VAR's Type() is VAR_NORMAL.
 				if (_tcslen(aResultToken.var->Contents()))
 				{
-					result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,_tcslen(aResultToken.var->Contents())*sizeof(TCHAR));
+					result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,(_tcslen(aResultToken.var->Contents()) + 1)*sizeof(TCHAR));
 					_tcscpy(result_to_return_dll,aResultToken.var->Contents()); // Contents() vs. mContents to support VAR_CLIPBOARD, and in case mContents needs to be updated by Contents().
 				}
 				else if (result_to_return_dll)
@@ -463,7 +496,7 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 			case SYM_OPERAND:
 				if (_tcslen(aResultToken.marker))
 				{
-					result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,_tcslen(aResultToken.marker)*sizeof(TCHAR));
+					result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,(_tcslen(aResultToken.marker) + 1)*sizeof(TCHAR));
 					_tcscpy(result_to_return_dll,aResultToken.marker);
 				}
 				else if (result_to_return_dll)
@@ -486,9 +519,15 @@ EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR para
 		}
 		else // UDF
 		{
-			for (;aFunc->mParamCount > aParamCount && params[aParamCount] != NULL && *params[aParamCount];aParamCount++)
-				aFunc->mParam[aParamCount].var->Assign(*params[aParamCount]);
+			//for (;aFunc->mParamCount > aParamCount && aParamsCount>aParamCount;aParamCount++)
+			//	aFunc->mParam[aParamCount].var->AssignString(*params[aParamCount]);
 			FuncAndToken & aFuncAndToken = aFuncAndTokenToReturn[returnCount];
+			aFuncAndToken.mParamCount = aParamsCount;
+			for (int i = 0;i < aParamsCount;i++)
+			{
+				aFuncAndToken.param[i] = (LPTSTR)realloc(aFuncAndToken.param[i],(_tcslen(*params[i]) + 1)*sizeof(TCHAR));
+				_tcscpy(aFuncAndToken.param[i],*params[i]);
+			}
 			aFuncAndToken.mFunc = aFunc ;
 			returnCount++ ;
 			if (returnCount > 9)
@@ -536,6 +575,8 @@ void callFuncDll(FuncAndToken *aFuncAndToken)
 	tcslcpy(ErrorLevel_saved, g_ErrorLevel->Contents(), _countof(ErrorLevel_saved));
 	InitNewThread(0, false, true, func.mJumpToLine->mActionType);
 
+	for (int aParamCount = 0;func.mParamCount > aParamCount && aFuncAndToken->mParamCount > aParamCount;aParamCount++)
+		func.mParam[aParamCount].var->AssignString(aFuncAndToken->param[aParamCount]);
 
 	// v1.0.38.04: Below was added to maximize responsiveness to incoming messages.  The reasoning
 	// is similar to why the same thing is done in MsgSleep() prior to its launch of a thread, so see
@@ -554,7 +595,7 @@ void callFuncDll(FuncAndToken *aFuncAndToken)
 	case SYM_VAR: // Caller has ensured that any SYM_VAR's Type() is VAR_NORMAL.
 		if (_tcslen(aFuncAndToken->mToken.var->Contents()))
 		{
-			aFuncAndToken->result_to_return_dll = (LPTSTR )realloc((LPTSTR )aFuncAndToken->result_to_return_dll,_tcslen(aFuncAndToken->mToken.var->Contents())*sizeof(TCHAR));
+			aFuncAndToken->result_to_return_dll = (LPTSTR )realloc((LPTSTR )aFuncAndToken->result_to_return_dll,(_tcslen(aFuncAndToken->mToken.var->Contents()) + 1)*sizeof(TCHAR));
 			_tcscpy(aFuncAndToken->result_to_return_dll,aFuncAndToken->mToken.var->Contents()); // Contents() vs. mContents to support VAR_CLIPBOARD, and in case mContents needs to be updated by Contents().
 		}
 		else if (aFuncAndToken->result_to_return_dll)
@@ -564,7 +605,7 @@ void callFuncDll(FuncAndToken *aFuncAndToken)
 	case SYM_OPERAND:
 		if (_tcslen(aFuncAndToken->mToken.marker))
 		{
-			aFuncAndToken->result_to_return_dll = (LPTSTR )realloc((LPTSTR )aFuncAndToken->result_to_return_dll,_tcslen(aFuncAndToken->mToken.marker)*sizeof(TCHAR));
+			aFuncAndToken->result_to_return_dll = (LPTSTR )realloc((LPTSTR )aFuncAndToken->result_to_return_dll,(_tcslen(aFuncAndToken->mToken.marker) + 1)*sizeof(TCHAR));
 			_tcscpy(aFuncAndToken->result_to_return_dll,aFuncAndToken->mToken.marker);
 		}
 		else if (aFuncAndToken->result_to_return_dll)
@@ -584,7 +625,7 @@ void callFuncDll(FuncAndToken *aFuncAndToken)
 			*aFuncAndToken->result_to_return_dll = '\0';
 	}
 	
-	//Var::FreeAndRestoreFunctionVars(func, var_backup, var_backup_count);
+	Var::FreeAndRestoreFunctionVars(func, var_backup, var_backup_count);
 	ResumeUnderlyingThread(ErrorLevel_saved);
 	return;
 }
@@ -606,24 +647,35 @@ VARIANT ahkFunctionVariant(LPTSTR func, VARIANT param1,/*[in,optional]*/ VARIANT
 		{
 			ResultType aResult = OK;
 			ExprTokenType aResultToken;
-			ExprTokenType **aParam = (ExprTokenType**)alloca(sizeof(ExprTokenType)*10);
-			void *var_type = (void *)VAR_NORMAL;
+			ExprTokenType **aParam = (ExprTokenType**)_alloca(sizeof(ExprTokenType)*10);
 			for (;aFunc->mParamCount > aParamCount && variants[aParamCount]->vt != VT_ERROR;aParamCount++)
 			{
-				aParam[aParamCount] = (ExprTokenType*)alloca(sizeof(ExprTokenType));
+				aParam[aParamCount] = (ExprTokenType*)_alloca(sizeof(ExprTokenType));
 				aParam[aParamCount]->symbol = SYM_VAR;
-				aParam[aParamCount]->var = new Var(_T(""),var_type,VAR_NORMAL);
-				AssignVariant(*aParam[aParamCount]->var, *variants[aParamCount]);
+				aParam[aParamCount]->var = (Var*)alloca(sizeof(Var));
+
+				// prepare variable
+				aParam[aParamCount]->var->mType = VAR_NORMAL;
+				aParam[aParamCount]->var->mAttrib = 0;
+				aParam[aParamCount]->var->mByteCapacity = 0;
+				aParam[aParamCount]->var->mHowAllocated = ALLOC_MALLOC;
+
+				AssignVariant(*aParam[aParamCount]->var, *variants[aParamCount],false);
 			}
-			aResultToken.symbol = PURE_INTEGER;
+			aResultToken.symbol = SYM_INTEGER;
+			aResultToken.marker = aFunc->mName;
 			aFunc->mBIF(aResult,aResultToken,aParam,aParamCount);
+
+			// free all variables in case memory was allocated
+			for (;aParamCount >= 0;aParamCount--)
+				aParam[aParamCount]->var->Free();
 			TokenToVariant(aResultToken, variant_to_return_dll);
 			return variant_to_return_dll;
 		}
 		else // UDF
 		{
 			for (;aFunc->mParamCount > aParamCount && variants[aParamCount]->vt != VT_ERROR;aParamCount++)
-				AssignVariant(*aFunc->mParam[aParamCount].var, *variants[aParamCount]);
+				AssignVariant(*aFunc->mParam[aParamCount].var, *variants[aParamCount],false);
 			FuncAndToken & aFuncAndToken = aFuncAndTokenToReturn[returnCount];
 			aFuncAndToken.mFunc = aFunc ;
 			returnCount++ ;

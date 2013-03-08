@@ -1,6 +1,7 @@
 AutoHotkey.sdf
 *.opensdf
 *.dll
+*.suo
 AutoHotkey.suo
 AutoHotkey.vcxproj.user
 ComServer_h.h

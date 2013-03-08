@@ -146,20 +146,13 @@ LPTSTR Line::ExpandExpression(int aArgIndex, ResultType &aResult, ExprTokenType 
 					this_token.symbol = SYM_STRING; //
 
 					if (deref->marker == cp && !cp[deref->length] && (deref+1)->is_function // %soleDeref%()
-						&& (deref->var->HasObject() // It's an object.
-						|| !deref->var->HasContents())) // It's an empty string (which may be passed to __Call).
+						&& deref->var->HasObject()) // It's an object; implies var->Type() == VAR_NORMAL.
 					{
-						// This dynamic function call deref consists of a single var containing an object
-						// or an empty string; both need special handling.
-						if (deref->var->HasObject())
-						{
-							// Push the object, not the var, in case this variable is modified in the
-							// parameter list of this function call (which is evaluated prior to SYM_FUNC).
-							this_token.symbol = SYM_OBJECT;
-							this_token.object = deref->var->Object();
-							this_token.object->AddRef();
-						}
-						// Otherwise, leave it set to the empty string.
+						// Push the object, not the var, in case this variable is modified in the
+						// parameter list of this function call (which is evaluated prior to SYM_FUNC).
+						this_token.symbol = SYM_OBJECT;
+						this_token.object = deref->var->Object();
+						this_token.object->AddRef();
 						goto push_this_token;
 					}
 					// Otherwise, it could still be %var%() where var contains a string which is too
@@ -204,7 +197,7 @@ LPTSTR Line::ExpandExpression(int aArgIndex, ResultType &aResult, ExprTokenType 
 					// Copy any chars that occur after the final deref into the buffer:
 					for (; *cp && var_name_length < MAX_VAR_NAME_LENGTH; left_buf[var_name_length++] = *cp++);
 					if (var_name_length >= MAX_VAR_NAME_LENGTH && *cp // The variable name would be too long!
-						|| !var_name_length) // It resolves to an empty string (e.g. a simple dynamic var like %Var% where Var is blank).
+						|| !var_name_length && !deref->is_function) // It resolves to an empty string (e.g. a simple dynamic var like %Var% where Var is blank) but isn't a dynamic function call, which would trigger g_MetaObject.__Call().
 						goto double_deref_fail; // For simplicity and in keeping with the tradition that expressions generally don't display runtime errors, just treat it as a blank.
 
 					// Terminate the buffer, even if nothing was written into it:
@@ -386,7 +379,10 @@ LPTSTR Line::ExpandExpression(int aArgIndex, ResultType &aResult, ExprTokenType 
 					// That is, each extra (SYM_OPAREN, SYM_COMMA or SYM_CPAREN) token in infix
 					// effectively reserves one stack slot.
 					if (actual_param_count)
+					{
 						memmove(params + 1, params, actual_param_count * sizeof(ExprTokenType *));
+						high_water_mark++; // If this isn't done and the last param is an object, it won't be released.
+					}
 					// Insert an empty string:
 					params[0] = (ExprTokenType *)_alloca(sizeof(ExprTokenType));
 					params[0]->symbol = SYM_STRING;
@@ -2216,7 +2212,14 @@ ResultType Line::ExpandArgs(ExprTokenType *aResultToken, VarSizeType aSpaceNeede
 			}
 		} // for each arg.
 
-		// IT'S NOT SAFE to do the following until the above loop FULLY completes because any calls made above to
+		// See "Update #3" comment above.  This must be done separately to the loop below since Contents()
+		// may cause a warning dialog, which in turn may cause a new thread to launch, thus potentially
+		// corrupting sArgDeref/sArgVar.
+		for (i = 0; i < mArgc; ++i)
+			if (arg_deref[i] == NULL)
+				arg_deref[i] = arg_var[i]->Contents();
+
+		// IT'S NOT SAFE to do the following until the above loops FULLY complete because any calls made above to
 		// ExpandExpression() might call functions, which in turn might result in a recursive call to ExpandArgs(),
 		// which in turn might change the values in the static arrays sArgDeref and sArgVar.
 		// Also, only when the loop ends normally is the following needed, since otherwise it's a failure condition.
@@ -2224,7 +2227,7 @@ ResultType Line::ExpandArgs(ExprTokenType *aResultToken, VarSizeType aSpaceNeede
 		// safe to set the args of this command for use by our caller, to whom we're about to return.
 		for (i = 0; i < mArgc; ++i) // Copying actual/used elements is probably faster than using memcpy to copy both entire arrays.
 		{
-			sArgDeref[i] = arg_deref[i] ? arg_deref[i] : arg_var[i]->Contents(); // See "Update #3" comment above.
+			sArgDeref[i] = arg_deref[i];
 			sArgVar[i] = arg_var[i];
 		}
 	} // mArgc > 0

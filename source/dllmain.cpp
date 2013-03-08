@@ -175,8 +175,8 @@ int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	for (i = 0; i < dllargc; ++i) // Start at 1 because 0 contains the program name.
 	{
 #ifndef _UNICODE
-		param = (TCHAR *) _alloca((wcslen(dllargv[i])+1)*sizeof(CHAR));
-		WideCharToMultiByte(CP_ACP,0,wargv,-1,param,(wcslen(dllargv[i])+1)*sizeof(CHAR),0,0);
+		param = (TCHAR *) _alloca(wcslen(dllargv[i])+1);
+		WideCharToMultiByte(CP_ACP,0,dllargv[i],-1,param,(wcslen(dllargv[i])+1),0,0);
 #else
 		param = dllargv[i]; // For performance and convenience.
 #endif
@@ -300,6 +300,7 @@ int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 #else //HotKeyIt changed to load from Text in dll as well when file does not exist
 	LineNumberType load_result = (g_hResource || !nameHinstanceP.istext) ? g_script.LoadFromFile(script_filespec == NULL) : g_script.LoadFromText(script_filespec);
 #endif
+	
 	if (load_result == LOADING_FAILED) // Error during load (was already displayed by the function call).
 		return CRITICAL_ERROR;  // Should return this value because PostQuitMessage() also uses it.
 	if (!load_result) // LoadFromFile() relies upon us to do this check.  No lines were loaded, so we're done.
@@ -377,7 +378,6 @@ int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	// to return early due to an error have passed, above.
 	if (g_script.CreateWindows() != OK)
 		return CRITICAL_ERROR;
-
 	// At this point, it is nearly certain that the script will be executed.
 
 	// v1.0.48.04: Turn off buffering on stdout so that "FileAppend, Text, *" will write text immediately
@@ -434,7 +434,6 @@ int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	g_script.mIsReadyToExecute = true; // This is done only after the above to support error reporting in Hotkey.cpp.
 	Sleep(20);
 	//free(nameHinstanceP.name);
-
 	Var *clipboard_var = g_script.FindOrAddVar(_T("Clipboard")); // Add it if it doesn't exist, in case the script accesses "Clipboard" via a dynamic variable.
 	if (clipboard_var)
 		// This is done here rather than upon variable creation speed up runtime/dynamic variable creation.
@@ -442,7 +441,6 @@ int WINAPI OldWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 		// Since other applications and the user should see any changes the program makes to the clipboard,
 		// don't write-cache it either.
 		clipboard_var->DisableCache();
-
 	// Run the auto-execute part at the top of the script (this call might never return):
 	if (!g_script.AutoExecSection()) // Can't run script at all. Due to rarity, just abort.
 		return CRITICAL_ERROR;
@@ -465,7 +463,7 @@ unsigned __stdcall runScript( void* pArguments )
 	OleInitialize(NULL);
 	HINSTANCE hInstance = a.hInstanceP;
 	LPTSTR fileName = a.name;
-	OldWinMain(hInstance, 0, fileName, 0);	
+	OldWinMain(hInstance, 0, fileName, 0);
 	_endthreadex( (DWORD)EARLY_RETURN );  
     return 0;
 }
@@ -473,7 +471,7 @@ unsigned __stdcall runScript( void* pArguments )
 
 EXPORT BOOL ahkTerminate(int timeout)
 {
-	int lpExitCode = 0;
+	DWORD lpExitCode = 0;
 	if (hThread == 0)
 		return 0;
 	if (timeout < 1)
@@ -538,7 +536,7 @@ int setscriptstrings(LPTSTR fileName, LPTSTR argv, LPTSTR args)
 
 EXPORT UINT_PTR ahkdll(LPTSTR fileName, LPTSTR argv, LPTSTR args)
 {
-	if (setscriptstrings(*fileName ? fileName : aDefaultDllScript, argv, args))
+	if (setscriptstrings(fileName && *fileName ? fileName : aDefaultDllScript, argv && *argv ? argv : _T(""), args && *args ? args : _T("")))
 		return 0;
 	nameHinstanceP.istext = *fileName ? 0 : 1;
 	return runThread();
@@ -547,7 +545,7 @@ EXPORT UINT_PTR ahkdll(LPTSTR fileName, LPTSTR argv, LPTSTR args)
 // HotKeyIt ahktextdll
 EXPORT UINT_PTR ahktextdll(LPTSTR fileName, LPTSTR argv, LPTSTR args)
 {
-	if (setscriptstrings(*fileName ? fileName : aDefaultDllScript, argv, args))
+	if (setscriptstrings(fileName && *fileName ? fileName : aDefaultDllScript, argv && *argv ? argv : _T(""), args && *args ? args : _T("")))
 		return 0;
 	nameHinstanceP.istext = 1;
 	return runThread();
@@ -569,9 +567,9 @@ ResultType terminateDll()
 	return EARLY_EXIT;
 }
 
-EXPORT BOOL ahkReload()
+EXPORT BOOL ahkReload(int timeout)
 {
-	ahkTerminate(0);
+	ahkTerminate(timeout);
 	hThread = (HANDLE)_beginthreadex( NULL, 0, &runScript, &nameHinstanceP, 0, 0 );
 	return 0;
 }
@@ -740,6 +738,13 @@ HRESULT __stdcall CoCOMServer::ahkReady(/*out*/BOOL* ready)
 	*ready = com_ahkReady();
 	return S_OK;
 }
+HRESULT __stdcall CoCOMServer::ahkIsUnicode(/*out*/BOOL* IsUnicode)
+{
+	if (IsUnicode==NULL)
+		return ERROR_INVALID_PARAMETER;
+	*IsUnicode = com_ahkIsUnicode();
+	return S_OK;
+}
 HRESULT __stdcall CoCOMServer::ahkFindLabel(/*in*/VARIANT aLabelName,/*out*/UINT_PTR* aLabelPointer)
 {
 	USES_CONVERSION;
@@ -773,7 +778,7 @@ HRESULT __stdcall CoCOMServer::ahkgetvar(/*in*/VARIANT name,/*[in,optional]*/ VA
 	// return b.Detach(result);
 }
 
-void AssignVariant(Var &aArg, VARIANT &aVar, bool aRetainVar);
+void AssignVariant(Var &aArg, VARIANT &aVar, bool aRetainVar = true);
 
 HRESULT __stdcall CoCOMServer::ahkassign(/*in*/VARIANT name, /*in*/VARIANT value,/*out*/unsigned int* success)
 {
@@ -784,7 +789,7 @@ HRESULT __stdcall CoCOMServer::ahkassign(/*in*/VARIANT name, /*in*/VARIANT value
    Var *var;
    if (   !(var = g_script.FindOrAddVar(name.vt == VT_BSTR ? OLE2T(name.bstrVal) : Variant2T(name,namebuf)))   )
       return ERROR_INVALID_PARAMETER;  // Realistically should never happen.
-   AssignVariant(*var, value, false) ;
+   AssignVariant(*var, value, false);
 	return S_OK;
 }
 HRESULT __stdcall CoCOMServer::ahkExecuteLine(/*[in,optional]*/ VARIANT line,/*[in,optional]*/ VARIANT aMode,/*[in,optional]*/ VARIANT wait,/*[out, retval]*/ UINT_PTR* pLine)
@@ -878,6 +883,11 @@ HRESULT __stdcall CoCOMServer::ahkTerminate(/*[in,optional]*/ VARIANT kill,/*[ou
 	return S_OK;
 }
 
+HRESULT __stdcall CoCOMServer::ahkReload(/*[in,optional]*/ VARIANT timeout)
+{
+	com_ahkReload(Variant2I(timeout));
+	return S_OK;
+}
 HRESULT CoCOMServer::LoadTypeInfo(ITypeInfo ** pptinfo, const CLSID &libid, const CLSID &iid, LCID lcid)
 {
    HRESULT hr;

@@ -36,7 +36,7 @@ ATOM g_ClassRegistered = 0;
 ATOM g_ClassSplashRegistered = 0;
 CRITICAL_SECTION g_CriticalRegExCache;
 
-UINT g_DefaultScriptCodepage = UorA(CP_UTF8, CP_ACP);
+UINT g_DefaultScriptCodepage = CP_ACP;
 
 bool g_DestroyWindowCalled = false;
 HWND g_hWnd = NULL;
@@ -183,7 +183,7 @@ HWND g_HShwnd;
 // Hot-string global settings:
 int g_HSPriority = 0;  // default priority is always 0
 int g_HSKeyDelay = 0;  // Fast sends are much nicer for auto-replace and auto-backspace.
-SendModes g_HSSendMode = SM_INPUT; // v1.0.43: New default for more reliable hotstrings.
+SendModes g_HSSendMode = SM_INPUT; // v1.1.7.03: New default for more reliable hotstrings and best performance.
 bool g_HSCaseSensitive = false;
 bool g_HSConformToCase = true;
 bool g_HSDoBackspace = true;
@@ -536,6 +536,7 @@ Action g_act[] =
 	, {_T("RegRead"), 1, 5, 5 H, NULL} // output var, (ValueType [optional]), RegKey, RegSubkey, ValueName
 	, {_T("RegWrite"), 0, 5, 5, NULL} // ValueType, RegKey, RegSubKey, ValueName, Value (set to blank if omitted?)
 	, {_T("RegDelete"), 0, 3, 3, NULL} // RegKey, RegSubKey, ValueName
+	, {_T("SetRegView"), 1, 1, 1, NULL}
 
 	, {_T("OutputDebug"), 1, 1, 1, NULL}
 

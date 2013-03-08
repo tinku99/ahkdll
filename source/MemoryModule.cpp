@@ -29,16 +29,20 @@
 #pragma warning( disable : 4311 4312 )
 #endif
 
+#include "stdafx.h" // pre-compiled headers
+#include "MemoryModule.h"
+#include "globaldata.h" // for access to many global vars
+
 #ifdef _WIN64
 #define POINTER_TYPE ULONGLONG
 #else
 #define POINTER_TYPE DWORD
 #endif
 
-#include <Windows.h>
+//#include <Windows.h>
 #include <winnt.h>
 
-#include <stdio.h>
+//#include <stdio.h>
 
 //#ifdef DEBUG_OUTPUT
 //#include <stdio.h>
@@ -50,8 +54,6 @@
 #define IMAGE_SIZEOF_BASE_RELOCATION (sizeof(IMAGE_BASE_RELOCATION))
 #endif
 
-#include "MemoryModule.h"
-
 typedef struct {
 	PIMAGE_NT_HEADERS headers;
 	unsigned char *codeBase;
@@ -61,6 +63,15 @@ typedef struct {
 } MEMORYMODULE, *PMEMORYMODULE;
 
 typedef BOOL (WINAPI *DllEntryProc)(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved);
+
+typedef HANDLE (WINAPI * MyCreateActCtx)(PACTCTXA);
+typedef HANDLE (WINAPI * MyDeactivateActCtx)(DWORD,ULONG_PTR);
+typedef BOOL (WINAPI * MyActivateActCtx)(HANDLE,ULONG_PTR*);
+HMODULE libkernel32 = LoadLibrary(_T("kernel32.dll"));
+MyCreateActCtx _CreateActCtxA = (MyCreateActCtx)GetProcAddress(libkernel32,"CreateActCtxA");
+MyDeactivateActCtx _DeactivateActCtx = (MyDeactivateActCtx)GetProcAddress(libkernel32,"DeactivateActCtx");
+MyActivateActCtx _ActivateActCtx = (MyActivateActCtx)GetProcAddress(libkernel32,"ActivateActCtx");
+
 
 #define GET_HEADER_DICTIONARY(module, idx)	&(module)->headers->OptionalHeader.DataDirectory[idx]
 
@@ -146,7 +157,6 @@ FinalizeSections(PMEMORYMODULE module)
 #else
 	#define imageOffset 0
 #endif
-	
 	// loop through all sections and change access flags
 	for (i=0; i<module->headers->FileHeader.NumberOfSections; i++, section++) {
 		DWORD protect, oldProtect, size;
@@ -165,7 +175,7 @@ FinalizeSections(PMEMORYMODULE module)
 		if (section->Characteristics & IMAGE_SCN_MEM_NOT_CACHED) {
 			protect |= PAGE_NOCACHE;
 		}
-
+		
 		// determine size of region
 		size = section->SizeOfRawData;
 		if (size == 0) {
@@ -175,7 +185,7 @@ FinalizeSections(PMEMORYMODULE module)
 				size = module->headers->OptionalHeader.SizeOfUninitializedData;
 			}
 		}
-
+		
 		if (size > 0) {
 			// change memory access flags
 			if (VirtualProtect((LPVOID)((POINTER_TYPE)section->Misc.PhysicalAddress | imageOffset), size, protect, &oldProtect) == 0)
@@ -260,6 +270,7 @@ BuildImportTable(PMEMORYMODULE module)
 
 	PIMAGE_DATA_DIRECTORY directory = GET_HEADER_DICTIONARY(module, IMAGE_DIRECTORY_ENTRY_IMPORT);
 	PIMAGE_DATA_DIRECTORY resource = GET_HEADER_DICTIONARY(module, IMAGE_DIRECTORY_ENTRY_RESOURCE);
+	
 	if (directory->Size > 0) 
 	{
 		PIMAGE_IMPORT_DESCRIPTOR importDesc = (PIMAGE_IMPORT_DESCRIPTOR) (codeBase + directory->VirtualAddress);
@@ -274,7 +285,7 @@ BuildImportTable(PMEMORYMODULE module)
 			PIMAGE_RESOURCE_DATA_ENTRY resDataEntry;
 
 			// ACTCTX Structure, not used members must be set to 0!
-			ACTCTX actctx ={0,0,0,0,0,0,0,0,0};
+			ACTCTXA actctx ={0,0,0,0,0,0,0,0,0};
 			actctx.cbSize =  sizeof(actctx);
 			HANDLE hActCtx;
 		
@@ -303,7 +314,7 @@ BuildImportTable(PMEMORYMODULE module)
 					// Write manifest to temportary file
 					// Using FILE_ATTRIBUTE_TEMPORARY will avoid writing it to disk
 					// It will be deleted after CreateActCtx has been called.
-					HANDLE hFile = CreateFile(buf,GENERIC_WRITE,NULL,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_TEMPORARY,NULL);
+					HANDLE hFile = CreateFileA(buf,GENERIC_WRITE,NULL,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_TEMPORARY,NULL);
 					if (hFile == INVALID_HANDLE_VALUE)
 					{
 	#if DEBUG_OUTPUT
@@ -322,7 +333,7 @@ BuildImportTable(PMEMORYMODULE module)
 						break; //failed to write data, continue and try loading
 					}
 				
-					hActCtx = CreateActCtx(&actctx);
+					hActCtx = _CreateActCtxA(&actctx);
 
 					// Open file and automatically delete on CloseHandle (FILE_FLAG_DELETE_ON_CLOSE)
 					hFile = CreateFileA(buf,GENERIC_WRITE,FILE_SHARE_DELETE,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_TEMPORARY|FILE_FLAG_DELETE_ON_CLOSE,NULL);
@@ -331,7 +342,7 @@ BuildImportTable(PMEMORYMODULE module)
 					if (hActCtx == INVALID_HANDLE_VALUE)
 						break; //failed to create context, continue and try loading
 
-					ActivateActCtx(hActCtx,&lpCookie); // Don't care if this fails since we would countinue anyway
+					_ActivateActCtx(hActCtx,&lpCookie); // Don't care if this fails since we would countinue anyway
 					break; // Break since a dll can have only 1 manifest
 				}
 			}
@@ -341,7 +352,9 @@ BuildImportTable(PMEMORYMODULE module)
 			POINTER_TYPE *thunkRef;
 			FARPROC *funcRef;
 			HMODULE handle;
+#if DEBUG_OUTPUT
 			OutputDebugStringA((LPCSTR) (codeBase + importDesc->Name));
+#endif
 			if (!(handle = LoadLibraryA((LPCSTR) (codeBase + importDesc->Name))))
 			{
 #if DEBUG_OUTPUT
@@ -394,7 +407,7 @@ BuildImportTable(PMEMORYMODULE module)
 		}
 	}
 	if (lpCookie)
-		DeactivateActCtx(0,lpCookie);
+		_DeactivateActCtx(0,lpCookie);
 	return result;
 }
 
@@ -456,7 +469,7 @@ HMEMORYMODULE MemoryLoadLibrary(const void *data)
 		old_header->OptionalHeader.SizeOfImage,
 		MEM_COMMIT,
 		PAGE_EXECUTE_READWRITE);
-
+	
 	// commit memory for headers
 	headers = (unsigned char *)VirtualAlloc(code,
 		old_header->OptionalHeader.SizeOfHeaders,
@@ -478,7 +491,7 @@ HMEMORYMODULE MemoryLoadLibrary(const void *data)
 	if (locationDelta != 0) {
 		PerformBaseRelocation(result, locationDelta);
 	}
-
+	
 	// load required dlls and adjust function table of imports
 	if (!BuildImportTable(result)) {
 #if DEBUG_OUTPUT
@@ -486,7 +499,6 @@ HMEMORYMODULE MemoryLoadLibrary(const void *data)
 #endif
 		goto error;
 	}
-
 	// mark memory pages depending on section headers and release
 	// sections that are marked as "discardable"
 	FinalizeSections(result);

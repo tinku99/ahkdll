@@ -396,7 +396,16 @@ bool MsgSleep(int aSleepDuration, MessageMode aMode)
 				// Otherwise: aSleepDuration is non-zero or we already did the Sleep(0)
 				if (messages_received == 0 && allow_early_return)
 				{
-					Sleep(5); // Since Peek() didn't find a message, avoid maxing the CPU.  This is a somewhat arbitrary value: the intent of a value below 10 is to avoid yielding more than one timeslice on all systems even if they have unusual timeslice sizes / system timers.
+					// Fix for v1.1.05.04: Since Peek() didn't find a message, avoid maxing the CPU.
+					// This specific section is needed for PerformWait() when an underlying thread
+					// is displaying a dialog, and perhaps in other cases.
+					// Fix for v1.1.07.00: Avoid Sleep() if caller specified a duration of zero;
+					// otherwise SendEvent with a key delay of 0 will be slower than expected.
+					// This affects auto-replace hotstrings in SendEvent mode (which is the default
+					// when SendInput is unavailable).  Note that if aSleepDuration == 0, Sleep(0)
+					// was already called above or by a prior iteration.
+					if (aSleepDuration > 0)
+						Sleep(5); // This is a somewhat arbitrary value: the intent of a value below 10 is to avoid yielding more than one timeslice on all systems even if they have unusual timeslice sizes / system timers.
 					++messages_received; // Don't repeat this section.
 					continue;
 				}
@@ -1450,31 +1459,6 @@ bool MsgSleep(int aSleepDuration, MessageMode aMode)
 			// external ever explicitly posts a WM_QUIT to our thread's queue:
 			g_script.ExitApp(EXIT_WM_QUIT);
 			continue; // Since ExitApp() won't necessarily exit.
-
-#ifdef CONFIG_DEBUGGER
-		default:
-			static UINT sAttachDebuggerMessage = RegisterWindowMessage(_T("AHK_ATTACH_DEBUGGER"));
-			if (msg.message == sAttachDebuggerMessage && !g_Debugger.IsConnected())
-			{
-				char dbg_host[16] = "localhost"; // IPv4 max string len
-				char dbg_port[6] = "9000";
-
-				if (msg.wParam)
-				{	// Convert 32-bit address to string for Debugger::Connect().
-					in_addr addr;
-					addr.S_un.S_addr = (ULONG)msg.wParam;
-					char *tmp = inet_ntoa(addr);
-					if (tmp)
-						strcpy(dbg_host, tmp);
-				}
-				if (msg.lParam)
-					// Convert 16-bit port number to string for Debugger::Connect().
-					_itoa(LOWORD(msg.lParam), dbg_port, 10);
-
-				if (g_Debugger.Connect(dbg_host, dbg_port) == DEBUGGER_E_OK)
-					g_Debugger.ProcessCommands();
-			}
-#endif
 		} // switch()
 #ifndef MINIDLL
 break_out_of_main_switch:
@@ -1825,8 +1809,12 @@ bool MsgMonitor(HWND aWnd, UINT aMsg, WPARAM awParam, LPARAM alParam, MSG *apMsg
 	// of message monitoring scripts are expected to monitor only a few message numbers.
 	int msg_index, msg_count_orig;
 	for (msg_count_orig = g_MsgMonitorCount, msg_index = 0; msg_index < g_MsgMonitorCount; ++msg_index)
-		if (g_MsgMonitor[msg_index].msg == aMsg)
+		if (g_MsgMonitor[msg_index].msg == aMsg && g_MsgMonitor[msg_index].hwnd == aWnd)
 			break;
+	if (msg_index == g_MsgMonitorCount) // No match found, so the script isn't monitoring this message for this hwnd.
+		for (msg_count_orig = g_MsgMonitorCount, msg_index = 0; msg_index < g_MsgMonitorCount; ++msg_index)
+			if (g_MsgMonitor[msg_index].msg == aMsg && g_MsgMonitor[msg_index].hwnd == 0)
+				break;
 	if (msg_index == g_MsgMonitorCount) // No match found, so the script isn't monitoring this message.
 		return false; // Tell the caller to give this message any additional/default processing.
 	// Otherwise, the script is monitoring this message, so continue on.
@@ -1972,12 +1960,20 @@ bool MsgMonitor(HWND aWnd, UINT aMsg, WPARAM awParam, LPARAM alParam, MSG *apMsg
 		// message(s) that were deleted lay to the left of it in the array).  So check if the monitor is
 		// somewhere else in the array and if found (i.e. it didn't delete itself), update it.
 		for (msg_index = 0; msg_index < g_MsgMonitorCount; ++msg_index)
-			if (g_MsgMonitor[msg_index].msg == aMsg)
+			if (g_MsgMonitor[msg_index].msg == aMsg && g_MsgMonitor[msg_index].hwnd == aWnd)
 			{
 				if (g_MsgMonitor[msg_index].instance_count) // Avoid going negative, which might otherwise be possible in weird circumstances described in other comments.
 					--g_MsgMonitor[msg_index].instance_count;
 				break;
 			}
+		if (msg_index = g_MsgMonitorCount) // No match found, so the script isn't monitoring this message for this hwnd.
+			for (msg_index = 0; msg_index < g_MsgMonitorCount; ++msg_index)
+				if (g_MsgMonitor[msg_index].msg == aMsg && g_MsgMonitor[msg_index].hwnd == 0)
+				{
+					if (g_MsgMonitor[msg_index].instance_count) // Avoid going negative, which might otherwise be possible in weird circumstances described in other comments.
+						--g_MsgMonitor[msg_index].instance_count;
+					break;
+				}
 	}
 
 	return block_further_processing; // If false, the caller will ignore aMsgReply and process this message normally. If true, aMsgReply contains the reply the caller should immediately send for this message.
