@@ -11434,17 +11434,29 @@ VarSizeType BIV_LastError(LPTSTR aBuf, LPTSTR aVarName)
 
 VarSizeType BIV_GlobalStruct(LPTSTR aBuf, LPTSTR aVarName)
 {
+	LPTSTR str =  _T(""); // sandbox
+	if (aBuf)
+		_tcscpy(aBuf, str);
+	return (VarSizeType)_tcslen(str);
+	/*
 	return aBuf
 		? (VarSizeType)_tcslen(ITOA64((LONGLONG)g, aBuf))
 		: MAX_INTEGER_LENGTH;
+		*/
 }
 
 
 VarSizeType BIV_ScriptStruct(LPTSTR aBuf, LPTSTR aVarName)
 {
+	LPTSTR str =  _T(""); // sandbox
+	if (aBuf)
+		_tcscpy(aBuf, str);
+	return (VarSizeType)_tcslen(str); 
+	/*
 	return aBuf
 		? (VarSizeType)_tcslen(ITOA64((LONGLONG)&g_script, aBuf))
 		: MAX_INTEGER_LENGTH;
+		*/
 }
 
 
