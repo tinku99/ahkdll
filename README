@@ -1,3 +1,8 @@
+02.06.2015
+- merged with https://github.com/hotkeyit/ahkdll v1.1.19.02
+- removed clipboard functionality
+- removed timeidle
+
 07.10.2012
 - Merged latest AutoHotkey_L changes from https://github.com/Lexikos/AutoHotkey_L.
 - OnMessage accepts optionally a window handle now, e.g. OnMessage(0x200,hwnd,"WM_MOUSEMOVE")
