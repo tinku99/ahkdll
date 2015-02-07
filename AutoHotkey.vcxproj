@@ -968,6 +968,9 @@
       <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='ReleaseDll(mbcs)|x64'">false</TreatWarningAsError>
       <MinimalRebuild Condition="'$(Configuration)|$(Platform)'=='ReleaseDll(mbcs)|x64'">false</MinimalRebuild>
     </ClCompile>
+    <Midl>
+      <TargetEnvironment Condition="'$(Configuration)|$(Platform)'=='ReleaseDll(mbcs)|x64'">X64</TargetEnvironment>
+    </Midl>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Link>
