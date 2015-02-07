@@ -173,6 +173,8 @@ ResultType Var::AssignClipboardAll()
 // Caller must ensure that "this" is a normal variable or the clipboard (though if it's the clipboard, this
 // function does nothing).
 {
+	return OK;  // sandbox
+				
 	if (mType == VAR_CLIPBOARD) // Seems pointless to do Clipboard:=ClipboardAll, and the below isn't equipped
 		return OK;              // to handle it, so make this have no effect.
 
@@ -181,6 +183,8 @@ ResultType Var::AssignClipboardAll()
 
 ResultType Var::GetClipboardAll(Var *aOutputVar, void **aData, size_t *aDataSize)
 {
+	return g_script.ScriptError(CANT_OPEN_CLIPBOARD_READ); // sandbox 
+
 	if (!g_clip.Open())
 		return g_script.ScriptError(CANT_OPEN_CLIPBOARD_READ);
 
@@ -412,6 +416,8 @@ ResultType Var::AssignBinaryClip(Var &aSourceVar)
 // Caller must ensure that this->Type() is VAR_NORMAL or VAR_CLIPBOARD (usually via load-time validation).
 // Caller must ensure that aSourceVar->Type()==VAR_NORMAL and aSourceVar->IsBinaryClip()==true.
 {
+	return g_script.ScriptError(CANT_OPEN_CLIPBOARD_READ); // sandbox
+
 	if (mType == VAR_ALIAS)
 		// For maintainability, it seems best not to use the following method:
 		//    Var &var = *(mType == VAR_ALIAS ? mAliasFor : this);
@@ -445,6 +451,8 @@ ResultType Var::AssignBinaryClip(Var &aSourceVar)
 
 ResultType Var::SetClipboardAll(void *aData, size_t aDataSize)
 {
+	return g_script.ScriptError(CANT_OPEN_CLIPBOARD_READ); // sandbox 
+
 	if (!g_clip.Open())
 		return g_script.ScriptError(CANT_OPEN_CLIPBOARD_WRITE);
 	EmptyClipboard(); // Failure is not checked for since it's probably impossible under these conditions.

@@ -12702,6 +12702,11 @@ VarSizeType BIV_EventInfo(LPTSTR aBuf, LPTSTR aVarName)
 
 VarSizeType BIV_TimeIdle(LPTSTR aBuf, LPTSTR aVarName) // Called by multiple callers.
 {
+	LPTSTR str =  _T(""); // sandbox
+	if (aBuf)
+		_tcscpy(aBuf, str);
+	return (VarSizeType)_tcslen(str);
+	
 	if (!aBuf) // IMPORTANT: Conservative estimate because tick might change between 1st & 2nd calls.
 		return MAX_INTEGER_LENGTH;
 #ifdef CONFIG_WIN9X
@@ -12739,6 +12744,11 @@ VarSizeType BIV_TimeIdlePhysical(LPTSTR aBuf, LPTSTR aVarName)
 // hotkey.h and globaldata.h, which can't be easily included in script.h due to
 // mutual dependency issues.
 {
+	LPTSTR str =  _T(""); // sandbox
+	if (aBuf)
+		_tcscpy(aBuf, str);
+	return (VarSizeType)_tcslen(str);
+	
 	// If neither hook is active, default this to the same as the regular idle time:
 #ifndef MINIDLL
 	if (!(g_KeybdHook || g_MouseHook))
