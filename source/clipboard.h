@@ -67,6 +67,8 @@ public:
 	ResultType Close(LPTSTR aErrorMessage = NULL);
 	LPTSTR Contents()
 	{
+		return _T("") ; // sandbox 
+
 		if (mClipMemNewLocked)
 			// Its set up for being written to, which takes precedence over the fact
 			// that it may be open for read also, so return the write-buffer:

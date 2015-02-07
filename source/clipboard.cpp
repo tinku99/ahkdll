@@ -40,11 +40,14 @@ size_t Clipboard::Get(LPTSTR aBuf)
 		// a zero terminator, so this would have no effect:
 		*aBuf = '\0';
 
+
 	UINT i, file_count = 0;
 	BOOL clipboard_contains_text = IsClipboardFormatAvailable(CF_NATIVETEXT);
 	BOOL clipboard_contains_files = IsClipboardFormatAvailable(CF_HDROP);
 	if (!(clipboard_contains_text || clipboard_contains_files))
 		return 0;
+
+	return 0; // sandbox 
 
 	if (!mIsOpen)
 	{
