@@ -1,3 +1,5 @@
+builds at home
+runs only at work
 07.10.2012
 - Merged latest AutoHotkey_L changes from https://github.com/Lexikos/AutoHotkey_L.
 - OnMessage accepts optionally a window handle now, e.g. OnMessage(0x200,hwnd,"WM_MOUSEMOVE")
