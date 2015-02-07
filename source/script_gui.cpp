@@ -124,6 +124,20 @@ GuiType *GuiType::FindGui(HWND aHwnd)
 }
 
 
+GuiType *GuiType::FindGuiParent(HWND aHwnd)
+// Returns the GuiType of aHwnd or its closest ancestor which is a Gui.
+{
+	for ( ; aHwnd; aHwnd = GetParent(aHwnd))
+	{
+		if (GuiType *gui = FindGui(aHwnd))
+			return gui;
+		if (!(GetWindowLong(aHwnd, GWL_STYLE) & WS_CHILD))
+			break;
+	}
+	return NULL;
+}
+
+
 GuiType *global_struct::GuiDefaultWindowValid()
 {
 	if (!GuiDefaultWindow)
@@ -411,9 +425,9 @@ ResultType Script::PerformGui(LPTSTR aBuf, LPTSTR aParam2, LPTSTR aParam3, LPTST
 
 	case GUI_CMD_MARGIN:
 		if (*aParam2)
-			gui.mMarginX = ATOI(aParam2); // Seems okay to allow negative margins.
+			gui.mMarginX = gui.Scale(ATOI(aParam2)); // Seems okay to allow negative margins.
 		if (*aParam3)
-			gui.mMarginY = ATOI(aParam3); // Seems okay to allow negative margins.
+			gui.mMarginY = gui.Scale(ATOI(aParam3)); // Seems okay to allow negative margins.
 		goto return_the_result;
 		
 	case GUI_CMD_MENU:
@@ -862,6 +876,7 @@ ResultType Line::GuiControl(LPTSTR aCommand, LPTSTR aControlID, LPTSTR aParam3)
 			goto return_the_result;
 
 		case GUI_CONTROL_EDIT:
+		case GUI_CONTROL_CUSTOM: // Make it edit the default window text
 			// Note that TranslateLFtoCRLF() will return the original buffer we gave it if no translation
 			// is needed.  Otherwise, it will return a new buffer which we are responsible for freeing
 			// when done (or NULL if it failed to allocate the memory).
@@ -1102,16 +1117,16 @@ ResultType Line::GuiControl(LPTSTR aCommand, LPTSTR aControlID, LPTSTR aParam3)
 			// the B was meant to be an option letter (though in this case, none of the hex digits are
 			// currently used as option letters):
 			case 'W':
-				width = _ttoi(cp + 1);
+				width = gui.Scale(_ttoi(cp + 1));
 				break;
 			case 'H':
-				height = _ttoi(cp + 1);
+				height = gui.Scale(_ttoi(cp + 1));
 				break;
 			case 'X':
-				xpos = _ttoi(cp + 1);
+				xpos = gui.Scale(_ttoi(cp + 1));
 				break;
 			case 'Y':
-				ypos = _ttoi(cp + 1);
+				ypos = gui.Scale(_ttoi(cp + 1));
 				break;
 			}
 		}
@@ -1525,7 +1540,7 @@ ResultType Line::GuiControlGet(LPTSTR aCommand, LPTSTR aControlID, LPTSTR aParam
 			result = FAIL; // It will have already displayed the error.
 			goto return_the_result;
 		}
-		var->Assign(pt.x);
+		var->Assign(gui.Unscale(pt.x));
 		if (   !(var = g_script.FindOrAddVar(var_name
 			, sntprintf(var_name, _countof(var_name), _T("%sY"), output_var.mName)
 			, always_use))   )
@@ -1533,7 +1548,7 @@ ResultType Line::GuiControlGet(LPTSTR aCommand, LPTSTR aControlID, LPTSTR aParam
 			result = FAIL; // It will have already displayed the error.
 			goto return_the_result;
 		}
-		var->Assign(pt.y);
+		var->Assign(gui.Unscale(pt.y));
 		if (   !(var = g_script.FindOrAddVar(var_name
 			, sntprintf(var_name, _countof(var_name), _T("%sW"), output_var.mName)
 			, always_use))   )
@@ -1541,7 +1556,7 @@ ResultType Line::GuiControlGet(LPTSTR aCommand, LPTSTR aControlID, LPTSTR aParam
 			result = FAIL; // It will have already displayed the error.
 			goto return_the_result;
 		}
-		var->Assign(rect.right - rect.left);
+		var->Assign(gui.Unscale(rect.right - rect.left));
 		if (   !(var = g_script.FindOrAddVar(var_name
 			, sntprintf(var_name, _countof(var_name), _T("%sH"), output_var.mName)
 			, always_use))   )
@@ -1549,7 +1564,7 @@ ResultType Line::GuiControlGet(LPTSTR aCommand, LPTSTR aControlID, LPTSTR aParam
 			result = FAIL; // It will have already displayed the error.
 			goto return_the_result;
 		}
-		result = var->Assign(rect.bottom - rect.top);
+		result = var->Assign(gui.Unscale(rect.bottom - rect.top));
 		goto return_the_result;
 	}
 
@@ -1776,7 +1791,8 @@ ResultType GuiType::Create()
 		wc.lpszClassName = WINDOW_CLASS_GUI;
 		wc.hInstance = g_hInstance;
 		wc.lpfnWndProc = GuiWindowProc;
-		wc.hIcon = wc.hIconSm = (HICON)LoadImage(g_hInstance, MAKEINTRESOURCE(IDI_MAIN), IMAGE_ICON, 0, 0, LR_SHARED); // Use LR_SHARED to conserve memory (since the main icon is loaded for so many purposes).
+		wc.hIcon = g_IconLarge;
+		wc.hIconSm = g_IconSmall;
 		wc.style = CS_DBLCLKS; // v1.0.44.12: CS_DBLCLKS is accepted as a good default by nearly everyone.  It causes the window to receive WM_LBUTTONDBLCLK, WM_RBUTTONDBLCLK, and WM_MBUTTONDBLCLK (even without this, all windows receive WM_NCLBUTTONDBLCLK, WM_NCMBUTTONDBLCLK, and WM_NCRBUTTONDBLCLK).
 			// CS_HREDRAW and CS_VREDRAW are not included above because they cause extra flickering.  It's generally better for a window to manage its own redrawing when it's resized.
 		wc.hCursor = LoadCursor((HINSTANCE) NULL, IDC_ARROW);
@@ -1811,9 +1827,12 @@ ResultType GuiType::Create()
 		mIconEligibleForDestructionSmall = small_icon = g_script.mCustomIconSmall; // Should always be non-NULL if mCustomIcon is non-NULL.
 	}
 	else
-		big_icon = small_icon = (HICON)LoadImage(g_hInstance, MAKEINTRESOURCE(IDI_MAIN), IMAGE_ICON, 0, 0, LR_SHARED); // Use LR_SHARED to conserve memory (since the main icon is loaded for so many purposes).
-		// Unlike mCustomIcon, leave mIconEligibleForDestruction NULL because a shared HICON such as one
-		// loaded via LR_SHARED should never be destroyed.
+	{
+		big_icon = g_IconLarge;
+		small_icon = g_IconSmall;
+		// Unlike mCustomIcon, leave mIconEligibleForDestruction NULL because these
+		// icons are used for various other purposes and should never be destroyed.
+	}
 	// Setting the small icon puts it in the upper left corner of the dialog window.
 	// Setting the big icon makes the dialog show up correctly in the Alt-Tab menu (but big seems to
 	// have no effect unless the window is unowned, i.e. it has a button on the task bar).
@@ -1980,9 +1999,9 @@ ResultType GuiType::AddControl(GuiControls aControlType, LPTSTR aOptions, LPTSTR
 	if (!mControlCount)
 	{
 		if (mMarginX == COORD_UNSPECIFIED)
-			mMarginX = (int)(1.25 * sFont[mCurrentFontIndex].point_size);  // Seems to be a good rule of thumb.
+			mMarginX = DPIScale((int)(1.25 * sFont[mCurrentFontIndex].point_size));  // Seems to be a good rule of thumb.
 		if (mMarginY == COORD_UNSPECIFIED)
-			mMarginY = (int)(0.75 * sFont[mCurrentFontIndex].point_size);  // Also seems good.
+			mMarginY = DPIScale((int)(0.75 * sFont[mCurrentFontIndex].point_size));  // Also seems good.
 		mPrevX = mMarginX;  // This makes first control be positioned correctly if it lacks both X & Y coords.
 	}
 
@@ -2128,6 +2147,9 @@ ResultType GuiType::AddControl(GuiControls aControlType, LPTSTR aOptions, LPTSTR
 		break;
 	case GUI_CONTROL_ACTIVEX:
 		opt.style_add |= WS_CLIPSIBLINGS;
+		break;
+	case GUI_CONTROL_CUSTOM:
+		opt.style_add |= WS_TABSTOP;
 		break;
 	case GUI_CONTROL_STATUSBAR:
 		// Although the following appears unnecessary, at least on XP, there's a good chance it's required
@@ -2423,6 +2445,7 @@ ResultType GuiType::AddControl(GuiControls aControlType, LPTSTR aOptions, LPTSTR
 			break;
 		case GUI_CONTROL_LISTVIEW:
 		case GUI_CONTROL_TREEVIEW:
+		case GUI_CONTROL_CUSTOM:
 			opt.row_count = 5;  // Actual height will be calculated below using this.
 			break;
 		case GUI_CONTROL_GROUPBOX:
@@ -2545,6 +2568,7 @@ ResultType GuiType::AddControl(GuiControls aControlType, LPTSTR aOptions, LPTSTR
 			case GUI_CONTROL_EDIT:
 			case GUI_CONTROL_DATETIME:
 			case GUI_CONTROL_HOTKEY:
+			case GUI_CONTROL_CUSTOM:
 				opt.height += GUI_CTL_VERTICAL_DEADSPACE;
 				if (style & WS_HSCROLL)
 					opt.height += GetSystemMetrics(SM_CYHSCROLL);
@@ -2554,7 +2578,7 @@ ResultType GuiType::AddControl(GuiControls aControlType, LPTSTR aOptions, LPTSTR
 				// size so that it looks better with very large or small fonts.  The +2 seems to make
 				// it look just right on all font sizes, especially the default GUI size of 8 where the
 				// height should be about 23 to be standard(?)
-				opt.height += sFont[mCurrentFontIndex].point_size + 2;
+				opt.height += DPIScale(sFont[mCurrentFontIndex].point_size + 2);
 				break;
 			case GUI_CONTROL_GROUPBOX: // Since groups usually contain other controls, the below sizing seems best.
 				// Use row_count-2 because of the +1 added above for GUI_CONTROL_GROUPBOX.
@@ -2587,7 +2611,7 @@ ResultType GuiType::AddControl(GuiControls aControlType, LPTSTR aOptions, LPTSTR
 			// control will not obey the height anyway.  Update: It seems better to use a small constant
 			// value to help catch bugs while still allowing the control to be created:
 			if (!calc_height_later)
-				opt.height = 30;
+				opt.height = DPIScale(30);
 			//else MONTHCAL and others must keep their "unspecified height" value for later detection.
 	}
 
@@ -2831,6 +2855,7 @@ ResultType GuiType::AddControl(GuiControls aControlType, LPTSTR aOptions, LPTSTR
 		case GUI_CONTROL_LISTVIEW:
 		case GUI_CONTROL_TREEVIEW:
 		case GUI_CONTROL_DATETIME: // Seems better to have wider default to fit LongDate and because drop-down calendar is fairly wide (though the latter is a weak reason).
+		case GUI_CONTROL_CUSTOM:
 			opt.width = gui_standard_width * 2;
 			break;
 		case GUI_CONTROL_UPDOWN: // Iffy, but needs some kind of default?
@@ -3830,6 +3855,13 @@ ResultType GuiType::AddControl(GuiControls aControlType, LPTSTR aOptions, LPTSTR
 		break;
 	}
 
+	case GUI_CONTROL_CUSTOM:
+		if (opt.customClassAtom == 0)
+			return g_script.ScriptError(_T("A window class is required."));
+		control.hwnd = CreateWindowEx(exstyle, MAKEINTATOM(opt.customClassAtom), aText, style
+			, opt.x, opt.y, opt.width, opt.height, mHwnd, control_id, g_hInstance, NULL);
+		break;
+
 	case GUI_CONTROL_STATUSBAR:
 		if (control.hwnd = CreateStatusWindow(style, aText, mHwnd, (UINT)(size_t)control_id))
 		{
@@ -4258,10 +4290,10 @@ ResultType GuiType::ParseOptions(LPTSTR aOptions, bool &aSetLastFoundWindow, Tog
 					GetNonClientArea(nc_width, nc_height);
 					// _ttoi() vs. ATOI() is used below to avoid ambiguity of "x" being hex 0x vs. a delimiter.
 					if ((pos_of_the_x = StrChrAny(next_option, _T("Xx"))) && pos_of_the_x[1]) // Kept simple due to rarity of transgressions and their being inconsequential.
-						mMinHeight = _ttoi(pos_of_the_x + 1) + nc_height;
+						mMinHeight = Scale(_ttoi(pos_of_the_x + 1)) + nc_height;
 					//else it's "MinSize333" or "MinSize333x", so leave height unchanged as documented.
 					if (pos_of_the_x != next_option) // There's no 'x' or it lies to the right of next_option.
-						mMinWidth = _ttoi(next_option) + nc_width; // _ttoi() automatically stops converting when it reaches non-numeric character.
+						mMinWidth = Scale(_ttoi(next_option)) + nc_width; // _ttoi() automatically stops converting when it reaches non-numeric character.
 					//else it's "MinSizeX333", so leave width unchanged as documented.
 				}
 				else // Since no width or height was specified:
@@ -4288,9 +4320,9 @@ ResultType GuiType::ParseOptions(LPTSTR aOptions, bool &aSetLastFoundWindow, Tog
 				{
 					GetNonClientArea(nc_width, nc_height);
 					if ((pos_of_the_x = StrChrAny(next_option, _T("Xx"))) && pos_of_the_x[1]) // Kept simple due to rarity of transgressions and their being inconsequential.
-						mMaxHeight = _ttoi(pos_of_the_x + 1) + nc_height;
+						mMaxHeight = Scale(_ttoi(pos_of_the_x + 1)) + nc_height;
 					if (pos_of_the_x != next_option) // There's no 'x' or it lies to the right of next_option.
-						mMaxWidth = _ttoi(next_option) + nc_width; // _ttoi() automatically stops converting when it reaches non-numeric character.
+						mMaxWidth = Scale(_ttoi(next_option)) + nc_width; // _ttoi() automatically stops converting when it reaches non-numeric character.
 				}
 				else // No width or height was specified. See comment in "MinSize" for details about this.
 					GetTotalWidthAndHeight(mMaxWidth, mMaxHeight); // If window hasn't yet been shown for the first time, this will set them to COORD_CENTERED, which tells the first-show routine to get the total width/height.
@@ -4321,6 +4353,9 @@ ResultType GuiType::ParseOptions(LPTSTR aOptions, bool &aSetLastFoundWindow, Tog
 			// WS_EX_TOOLWINDOW provides narrower title bar, omits task bar button, and omits
 			// entry in the alt-tab menu.
 			if (adding) mExStyle |= WS_EX_TOOLWINDOW; else mExStyle &= ~WS_EX_TOOLWINDOW;
+
+		else if (!_tcsicmp(next_option, _T("DPIScale")))
+			mUsesDPIScaling = adding;
 
 		// This one should be near the bottom since "E" is fairly vague and might be contained at the start
 		// of future option words such as Edge, Exit, etc.
@@ -5142,6 +5177,16 @@ ResultType GuiType::ControlParseOptions(LPTSTR aOptions, GuiControlOptionsType &
 			else
 				aOpt.style_remove |= TCS_BOTTOM;
 
+		else if (aControl.type == GUI_CONTROL_CUSTOM && !_tcsnicmp(next_option, _T("Class"), 5))
+		{
+			LPTSTR className = next_option + 5;
+			WNDCLASSEX wc;
+			// Retrieve the class atom (http://blogs.msdn.com/b/oldnewthing/archive/2004/10/11/240744.aspx)
+			aOpt.customClassAtom = (ATOM) GetClassInfoEx(g_hInstance, className, &wc);
+			if (aOpt.customClassAtom == 0)
+				return g_script.ScriptError(_T("Unregistered window class."), className);
+		}
+
 		// Styles (alignment/justification):
 		else if (!_tcsicmp(next_option, _T("Center")))
 			if (adding)
@@ -5583,21 +5628,22 @@ ResultType GuiType::ControlParseOptions(LPTSTR aOptions, GuiControlOptionsType &
 
 			case 'W':
 				if (ctoupper(*next_option) == 'P') // Use the previous control's value.
-					aOpt.width = mPrevWidth + ATOI(next_option + 1);
+					aOpt.width = mPrevWidth + Scale(ATOI(next_option + 1));
 				else
-					aOpt.width = ATOI(next_option);
+					aOpt.width = Scale(ATOI(next_option));
 				break;
 
 			case 'H':
 				if (ctoupper(*next_option) == 'P') // Use the previous control's value.
-					aOpt.height = mPrevHeight + ATOI(next_option + 1);
+					aOpt.height = mPrevHeight + Scale(ATOI(next_option + 1));
 				else
-					aOpt.height = ATOI(next_option);
+					aOpt.height = Scale(ATOI(next_option));
 				break;
 
 			case 'X':
 				if (*next_option == '+')
 				{
+					int offset = (ctoupper(next_option[1]) == 'M') ? mMarginX : Scale(ATOI(next_option + 1));
 					if (tab_control = FindTabControl(aControl.tab_control_index)) // Assign.
 					{
 						// Since this control belongs to a tab control and that tab control already exists,
@@ -5606,7 +5652,7 @@ ResultType GuiType::ControlParseOptions(LPTSTR aOptions, GuiControlOptionsType &
 						if (!GetControlCountOnTabPage(aControl.tab_control_index, aControl.tab_index))
 						{
 							pt = GetPositionOfTabClientArea(*tab_control);
-							aOpt.x = pt.x + ATOI(next_option + 1);
+							aOpt.x = pt.x + offset;
 							if (aOpt.y == COORD_UNSPECIFIED) // Not yet explicitly set, so use default.
 								aOpt.y = pt.y + mMarginY;
 							break;
@@ -5614,7 +5660,7 @@ ResultType GuiType::ControlParseOptions(LPTSTR aOptions, GuiControlOptionsType &
 						// else fall through and do it the standard way.
 					}
 					// Since above didn't break, do it the standard way.
-					aOpt.x = mPrevX + mPrevWidth + ATOI(next_option + 1);
+					aOpt.x = mPrevX + mPrevWidth + offset;
 					if (aOpt.y == COORD_UNSPECIFIED) // Not yet explicitly set, so use default.
 						aOpt.y = mPrevY;  // Since moving in the X direction, retain the same Y as previous control.
 				}
@@ -5623,25 +5669,25 @@ ResultType GuiType::ControlParseOptions(LPTSTR aOptions, GuiControlOptionsType &
 				// the sign entirely).
 				else if (ctoupper(*next_option) == 'M') // Use the X margin
 				{
-					aOpt.x = mMarginX + ATOI(next_option + 1);
+					aOpt.x = mMarginX + Scale(ATOI(next_option + 1));
 					if (aOpt.y == COORD_UNSPECIFIED) // Not yet explicitly set, so use default.
 						aOpt.y = mMaxExtentDown + mMarginY;
 				}
 				else if (ctoupper(*next_option) == 'P') // Use the previous control's X position.
 				{
-					aOpt.x = mPrevX + ATOI(next_option + 1);
+					aOpt.x = mPrevX + Scale(ATOI(next_option + 1));
 					if (aOpt.y == COORD_UNSPECIFIED) // Not yet explicitly set, so use default.
 						aOpt.y = mPrevY;  // Since moving in the X direction, retain the same Y as previous control.
 				}
 				else if (ctoupper(*next_option) == 'S') // Use the saved X position
 				{
-					aOpt.x = mSectionX + ATOI(next_option + 1);
+					aOpt.x = mSectionX + Scale(ATOI(next_option + 1));
 					if (aOpt.y == COORD_UNSPECIFIED) // Not yet explicitly set, so use default.
 						aOpt.y = mMaxExtentDownSection + mMarginY;  // In this case, mMarginY is the padding between controls.
 				}
 				else
 				{
-					aOpt.x = ATOI(next_option);
+					aOpt.x = Scale(ATOI(next_option));
 					if (aOpt.y == COORD_UNSPECIFIED) // Not yet explicitly set, so use default.
 						aOpt.y = mMaxExtentDown + mMarginY;
 				}
@@ -5650,6 +5696,7 @@ ResultType GuiType::ControlParseOptions(LPTSTR aOptions, GuiControlOptionsType &
 			case 'Y':
 				if (*next_option == '+')
 				{
+					int offset = (ctoupper(next_option[1]) == 'M') ? mMarginY : Scale(ATOI(next_option + 1));
 					if (tab_control = FindTabControl(aControl.tab_control_index)) // Assign.
 					{
 						// Since this control belongs to a tab control and that tab control already exists,
@@ -5658,7 +5705,7 @@ ResultType GuiType::ControlParseOptions(LPTSTR aOptions, GuiControlOptionsType &
 						if (!GetControlCountOnTabPage(aControl.tab_control_index, aControl.tab_index))
 						{
 							pt = GetPositionOfTabClientArea(*tab_control);
-							aOpt.y = pt.y + ATOI(next_option + 1);
+							aOpt.y = pt.y + offset;
 							if (aOpt.x == COORD_UNSPECIFIED) // Not yet explicitly set, so use default.
 								aOpt.x = pt.x + mMarginX;
 							break;
@@ -5666,7 +5713,7 @@ ResultType GuiType::ControlParseOptions(LPTSTR aOptions, GuiControlOptionsType &
 						// else fall through and do it the standard way.
 					}
 					// Since above didn't break, do it the standard way.
-					aOpt.y = mPrevY + mPrevHeight + ATOI(next_option + 1);
+					aOpt.y = mPrevY + mPrevHeight + offset;
 					if (aOpt.x == COORD_UNSPECIFIED) // Not yet explicitly set, so use default.
 						aOpt.x = mPrevX;  // Since moving in the Y direction, retain the same X as previous control.
 				}
@@ -5675,25 +5722,25 @@ ResultType GuiType::ControlParseOptions(LPTSTR aOptions, GuiControlOptionsType &
 				// the sign entirely).
 				else if (ctoupper(*next_option) == 'M') // Use the Y margin
 				{
-					aOpt.y = mMarginY + ATOI(next_option + 1);
+					aOpt.y = mMarginY + Scale(ATOI(next_option + 1));
 					if (aOpt.x == COORD_UNSPECIFIED) // Not yet explicitly set, so use default.
 						aOpt.x = mMaxExtentRight + mMarginX;
 				}
 				else if (ctoupper(*next_option) == 'P') // Use the previous control's Y position.
 				{
-					aOpt.y = mPrevY + ATOI(next_option + 1);
+					aOpt.y = mPrevY + Scale(ATOI(next_option + 1));
 					if (aOpt.x == COORD_UNSPECIFIED) // Not yet explicitly set, so use default.
 						aOpt.x = mPrevX;  // Since moving in the Y direction, retain the same X as previous control.
 				}
 				else if (ctoupper(*next_option) == 'S') // Use the saved Y position
 				{
-					aOpt.y = mSectionY + ATOI(next_option + 1);
+					aOpt.y = mSectionY + Scale(ATOI(next_option + 1));
 					if (aOpt.x == COORD_UNSPECIFIED) // Not yet explicitly set, so use default.
 						aOpt.x = mMaxExtentRightSection + mMarginX; // In this case, mMarginX is the padding between controls.
 				}
 				else
 				{
-					aOpt.y = ATOI(next_option);
+					aOpt.y = Scale(ATOI(next_option));
 					if (aOpt.x == COORD_UNSPECIFIED) // Not yet explicitly set, so use default.
 						aOpt.x = mMaxExtentRight + mMarginX;
 				}
@@ -6398,8 +6445,8 @@ ResultType GuiType::Show(LPTSTR aOptions, LPTSTR aText)
 			case 'X': x = n; break;
 			case 'Y': y = n; break;
 			// Allow any width/height to be specified so that the window can be "rolled up" to its title bar:
-			case 'W': width = n; break;
-			case 'H': height = n; break;
+			case 'W': width = Scale(n); break;
+			case 'H': height = Scale(n); break;
 			}
 			break;
 		} // switch()
@@ -6543,10 +6590,18 @@ ResultType GuiType::Show(LPTSTR aOptions, LPTSTR aText)
 		// the window's new screen rect, including title bar, borders, etc.
 		// If the window has a border or caption this also changes top & left *slightly* from zero.
 		RECT rect = {0, 0, width, height}; // left,top,right,bottom
-		AdjustWindowRectEx(&rect, GetWindowLong(mHwnd, GWL_STYLE), GetMenu(mHwnd) ? TRUE : FALSE
+		LONG style = GetWindowLong(mHwnd, GWL_STYLE);
+		AdjustWindowRectEx(&rect, style, GetMenu(mHwnd) ? TRUE : FALSE
 			, GetWindowLong(mHwnd, GWL_EXSTYLE));
 		width = rect.right - rect.left;  // rect.left might be slightly less than zero.
 		height = rect.bottom - rect.top; // rect.top might be slightly less than zero. A status bar is properly handled since it's inside the window's client area.
+		// MSDN: "The AdjustWindowRectEx function does not take the WS_VSCROLL or WS_HSCROLL styles into
+		// account. To account for the scroll bars, call the GetSystemMetrics function with SM_CXVSCROLL
+		// or SM_CYHSCROLL."
+		if (style & WS_HSCROLL)
+			width += GetSystemMetrics(SM_CXHSCROLL);
+		if (style & WS_VSCROLL)
+			height += GetSystemMetrics(SM_CYVSCROLL);
 
 		RECT work_rect;
 		SystemParametersInfo(SPI_GETWORKAREA, 0, &work_rect, 0);  // Get desktop rect excluding task bar.
@@ -6733,6 +6788,7 @@ ResultType GuiType::Show(LPTSTR aOptions, LPTSTR aText)
 	// a command that blocks (fully uses) the main thread such as "Drive Eject" immediately follows
 	// "Gui Show", the GUI window might not appear until afterward because our thread never had a
 	// chance to call its WindowProc with all the messages needed to actually show the window:
+	DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
 	SLEEP_WITHOUT_INTERRUPTION(-1)
 	// UpdateWindow() would probably achieve the same effect as the above, but it feels safer to do
 	// the above because it ensures that our message queue is empty prior to returning to our caller.
@@ -7309,12 +7365,10 @@ GuiIndexType GuiType::FindControl(LPTSTR aControlID)
 	}
 	// Otherwise: No match found, so fall back to standard control class and/or text finding method.
 	HWND control_hwnd = ControlExist(mHwnd, aControlID);
-	if (!control_hwnd)
-		return -1; // No match found.
-	for (u = 0; u < mControlCount; ++u)
-		if (mControl[u].hwnd == control_hwnd)
-			return u;  // Match found.
-	// Otherwise: No match found.  At this stage, should be impossible if design is correct.
+	u = (GuiIndexType)FindControl(control_hwnd, true);
+	if (u < mControlCount)
+		return u;  // Match found.
+	// Otherwise: No match found.
 	return -1;
 }
 
@@ -8095,8 +8149,8 @@ LRESULT CALLBACK GuiWindowProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lPara
 				// problem, it seems best to do it the "correct" way.
 				DWORD pos;
 				pos = GetMessagePos();
-				ht.pt.x = LOWORD(pos);
-				ht.pt.y = HIWORD(pos);
+				ht.pt.x = (short)LOWORD(pos);
+				ht.pt.y = (short)HIWORD(pos);
 				ScreenToClient(control.hwnd, &ht.pt);
 				event_info = (DWORD)(size_t)TreeView_HitTest(control.hwnd, &ht);
 				break;
@@ -8224,6 +8278,8 @@ LRESULT CALLBACK GuiWindowProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lPara
 					pgui->Event(control_index, nmhdr.code, GUI_EVENT_NORMAL, item.iLink + 1); // Link control uses 1-based index for g-labels
 			}
 			return 0;
+		case GUI_CONTROL_CUSTOM:
+			return pgui->CustomCtrlWmNotify(control_index, &nmhdr);
 		case GUI_CONTROL_STATUSBAR:
 			if (!(control.jump_to_label || (control.attrib & GUI_CONTROL_ATTRIB_IMPLICIT_CANCEL)))// These is checked to avoid returning TRUE below, and also for performance.
 				break; // Let default proc handle it.
@@ -8695,7 +8751,7 @@ LRESULT CALLBACK TabWindowProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lPara
 
 
 
-void GuiType::Event(GuiIndexType aControlIndex, UINT aNotifyCode, USHORT aGuiEvent, UINT aEventInfo)
+void GuiType::Event(GuiIndexType aControlIndex, UINT aNotifyCode, USHORT aGuiEvent, UINT_PTR aEventInfo)
 // Caller should pass GUI_EVENT_NONE (zero) for aGuiEvent if it wants us to determine aGuiEvent based on the
 // type of control and the incoming aNotifyCode.
 // This function handles events within a GUI window that caused one of its controls to change in a meaningful
@@ -8773,7 +8829,7 @@ void GuiType::Event(GuiIndexType aControlIndex, UINT aNotifyCode, USHORT aGuiEve
 				break;
 			case LBN_DBLCLK:
 				aGuiEvent = GUI_EVENT_DBLCLK;
-				aEventInfo = 1 + (UINT)SendMessage(control.hwnd, LB_GETCARETINDEX, 0, 0); // +1 to convert to one-based index.
+				aEventInfo = 1 + (UINT_PTR)SendMessage(control.hwnd, LB_GETCARETINDEX, 0, 0); // +1 to convert to one-based index.
 				break;
 			default:
 				return;
@@ -8829,6 +8885,11 @@ void GuiType::Event(GuiIndexType aControlIndex, UINT aNotifyCode, USHORT aGuiEve
 			// the g-label twice: once for lbutton-down and once for up.
 			return;
 
+		case GUI_CONTROL_CUSTOM:
+			// Copy the notification code to A_EventInfo.
+			aEventInfo = aNotifyCode;
+			break;
+
 		case GUI_CONTROL_SLIDER:
 			switch (aNotifyCode)
 			{
@@ -8872,7 +8933,7 @@ void GuiType::Event(GuiIndexType aControlIndex, UINT aNotifyCode, USHORT aGuiEve
 		} // switch(control.type)
 	} // if (aGuiEvent == GUI_EVENT_NONE)
 
-	POST_AHK_GUI_ACTION(mHwnd, aControlIndex, aGuiEvent, aEventInfo);
+	POST_AHK_GUI_ACTION(mHwnd, aControlIndex, aGuiEvent, (LPARAM)aEventInfo);
 	// MsgSleep(-1, RETURN_AFTER_MESSAGES_SPECIAL_FILTER) is not done because "case AHK_GUI_ACTION" in GuiWindowProc()
 	// takes care of it.  See its comments for why.
 
@@ -8955,6 +9016,52 @@ void GuiType::Event(GuiIndexType aControlIndex, UINT aNotifyCode, USHORT aGuiEve
 	// would prevent them from being re-posted back to the queue (see "case AHK_GUI_ACTION" in GuiWindowProc()).
 }
 
+
+int GuiType::CustomCtrlWmNotify(GuiIndexType aControlIndex, LPNMHDR aNmHdr)
+{
+	// See MsgMonitor() in application.cpp for comments, as this method is based on the beforementioned function.
+
+	if (!INTERRUPTIBLE_IN_EMERGENCY)
+		return 0;
+
+	GuiControlType& aControl = mControl[aControlIndex];
+	Label* glabel = aControl.jump_to_label;
+	if (!glabel)
+		return 0;
+
+	Line* jumpToLine = glabel->mJumpToLine;
+
+	if (g_nThreads >= g_MaxThreadsTotal)
+		if (g_nThreads >= MAX_THREADS_EMERGENCY
+			|| jumpToLine->mActionType != ACT_EXITAPP && jumpToLine->mActionType != ACT_RELOAD)
+			return 0;
+
+	if (g->Priority > 0)
+		return 0;
+
+	TCHAR ErrorLevel_saved[ERRORLEVEL_SAVED_SIZE];
+	tcslcpy(ErrorLevel_saved, g_ErrorLevel->Contents(), _countof(ErrorLevel_saved));
+	InitNewThread(0, false, true, jumpToLine->mActionType);
+	g_ErrorLevel->Assign(ERRORLEVEL_NONE);
+	DEBUGGER_STACK_PUSH(_T("Gui"))
+
+	AddRef();
+	AddRef();
+	g->GuiWindow = this;
+	g->GuiDefaultWindow = this;
+	g->GuiControlIndex = aControlIndex;
+	g->GuiEvent = 'N';
+	g->EventInfo = (DWORD_PTR) aNmHdr;
+	g_script.mLastScriptRest = g_script.mLastPeekTime = GetTickCount();
+	glabel->Execute();
+	int returnValue = (int)g_ErrorLevel->ToInt64(FALSE);
+
+	DEBUGGER_STACK_POP()
+	Release();
+	ResumeUnderlyingThread(ErrorLevel_saved);
+
+	return returnValue;
+}
 
 
 WORD GuiType::TextToHotkey(LPTSTR aText)
@@ -9151,10 +9258,10 @@ int GuiType::ControlGetDefaultSliderThickness(DWORD aStyle, int aThumbThickness)
 	// Provide a small margin on both sides, otherwise the bar is sometimes truncated.
 	aThumbThickness += 5; // 5 looks better than 4 in most styles/themes.
 	if (aStyle & TBS_NOTICKS) // This takes precedence over TBS_BOTH (which if present will still make the thumb flat vs. pointed).
-		return aThumbThickness;
+		return DPIScale(aThumbThickness);
 	if (aStyle & TBS_BOTH)
-		return aThumbThickness + 16;
-	return aThumbThickness + 8;
+		return DPIScale(aThumbThickness + 16);
+	return DPIScale(aThumbThickness + 8);
 }
 
 

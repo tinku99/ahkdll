@@ -13,7 +13,7 @@
 // ObjectBase - Common base class, implements reference counting.
 //
 
-class DECLSPEC_NOVTABLE ObjectBase : public IObject
+class DECLSPEC_NOVTABLE ObjectBase : public IObjectComCompatible
 {
 protected:
 	ULONG mRefCount;
@@ -65,13 +65,31 @@ public:
 // EnumBase - Base class for enumerator objects following standard syntax.
 //
 
-class EnumBase : public ObjectBase
+class DECLSPEC_NOVTABLE EnumBase : public ObjectBase
 {
 public:
 	ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount);
 	virtual int Next(Var *aOutputVar1, Var *aOutputVar2) = 0;
 };
 	
+
+//
+// Property: Invoked when a derived object gets/sets the corresponding key.
+//
+
+class Property : public ObjectBase
+{
+public:
+	Func *mGet, *mSet;
+
+	bool CanGet() { return mGet; }
+	bool CanSet() { return mSet; }
+
+	Property() : mGet(NULL), mSet(NULL) { }
+	
+	ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount);
+};
+
 
 //
 // Object - Scriptable associative array.
@@ -175,9 +193,12 @@ protected:
 public:
 	static Object *Create(ExprTokenType *aParam[] = NULL, int aParamCount = 0);
 
+	bool Append(LPTSTR aValue, size_t aValueLength = -1);
+
 	// Used by Func::Call() for variadic functions/function-calls:
-	Object *Clone(INT_PTR aStartOffset = 0);
-	ResultType ArrayToParams(void *&aMemToFree, ExprTokenType **&aParam, int &aParamCount, int aMinParams);
+	Object *Clone(BOOL aExcludeIntegerKeys = false);
+	ResultType ArrayToParams(ExprTokenType *token, ExprTokenType **param_list, int extra_params, ExprTokenType **&aParam, int &aParamCount);
+	ResultType ArrayToStrings(LPTSTR *aStrings, int &aStringCount, int aStringsMax);
 	
 	inline bool GetNextItem(ExprTokenType &aToken, INT_PTR &aOffset, INT_PTR &aKey)
 	{
@@ -187,6 +208,19 @@ public:
 		aKey = field.key.i;
 		field.ToToken(aToken);
 		return true;
+	}
+
+	inline bool GetItemOffset(ExprTokenType &aToken, INT_PTR aOffset)
+	{
+		if (aOffset >= mKeyOffsetObject)
+			return false;
+		mFields[aOffset].ToToken(aToken);
+		return true;
+	}
+
+	int GetNumericItemCount()
+	{
+		return (int)mKeyOffsetObject;
 	}
 	
 	bool GetItem(ExprTokenType &aToken, LPTSTR aKey)
@@ -220,6 +254,14 @@ public:
 		return field->Assign(aValue);
 	}
 
+	bool SetItem(LPTSTR aKey, __int64 aValue)
+	{
+		ExprTokenType token;
+		token.symbol = SYM_INTEGER;
+		token.value_int64 = aValue;
+		return SetItem(aKey, token);
+	}
+
 	bool SetItem(LPTSTR aKey, IObject *aValue)
 	{
 		ExprTokenType token;
@@ -233,6 +275,11 @@ public:
 		for (IndexType i = 0; i < mKeyOffsetObject; ++i)
 			mFields[i].key.i -= aAmount;
 	}
+
+	int MinIndex() { return (mKeyOffsetInt < mKeyOffsetObject) ? (int)mFields[0].key.i : 0; }
+	int MaxIndex() { return (mKeyOffsetInt < mKeyOffsetObject) ? (int)mFields[mKeyOffsetObject-1].key.i : 0; }
+	int Count() { return (int)mFieldCount; }
+	bool HasNonnumericKeys() { return mKeyOffsetObject < mFieldCount; }
 
 	void SetBase(IObject *aNewBase)
 	{ 
@@ -252,6 +299,7 @@ public:
 	bool InsertAt(INT_PTR aOffset, INT_PTR aKey, ExprTokenType *aValue[], int aValueCount);
 
 	void EndClassDefinition();
+	Object *GetUnresolvedClass(LPTSTR &aName);
 	
 	ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount);
 
@@ -262,6 +310,7 @@ public:
 	ResultType _GetAddress(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 	ResultType _MaxIndex(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 	ResultType _MinIndex(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
+	ResultType _Count(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 	ResultType _NewEnum(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 	ResultType _HasKey(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
 	ResultType _Clone(ExprTokenType &aResultToken, ExprTokenType *aParam[], int aParamCount);
@@ -286,7 +335,30 @@ public:
 	ULONG STDMETHODCALLTYPE AddRef() { return 1; }
 	ULONG STDMETHODCALLTYPE Release() { return 1; }
 	bool Delete() { return false; }
-
+#ifdef _USRDLL
+	void Free()
+	{
+		if (mFields)
+		{
+			if (mFieldCount)
+			{
+				IndexType i = mFieldCount - 1;
+				// Free keys: first strings, then objects (objects have a lower index in the mFields array).
+				for (; i >= mKeyOffsetString; --i)
+					free(mFields[i].key.s);
+				for (; i >= mKeyOffsetObject; --i)
+					mFields[i].key.p->Release();
+				// Free values.
+				while (mFieldCount)
+					mFields[--mFieldCount].Free();
+			}
+			// Free fields array.
+			free(mFields);
+			mFields = NULL;
+			mFieldCountMax = 0;
+		}
+	}
+#endif
 	ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount);
 };
 
@@ -299,6 +371,7 @@ extern MetaObject g_MetaObject;		// Defines "object" behaviour for non-object va
 class RegExMatchObject : public ObjectBase
 {
 	LPTSTR mHaystack;
+	int mHaystackStart;
 	int *mOffset;
 	LPTSTR *mPatternName;
 	int mPatternCount;

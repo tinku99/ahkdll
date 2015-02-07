@@ -600,8 +600,7 @@ DEBUGGER_COMMAND(Debugger::breakpoint_set)
 			return DEBUGGER_E_BREAKPOINT_INVALID;
 	}
 
-	Line *line = NULL;
-	bool found_line = false;
+	Line *line = NULL, *found_line = NULL;
 	// Due to the introduction of expressions in static initializers, lines aren't necessarily in
 	// line number order.  First determine if any static initializers match the requested lineno.
 	// If not, use the first non-static line at or following that line number.
@@ -609,9 +608,9 @@ DEBUGGER_COMMAND(Debugger::breakpoint_set)
 	if (g_script.mFirstStaticLine)
 		for (line = g_script.mFirstStaticLine; ; line = line->mNextLine)
 		{
-			if (line->mFileIndex == file_index && line->mLineNumber == lineno)
+			if (line->mFileIndex == file_index && line->mLineNumber == lineno) // Exact match, unlike normal lines.
 			{
-				found_line = true;
+				found_line = line;
 				break;
 			}
 			if (line == g_script.mLastStaticLine)
@@ -631,19 +630,21 @@ DEBUGGER_COMMAND(Debugger::breakpoint_set)
 					continue;
 				// Use the first line of code at or after lineno, like Visual Studio.
 				// To display the breakpoint correctly, an IDE should use breakpoint_get.
-				found_line = true;
-				break;
+				if (!found_line || found_line->mLineNumber > line->mLineNumber)
+					found_line = line;
+				// Must keep searching, since class var initializers can cause lines to be listed out of order.
+				//break;
 			}
 	if (found_line)
 	{
-		if (!line->mBreakpoint)
-			line->mBreakpoint = new Breakpoint();
-		line->mBreakpoint->state = state;
-		line->mBreakpoint->temporary = temporary;
+		if (!found_line->mBreakpoint)
+			found_line->mBreakpoint = new Breakpoint();
+		found_line->mBreakpoint->state = state;
+		found_line->mBreakpoint->temporary = temporary;
 
 		return mResponseBuf.WriteF(
 			"<response command=\"breakpoint_set\" transaction_id=\"%e\" state=\"%s\" id=\"%i\"/>"
-			, aTransactionId, state ? "enabled" : "disabled", line->mBreakpoint->id);
+			, aTransactionId, state ? "enabled" : "disabled", found_line->mBreakpoint->id);
 	}
 	// There are no lines of code beginning at or after lineno.
 	return DEBUGGER_E_BREAKPOINT_INVALID;
@@ -836,35 +837,46 @@ DEBUGGER_COMMAND(Debugger::stack_get)
 	
 	int level = 0;
 	DbgStack::Entry *se;
-	FileIndexType file_index;
-	LineNumberType line_number;
 	for (se = mStack.mTop; se >= mStack.mBottom; --se)
 	{
 		if (depth == -1 || depth == level)
 		{
-			if (se == mStack.mTop && mCurrLine) // See PreExecLine() for comments.
+			Line *line;
+			if (se == mStack.mTop)
 			{
-				file_index = mCurrLine->mFileIndex;
-				line_number = mCurrLine->mLineNumber;
+				ASSERT(mCurrLine); // Should always be valid.
+				line = mCurrLine; // See PreExecLine() for comments.
+			}
+			else if (se->type == DbgStack::SE_Thread)
+			{
+				// !se->line implies se->type == SE_Thread.
+				if (se[1].type == DbgStack::SE_Func)
+					line = se[1].func->mJumpToLine;
+				else if (se[1].type == DbgStack::SE_Sub)
+					line = se[1].sub->mJumpToLine;
+				else
+					// The auto-execute thread is probably the only one that can exist without
+					// a Sub or Func entry immediately above it.  As se != mStack.mTop, se->line
+					// has been set to a non-NULL by DbgStack::Push().
+					line = se->line;
 			}
 			else
 			{
-				file_index = se->line->mFileIndex;
-				line_number = se->line->mLineNumber;
+				line = se->line;
 			}
 			mResponseBuf.WriteF("<stack level=\"%i\" type=\"file\" filename=\"", level);
-			mResponseBuf.WriteFileURI(U4T(Line::sSourceFile[file_index]));
-			mResponseBuf.WriteF("\" lineno=\"%u\" where=\"", line_number);
+			mResponseBuf.WriteFileURI(U4T(Line::sSourceFile[line->mFileIndex]));
+			mResponseBuf.WriteF("\" lineno=\"%u\" where=\"", line->mLineNumber);
 			switch (se->type)
 			{
 			case DbgStack::SE_Thread:
-				mResponseBuf.WriteF("%e (thread)", U4T(se->desc)); // %e to escape characters which desc may contain (e.g. "a & b" in hotkey name).
+				mResponseBuf.WriteF("%e thread", U4T(se->desc)); // %e to escape characters which desc may contain (e.g. "a & b" in hotkey name).
 				break;
 			case DbgStack::SE_Func:
 				mResponseBuf.WriteF("%s()", U4T(se->func->mName)); // %s because function names should never contain characters which need escaping.
 				break;
 			case DbgStack::SE_Sub:
-				mResponseBuf.WriteF("%e:", U4T(se->sub->mName)); // %e because label/hotkey names may contain almost anything.
+				mResponseBuf.WriteF("%e sub", U4T(se->sub->mName)); // %e because label/hotkey names may contain almost anything.
 				break;
 			}
 			mResponseBuf.Write("\"/>");
@@ -1046,7 +1058,6 @@ void Object::DebugWriteProperty(IDebugProperties *aDebugger, int aPage, int aPag
 	if (aDepth)
 	{
 		int i = aPageSize * aPage, j = aPageSize * (aPage + 1);
-		char buf[MAX_INTEGER_SIZE];
 
 		if (mBase)
 		{
@@ -1075,7 +1086,7 @@ void Object::DebugWriteProperty(IDebugProperties *aDebugger, int aPage, int aPag
 			else if (i >= mKeyOffsetObject)
 				aDebugger->WriteProperty(field.key.p, value);
 			else
-				aDebugger->WriteProperty(Exp32or64(_itoa,_i64toa)(field.key.i, buf, 10), value);
+				aDebugger->WriteProperty(field.key.i, value);
 		}
 	}
 
@@ -1460,7 +1471,7 @@ int Debugger::ParsePropertyName(const char *aFullName, int aVarScope, bool aVarM
 					if (c == '"')
 					{
 						// Quote mark; but is it a literal quote mark?
-						if (*++src != '"') // This currently doesn't match up with expression syntax, but is left this way for simplicity.
+						if (*++src != '"')
 							// Nope.
 							break;
 						//else above skipped the second quote mark, so fall through:
@@ -1498,14 +1509,13 @@ int Debugger::ParsePropertyName(const char *aFullName, int aVarScope, bool aVarM
 			// For simplicity, let this be any string terminated by '.' or '['.
 			// Actual expressions require it to contain only alphanumeric chars and/or '_'.
 			name_end = StrChrAny(name, _T(".[")); // This also sets it up for the next iteration.
-
 			if (name_end)
 			{
 				c = *name_end; // Save this for the next iteration.
 				*name_end = '\0';
 			}
-			key_type = IsPureNumeric(name); // SYM_INTEGER or SYM_STRING.
 			//else there won't be a next iteration.
+			key_type = IsPureNumeric(name); // SYM_INTEGER or SYM_STRING.
 		}
 		else
 			return DEBUGGER_E_INVALID_OPTIONS;
@@ -2208,6 +2218,10 @@ int Debugger::Connect(const char *aAddress, const char *aPort)
 
 				if (SendResponse() == DEBUGGER_E_OK)
 				{
+					// mCurrLine isn't updated unless the debugger is connected, so set it now.
+					// g_script.mCurrLine should always be non-NULL after the script is loaded,
+					// even if no threads are active.
+					mCurrLine = g_script.mCurrLine;
 					return DEBUGGER_E_OK;
 				}
 
@@ -2662,6 +2676,30 @@ DbgStack::Entry *DbgStack::Push()
 	return ++mTop;
 }
 
+void DbgStack::Push(TCHAR *aDesc)
+{
+	Entry &s = *Push();
+	s.line = NULL;
+	s.desc = aDesc;
+	s.type = SE_Thread;
+}
+	
+void DbgStack::Push(Label *aSub)
+{
+	Entry &s = *Push();
+	s.line = aSub->mJumpToLine;
+	s.sub  = aSub;
+	s.type = SE_Sub;
+}
+	
+void DbgStack::Push(Func *aFunc)
+{
+	Entry &s = *Push();
+	s.line = aFunc->mJumpToLine;
+	s.func = aFunc;
+	s.type = SE_Func;
+}
+
 
 void Debugger::PropertyWriter::WriteProperty(LPCSTR aName, ExprTokenType &aValue)
 {
@@ -2761,7 +2799,7 @@ void Debugger::PropertyWriter::EndProperty(DebugCookie aCookie)
 LPTSTR Var::ObjectToText(LPTSTR aBuf, int aBufSize)
 {
 	LPTSTR aBuf_orig = aBuf;
-	aBuf += sntprintf(aBuf, aBufSize, _T("%s[Object]: 0x%p"), mName, mObject);
+	aBuf += sntprintf(aBuf, aBufSize, _T("%s: Object(0x%p)"), mName, mObject);
 	if (ComObject *cobj = dynamic_cast<ComObject *>(mObject))
 		aBuf += sntprintf(aBuf, BUF_SPACE_REMAINING, _T(" <= ComObject(0x%04hX, 0x%I64X)"), cobj->mVarType, cobj->mVal64);
 	return aBuf;

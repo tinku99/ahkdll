@@ -214,17 +214,12 @@ ResultType Line::PixelGetColor(int aX, int aY, LPTSTR aOptions)
 
 ResultType Line::SplashTextOn(int aWidth, int aHeight, LPTSTR aTitle, LPTSTR aText)
 {
+	DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
 	// Add some caption and frame size to window:
 	aWidth += GetSystemMetrics(SM_CXFIXEDFRAME) * 2;
 	int min_height = GetSystemMetrics(SM_CYCAPTION) + (GetSystemMetrics(SM_CXFIXEDFRAME) * 2);
-	if (g_script.mIsAutoIt2)
-	{
-		// I think this is probably something like how AutoIt2 does things:
-		if (aHeight < min_height)
-			aHeight = min_height;
-	}
-	else // Use the new method that seems more friendly.
-		aHeight += min_height;
+	// This method seems more friendly than setting aHeight = min_height when aHeight < min_height.
+	aHeight += min_height;
 
 	POINT pt = CenterWindow(aWidth, aHeight); // Determine how to center the window in the region that excludes the task bar.
 
@@ -429,6 +424,7 @@ ResultType Line::Control(LPTSTR aCmd, LPTSTR aValue, LPTSTR aControl, LPTSTR aTi
 	vk_type vk;
 	int key_count;
 	TCHAR temp_buf[32];
+	DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
 
 	switch(control_cmd)
 	{
@@ -1079,6 +1075,8 @@ ResultType Line::URLDownloadToFile(LPTSTR aURL, LPTSTR aFilespec)
 	// having it return the moment there is any data in the buffer, the program is made more
 	// responsive, especially when the download is very slow and/or one of the hooks is installed:
 	BOOL result;
+	DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
+
 	if (*aURL == 'h' || *aURL == 'H')
 	{
 		while (result = lpfnInternetReadFileEx(hFile, &buffers, IRF_NO_WAIT, NULL)) // Assign
@@ -1714,7 +1712,7 @@ int Line::Util_CopyFile(LPCTSTR szInputSource, LPCTSTR szInputDest, bool bOverwr
 
 	int failure_count = 0;
 	LONG_OPERATION_INIT
-
+	DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
 	do
 	{
 		// Since other script threads can interrupt during LONG_OPERATION_UPDATE, it's important that

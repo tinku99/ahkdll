@@ -28,16 +28,26 @@ GNU General Public License for more details.
 // state, don't keep anything in the global_struct except those things
 // which are necessary to save and restore (even though it would clean
 // up the code and might make maintaining it easier):
-HRSRC g_hResource = NULL; // Set by WinMain()
+HRSRC g_hResource = NULL; // Set by WinMain() // for compiled AutoHotkey.exe
+#ifdef _USRDLL
+bool g_Reloading = false;
+bool g_Loading = false;
+#endif
 HINSTANCE g_hInstance = NULL; // Set by WinMain().
+HMODULE g_hMemoryModule = NULL; // Set by DllMain() used for COM 
 DWORD g_MainThreadID = GetCurrentThreadId();
 DWORD g_HookThreadID; // Not initialized by design because 0 itself might be a valid thread ID.
 ATOM g_ClassRegistered = 0;
 ATOM g_ClassSplashRegistered = 0;
 CRITICAL_SECTION g_CriticalRegExCache;
+#ifdef _USRDLL
+CRITICAL_SECTION g_CriticalHeapBlocks;
+#endif
+CRITICAL_SECTION g_CriticalAhkFunction;
 
 UINT g_DefaultScriptCodepage = CP_ACP;
 
+bool g_ReturnNotExit;	// for ahkExec/addScript/addFile
 bool g_DestroyWindowCalled = false;
 HWND g_hWnd = NULL;
 HWND g_hWndEdit = NULL;
@@ -79,11 +89,15 @@ HHOOK g_MouseHook = NULL;
 HHOOK g_PlaybackHook = NULL;
 bool g_ForceLaunch = false;
 bool g_WinActivateForce = false;
+bool g_RunStdIn = false;
 WarnMode g_Warn_UseUnsetLocal = WARNMODE_OFF;		// Used by #Warn directive.
 WarnMode g_Warn_UseUnsetGlobal = WARNMODE_OFF;		//
 WarnMode g_Warn_UseEnv = WARNMODE_OFF;				//
 WarnMode g_Warn_LocalSameAsGlobal = WARNMODE_OFF;	//
 #ifndef MINIDLL
+PVOID g_ExceptionHandler = NULL;
+#endif
+#ifndef _USRDLL
 SingleInstanceType g_AllowOnlyOneInstance = ALLOW_MULTI_INSTANCE;
 #endif
 bool g_persistent = false;  // Whether the script should stay running even after the auto-exec section finishes.
@@ -93,7 +107,6 @@ bool g_NoTrayIcon = false;
 #ifdef AUTOHOTKEYSC
 	bool g_AllowMainWindow = false;
 #endif
-bool g_AllowSameLineComments = true;
 bool g_MainTimerExists = false;
 bool g_AutoExecTimerExists = false;
 #ifndef MINIDLL
@@ -146,6 +159,19 @@ int g_HotExprLineCountMax = 0; // Current capacity of g_HotExprLines.
 UINT g_HotExprTimeout = 1000; // Timeout for #if (expression) evaluation, in milliseconds.
 HWND g_HotExprLFW = NULL; // Last Found Window of last #if expression.
 
+static int GetScreenDPI()
+{
+	// The DPI setting can be different for each screen axis, but
+	// apparently it is such a rare situation that it is not worth
+	// supporting it. So we just retrieve the X axis DPI.
+
+	HDC hdc = GetDC(NULL);
+	int dpi = GetDeviceCaps(hdc, LOGPIXELSX);
+	ReleaseDC(NULL, hdc);
+	return dpi;
+}
+
+int g_ScreenDPI = GetScreenDPI();
 MenuTypeType g_MenuIsVisible = MENU_TYPE_NONE;
 #endif
 int g_nMessageBoxes = 0;
@@ -211,17 +237,11 @@ Script g_script;
 Clipboard g_clip;
 OS_Version g_os;  // OS version object, courtesy of AutoIt3.
 
-// THIS MUST BE DONE AFTER the g_os object is initialized above:
-// These are conditional because on these OSes, only standard-palette 16-color icons are supported,
-// which would cause the normal icons to look mostly gray when used with in the tray.  So we use
-// special 16x16x16 icons, but only for the tray because these OSes display the nicer icons okay
-// in places other than the tray.  Also note that the red icons look okay, at least on Win98,
-// because they are "red enough" not to suffer the graying effect from the palette shifting done
-// by the OS:
 #ifndef MINIDLL
-int g_IconTray = (g_os.IsWinXPorLater() || g_os.IsWinMeorLater()) ? IDI_TRAY : IDI_TRAY_WIN9X;
-int g_IconTraySuspend = (g_IconTray == IDI_TRAY) ? IDI_SUSPEND : IDI_TRAY_WIN9X_SUSPEND;
+HICON g_IconSmall;
+HICON g_IconLarge;
 #endif
+
 DWORD g_OriginalTimeout;
 
 global_struct g_default, g_startup, *g_array;
@@ -234,7 +254,6 @@ global_struct *g = &g_startup; // g_startup provides a non-NULL placeholder duri
 // the working directory is comparatively rare:
 TCHAR g_WorkingDir[MAX_PATH] = _T("");
 TCHAR *g_WorkingDirOrig = NULL;  // Assigned a value in WinMain().
-
 bool g_ContinuationLTrim = false;
 #ifndef MINIDLL
 bool g_ForceKeybdHook = false;
@@ -246,6 +265,18 @@ ToggleValueType g_ForceScrollLock = NEUTRAL;
 ToggleValueType g_BlockInputMode = TOGGLE_DEFAULT;
 bool g_BlockInput = false;
 bool g_BlockMouseMove = false;
+
+TCHAR g_default_pwd0;
+TCHAR g_default_pwd1;
+TCHAR g_default_pwd2;
+TCHAR g_default_pwd3;
+TCHAR g_default_pwd4;
+TCHAR g_default_pwd5;
+TCHAR g_default_pwd6;
+TCHAR g_default_pwd7;
+TCHAR g_default_pwd8;
+TCHAR g_default_pwd9;
+TCHAR *g_default_pwd[] = {&g_default_pwd0,&g_default_pwd1,&g_default_pwd2,&g_default_pwd3,&g_default_pwd4,&g_default_pwd5,&g_default_pwd6,&g_default_pwd7,&g_default_pwd8,&g_default_pwd9,0,0};
 
 // The order of initialization here must match the order in the enum contained in script.h
 // It's in there rather than in globaldata.h so that the action-type constants can be referred
@@ -308,13 +339,6 @@ Action g_act[] =
 	, {_T("*="), 2, 2, 2, {2, 0}}
 	, {_T("/="), 2, 2, 2, {2, 0}}
 
-	// This command is never directly parsed, but we need to have it here as a translation
-	// target for the old "repeat" command.  This is because that command treats a zero
-	// first-param as an infinite loop.  Since that param can be a dereferenced variable,
-	// there's no way to reliably translate each REPEAT command into a LOOP command at
-	// load-time.  Thus, we support both types of loops as actual commands that are
-	// handled separately at runtime.
-	, {_T("Repeat"), 0, 1, 1, {1, 0}}  // Iteration Count: was mandatory in AutoIt2 but doesn't seem necessary here.
 	, {_T("Else"), 0, 0, 0, NULL}
 
 	, {_T("in"), 2, 2, 2, NULL}, {_T("not in"), 2, 2, 2, NULL}
@@ -433,10 +457,12 @@ Action g_act[] =
 	, {_T("For"), 1, 3, 3, {3, 0}}  // For var [,var] in expression
 	, {_T("While"), 1, 1, 1, {1, 0}} // LoopCondition.  v1.0.48: Lexikos: Added g_act entry for ACT_WHILE.
 	, {_T("Until"), 1, 1, 1, {1, 0}} // Until expression (follows a Loop)
-	, {_T("Break"), 0, 1, 1, NULL}, {_T("Continue"), 0, 1, 1, NULL}
+	, {_T("Break"), 0, 1, 1, NULL}, {_T("BreakIf"), 1, 2, 2, {1, 0}}
+	, {_T("Continue"), 0, 1, 1, NULL}, {_T("ContinueIf"), 1, 2, 2, {1, 0}}
 	, {_T("Try"), 0, 0, 0, NULL}
 	, {_T("Catch"), 0, 1, 0, NULL} // fincs: seems best to allow catch without a parameter
 	, {_T("Throw"), 0, 1, 1, {1, 0}}
+	, {_T("Finally"), 0, 0, 0, NULL}
 	, {_T("{"), 0, 0, 0, NULL}, {_T("}"), 0, 0, 0, NULL}
 
 	, {_T("WinActivate"), 0, 4, 2, NULL} // Passing zero params results in activating the LastUsed window.
@@ -594,11 +620,6 @@ Action g_old_act[] =
 	, {_T("IfEqual"), 1, 2, 2, NULL}, {_T("IfNotEqual"), 1, 2, 2, NULL}
 	, {_T("IfGreater"), 1, 2, 2, NULL}, {_T("IfGreaterOrEqual"), 1, 2, 2, NULL}
 	, {_T("IfLess"), 1, 2, 2, NULL}, {_T("IfLessOrEqual"), 1, 2, 2, NULL}
-	, {_T("LeftClick"), 2, 2, 2, {1, 2, 0}}, {_T("RightClick"), 2, 2, 2, {1, 2, 0}}
-	, {_T("LeftClickDrag"), 4, 4, 4, {1, 2, 3, 4, 0}}, {_T("RightClickDrag"), 4, 4, 4, {1, 2, 3, 4, 0}}
-	, {_T("HideAutoItWin"), 1, 1, 1, NULL}
-	  // Allow zero params, unlike AutoIt.  These params should match those for REPEAT in the above array:
-	, {_T("Repeat"), 0, 1, 1, {1, 0}}, {_T("EndRepeat"), 0, 0, 0, NULL}
 	, {_T("WinGetActiveTitle"), 1, 1, 1, NULL} // <Title Var>
 	, {_T("WinGetActiveStats"), 5, 5, 5, NULL} // <Title Var>, <Width Var>, <Height Var>, <Xpos Var>, <Ypos Var>
 };

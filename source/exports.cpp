@@ -8,38 +8,81 @@ LPTSTR result_to_return_dll; //HotKeyIt H2 for ahkgetvar and ahkFunction return.
 VARIANT variant_to_return_dll;
 // ExprTokenType aResultToken_to_return ;  // for ahkPostFunction
 FuncAndToken aFuncAndTokenToReturn[10] ;    // for ahkPostFunction
-int returnCount = 0 ;
-void TokenToVariant(ExprTokenType &aToken, VARIANT &aVar);
+int returnCount = -1 ;
+void TokenToVariant(ExprTokenType &aToken, VARIANT &aVar, BOOL aVarIsArg);
 
+// Following macros are used in addFile addScript ahkExec
+#ifndef MINIDLL
+// HotExpr code from LoadFromFile, Hotkeys need to be toggled to get activated
+#define FINALIZE_HOTKEYS \
+	if (Hotkey::sHotkeyCount > HotkeyCount)\
+	{\
+		Line::ToggleSuspendState();\
+		Line::ToggleSuspendState();\
+	}
+#define RESTORE_IF_EXPR \
+	for (int expr_line_index = aHotExprLineCount ; expr_line_index < g_HotExprLineCount; ++expr_line_index)\
+	{\
+		Line *line = g_HotExprLines[expr_line_index];\
+		if (!g_script.PreparseBlocks(line))\
+			return NULL;\
+		line->mActionType = ACT_IFEXPR;\
+	}\
+	g_HotExprLineCount = g_HotExprLineCount + aHotExprLineCount;
+#endif
+// AutoHotkey needs to be running at this point
+#define BACKUP_G_SCRIPT \
+	int aFuncCount = g_script.mFuncCount;\
+	int aCurrFileIndex = g_script.mCurrFileIndex, aCombinedLineNumber = g_script.mCombinedLineNumber, aCurrentFuncOpenBlockCount = g_script.mCurrentFuncOpenBlockCount;\
+	bool aNextLineIsFunctionBody = g_script.mNextLineIsFunctionBody;\
+	Line *aFirstLine = g_script.mFirstLine,*aLastLine = g_script.mLastLine,*aCurrLine = g_script.mCurrLine,*aFirstStaticLine = g_script.mFirstStaticLine,*aLastStaticLine = g_script.mLastStaticLine;\
+	g_script.mCurrentFuncOpenBlockCount = NULL;\
+	g_script.mNextLineIsFunctionBody = false;\
+	Func *aCurrFunc  = g->CurrentFunc;\
+	int aClassObjectCount = g_script.mClassObjectCount;\
+	g_script.mClassObjectCount = NULL;\
+	g_script.mFirstStaticLine = NULL;g_script.mLastStaticLine = NULL;\
+	g_script.mFirstLine = NULL;g_script.mLastLine = NULL;\
+	g_script.mIsReadyToExecute = false;\
+	g->CurrentFunc = NULL;
+
+#define RESTORE_G_SCRIPT \
+	g_script.mFirstLine = aFirstLine;\
+	g_script.mLastLine = aLastLine;\
+	g_script.mLastLine->mNextLine = NULL;\
+	g_script.mCurrLine = aCurrLine;\
+	g_script.mClassObjectCount = aClassObjectCount + g_script.mClassObjectCount;\
+	g_script.mCurrFileIndex = aCurrFileIndex;\
+	g_script.mCurrentFuncOpenBlockCount = aCurrentFuncOpenBlockCount;\
+	g_script.mNextLineIsFunctionBody = aNextLineIsFunctionBody;\
+	g_script.mCombinedLineNumber = aCombinedLineNumber;
 #ifdef _USRDLL
 #ifndef MINIDLL
 //COM virtual functions
-BOOL com_ahkPause(LPTSTR aChangeTo){return ahkPause(aChangeTo);}
+int com_ahkPause(LPTSTR aChangeTo){return ahkPause(aChangeTo);}
 UINT_PTR com_ahkFindLabel(LPTSTR aLabelName){return ahkFindLabel(aLabelName);}
 // LPTSTR com_ahkgetvar(LPTSTR name,unsigned int getVar){return ahkgetvar(name,getVar);}
 // unsigned int com_ahkassign(LPTSTR name, LPTSTR value){return ahkassign(name,value);}
 UINT_PTR com_ahkExecuteLine(UINT_PTR line,unsigned int aMode,unsigned int wait){return ahkExecuteLine(line,aMode,wait);}
-BOOL com_ahkLabel(LPTSTR aLabelName, unsigned int nowait){return ahkLabel(aLabelName,nowait);}
+int com_ahkLabel(LPTSTR aLabelName, unsigned int nowait){return ahkLabel(aLabelName,nowait);}
 UINT_PTR com_ahkFindFunc(LPTSTR funcname){return ahkFindFunc(funcname);}
 // LPTSTR com_ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR param3, LPTSTR param4, LPTSTR param5, LPTSTR param6, LPTSTR param7, LPTSTR param8, LPTSTR param9, LPTSTR param10){return ahkFunction(func,param1,param2,param3,param4,param5,param6,param7,param8,param9,param10);}
 // unsigned int com_ahkPostFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR param3, LPTSTR param4, LPTSTR param5, LPTSTR param6, LPTSTR param7, LPTSTR param8, LPTSTR param9, LPTSTR param10){return ahkPostFunction(func,param1,param2,param3,param4,param5,param6,param7,param8,param9,param10);}
 #ifndef AUTOHOTKEYSC
-UINT_PTR com_addScript(LPTSTR script, int aExecute){return addScript(script,aExecute);}
-BOOL com_ahkExec(LPTSTR script){return ahkExec(script);}
-UINT_PTR com_addFile(LPTSTR fileName, bool aAllowDuplicateInclude, int aIgnoreLoadFailure){return addFile(fileName,aAllowDuplicateInclude,aIgnoreLoadFailure);}
+UINT_PTR com_addScript(LPTSTR script, int waitexecute){return addScript(script,waitexecute);}
+int com_ahkExec(LPTSTR script){return ahkExec(script);}
+UINT_PTR com_addFile(LPTSTR fileName, int waitexecute){return addFile(fileName,waitexecute);}
 #endif
-#ifdef _USRDLL
 UINT_PTR com_ahkdll(LPTSTR fileName,LPTSTR argv,LPTSTR args){return ahkdll(fileName,argv,args);}
 UINT_PTR com_ahktextdll(LPTSTR script,LPTSTR argv,LPTSTR args){return ahktextdll(script,argv,args);}
-BOOL com_ahkTerminate(int timeout){return ahkTerminate(timeout);}
-BOOL com_ahkReady(){return ahkReady();}
-BOOL com_ahkIsUnicode(){return ahkIsUnicode();}
-BOOL com_ahkReload(int timeout){return ahkReload(timeout);}
-#endif
+int com_ahkTerminate(int timeout){return ahkTerminate(timeout);}
+int com_ahkReady(){return ahkReady();}
+int com_ahkIsUnicode(){return ahkIsUnicode();}
+int com_ahkReload(int timeout){return ahkReload(timeout);}
 #endif
 #endif
 
-EXPORT BOOL ahkIsUnicode()
+EXPORT int ahkIsUnicode()
 {
 #ifdef UNICODE
 	return true;
@@ -48,8 +91,10 @@ EXPORT BOOL ahkIsUnicode()
 #endif
 }
 
-EXPORT BOOL ahkPause(LPTSTR aChangeTo) //Change pause state of a running script
+EXPORT int ahkPause(LPTSTR aChangeTo) //Change pause state of a running script
 {
+	if (!g_script.mIsReadyToExecute)
+		return 0; // AutoHotkey needs to be running at this point //
 
 	if ( (((int)aChangeTo == 1 || (int)aChangeTo == 0) || (*aChangeTo == 'O' || *aChangeTo == 'o') && ( *(aChangeTo+1) == 'N' || *(aChangeTo+1) == 'n' ) ) || *aChangeTo == '1')
 	{
@@ -89,36 +134,52 @@ EXPORT UINT_PTR ahkFindFunc(LPTSTR funcname)
 
 EXPORT UINT_PTR ahkFindLabel(LPTSTR aLabelName)
 {
+	if (!g_script.mIsReadyToExecute)
+		return 0; // AutoHotkey needs to be running at this point //
 	return (UINT_PTR)g_script.FindLabel(aLabelName);
 }
-
-EXPORT int ximportfunc(ahkx_int_str func1, ahkx_int_str func2, ahkx_int_str_str func3) // Naveen ahkx N11
-{
-    g_script.xifwinactive = func1 ;
-    g_script.xwingetid  = func2 ;
-    g_script.xsend = func3;
-    return 0;
-}
-
 
 // Naveen: v1. ahkgetvar()
 EXPORT LPTSTR ahkgetvar(LPTSTR name,unsigned int getVar)
 {
+	if (!g_script.mIsReadyToExecute)
+		return 0; // AutoHotkey needs to be running at this point //
 	Var *ahkvar = g_script.FindOrAddVar(name);
 	if (getVar != NULL)
 	{
 		if (ahkvar->mType == VAR_BUILTIN)
 			return _T("");
-		result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,MAX_INTEGER_LENGTH);
+		LPTSTR new_mem = (LPTSTR)realloc((LPTSTR )result_to_return_dll,MAX_INTEGER_LENGTH);
+		if (!new_mem)
+		{
+			g_script.ScriptError(ERR_OUTOFMEM, name);
+			return _T("");
+		}
+		result_to_return_dll = new_mem;
 		return ITOA64((int)ahkvar,result_to_return_dll);
 	}
-	if (!ahkvar->HasContents() && ahkvar->mType != VAR_BUILTIN )
+	if (ahkvar->mType != VAR_BUILTIN && !ahkvar->HasContents() )
 		return _T("");
 	if (*ahkvar->mCharContents == '\0')
 	{
-		result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,(ahkvar->mByteCapacity ? ahkvar->mByteCapacity : ahkvar->mByteLength) + MAX_NUMBER_LENGTH + sizeof(TCHAR));
+		LPTSTR new_mem = (LPTSTR )realloc((LPTSTR )result_to_return_dll,(ahkvar->mType == VAR_BUILTIN ? ahkvar->mBIV(0,name) : ahkvar->mByteCapacity ? ahkvar->mByteCapacity : ahkvar->mByteLength) + MAX_NUMBER_LENGTH + sizeof(TCHAR));
+		if (!new_mem)
+		{
+			g_script.ScriptError(ERR_OUTOFMEM, name);
+			return _T("");
+		}
+		result_to_return_dll = new_mem;
 		if ( ahkvar->mType == VAR_BUILTIN )
-			ahkvar->mBIV(result_to_return_dll,name); //Hotkeyit 
+		{
+			if (ahkvar->mBIV == BIV_IsPaused)
+			{
+				++g; // imitate new thread for A_IsPaused
+				ahkvar->mBIV(result_to_return_dll,name); //Hotkeyit 
+				--g;
+			}
+			else
+				ahkvar->mBIV(result_to_return_dll,name); //Hotkeyit 
+		}
 		else if ( ahkvar->mType == VAR_ALIAS )
 			ITOA64(ahkvar->mAliasFor->mContentsInt64,result_to_return_dll);
 		else if ( ahkvar->mType == VAR_NORMAL )
@@ -126,7 +187,13 @@ EXPORT LPTSTR ahkgetvar(LPTSTR name,unsigned int getVar)
 	}
 	else
 	{
-		result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,ahkvar->mByteLength + sizeof(TCHAR));
+		LPTSTR new_mem = (LPTSTR )realloc((LPTSTR )result_to_return_dll,ahkvar->mType == VAR_BUILTIN ? ahkvar->mBIV(0,name) : ahkvar->mByteLength + sizeof(TCHAR));
+		if (!new_mem)
+		{
+			g_script.ScriptError(ERR_OUTOFMEM, name);
+			return _T("");
+		}
+		result_to_return_dll = new_mem;
 		if ( ahkvar->mType == VAR_ALIAS )
 			ahkvar->mAliasFor->Get(result_to_return_dll); //Hotkeyit removed ebiv.cpp and made ahkgetvar return all vars
  		else if ( ahkvar->mType == VAR_NORMAL )
@@ -137,8 +204,10 @@ EXPORT LPTSTR ahkgetvar(LPTSTR name,unsigned int getVar)
 	return result_to_return_dll;
 }	
 
-EXPORT unsigned int ahkassign(LPTSTR name, LPTSTR value) // ahkwine 0.1
+EXPORT int ahkassign(LPTSTR name, LPTSTR value) // ahkwine 0.1
 {
+	if (!g_script.mIsReadyToExecute)
+		return 0; // AutoHotkey needs to be running at this point //
 	Var *var;
 	if (   !(var = g_script.FindOrAddVar(name, _tcslen(name)))   )
 		return -1;  // Realistically should never happen.
@@ -148,6 +217,8 @@ EXPORT unsigned int ahkassign(LPTSTR name, LPTSTR value) // ahkwine 0.1
 //HotKeyIt ahkExecuteLine()
 EXPORT UINT_PTR ahkExecuteLine(UINT_PTR line,unsigned int aMode,unsigned int wait)
 {
+	if (!g_script.mIsReadyToExecute)
+		return 0; // AutoHotkey needs to be running at this point //
 	Line *templine = (Line *)line;
 	if (templine == NULL)
 		return (UINT_PTR)g_script.mFirstLine;
@@ -168,8 +239,10 @@ EXPORT UINT_PTR ahkExecuteLine(UINT_PTR line,unsigned int aMode,unsigned int wai
 	return (UINT_PTR) templine;
 }
 
-EXPORT BOOL ahkLabel(LPTSTR aLabelName, unsigned int nowait) // 0 = wait = default
+EXPORT int ahkLabel(LPTSTR aLabelName, unsigned int nowait) // 0 = wait = default
 {
+	if (!g_script.mIsReadyToExecute)
+		return 0; // AutoHotkey needs to be running at this point //
 	Label *aLabel = g_script.FindLabel(aLabelName) ;
 	if (aLabel)
 	{
@@ -183,53 +256,103 @@ EXPORT BOOL ahkLabel(LPTSTR aLabelName, unsigned int nowait) // 0 = wait = defau
 		return 0;
 }
 
-EXPORT unsigned int ahkPostFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR param3, LPTSTR param4, LPTSTR param5, LPTSTR param6, LPTSTR param7, LPTSTR param8, LPTSTR param9, LPTSTR param10)
+EXPORT int ahkPostFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR param3, LPTSTR param4, LPTSTR param5, LPTSTR param6, LPTSTR param7, LPTSTR param8, LPTSTR param9, LPTSTR param10)
 {
+	if (!g_script.mIsReadyToExecute)
+		return 0; // AutoHotkey needs to be running at this point //
 	Func *aFunc = g_script.FindFunc(func) ;
 	if (aFunc)
 	{	
-		int aParamCount = 0;
 		int aParamsCount = 0;
-		LPTSTR *params[10];
-		params[0]=&param1;params[1]=&param2;params[2]=&param3;params[3]=&param4;params[4]=&param5;
-		params[5]=&param6;params[6]=&param7;params[7]=&param8;params[8]=&param9;params[9]=&param10;
-		for (int i=0;i < 10;i++)
+		LPTSTR *params[10] = {&param1,&param2,&param3,&param4,&param5,&param6,&param7,&param8,&param9,&param10};
+		for (;aParamsCount < 10;aParamsCount++)
+			if (!*params[aParamsCount])
+				break;
+		if (aParamsCount < aFunc->mMinParams)
 		{
-			if (*params[i] && _tcscmp(*params[i],_T("")))
-				aParamsCount++;
+			g_script.ScriptError(ERR_TOO_FEW_PARAMS);
+			return -1;
 		}
 		if(aFunc->mIsBuiltIn)
 		{
+			EnterCriticalSection(&g_CriticalAhkFunction);
 			ResultType aResult = OK;
-			ExprTokenType aResultToken;
-			ExprTokenType **aParam = (ExprTokenType**)_alloca(sizeof(ExprTokenType)*10);
-			for (;aFunc->mParamCount > aParamCount && aParamsCount>aParamCount;aParamCount++)
+			if (++returnCount > 9)
+				returnCount = 0 ;
+			FuncAndToken & aFuncAndToken = aFuncAndTokenToReturn[returnCount];
+			if (aParamsCount)
 			{
-				aParam[aParamCount] = (ExprTokenType*)_alloca(sizeof(ExprTokenType));
-				aParam[aParamCount]->symbol = SYM_OPERAND;aParam[aParamCount]->marker = *params[aParamCount]; // Assign parameters
+				ExprTokenType **new_mem = (ExprTokenType**)realloc(aFuncAndToken.param,sizeof(ExprTokenType)*aParamsCount);
+				if (!new_mem)
+				{
+					g_script.ScriptError(ERR_OUTOFMEM,func);
+					LeaveCriticalSection(&g_CriticalAhkFunction);
+					return -1;
+				}
+				aFuncAndToken.param = new_mem;
 			}
-			aResultToken.symbol = SYM_INTEGER;
-			aResultToken.marker = aFunc->mName;
-			aFunc->mBIF(aResult,aResultToken,aParam,aParamCount);
+			else
+				aFuncAndToken.param = NULL;
+			for (int i = 0;aFunc->mParamCount > i && aParamsCount>i;i++)
+			{
+				aFuncAndToken.param[i] = &aFuncAndToken.params[i];
+				aFuncAndToken.param[i]->symbol = SYM_STRING;
+				aFuncAndToken.params[i].marker = *params[i]; // Assign parameters
+			}
+			aFuncAndToken.mToken.symbol = SYM_INTEGER;
+			LPTSTR new_buf = (LPTSTR)realloc(aFuncAndToken.buf,MAX_NUMBER_SIZE * sizeof(TCHAR));
+			if (!new_buf)
+			{
+				g_script.ScriptError(ERR_OUTOFMEM, func);
+				LeaveCriticalSection(&g_CriticalAhkFunction);
+				return -1;
+			}
+			aFuncAndToken.buf = new_buf;
+			aFuncAndToken.mToken.buf = aFuncAndToken.buf;
+			aFuncAndToken.mToken.marker = aFunc->mName;
+			
+			aFunc->mBIF(aResult,aFuncAndToken.mToken,aFuncAndToken.param,aParamsCount);
+			LeaveCriticalSection(&g_CriticalAhkFunction);
 			return 0;
 		}
 		else
 		{
-
-			FuncAndToken & aFuncAndToken = aFuncAndTokenToReturn[returnCount];
-			aFuncAndToken.mParamCount = aParamsCount;
-			for (int i = 0;i < aParamsCount;i++)
-			{
-				aFuncAndToken.param[i] = (LPTSTR)realloc(aFuncAndToken.param[i],(_tcslen(*params[i])+1)*sizeof(TCHAR));
-				_tcscpy(aFuncAndToken.param[i],*params[i]);
-			}
-			//for (;aFunc->mParamCount > aParamCount && aParamsCount>aParamCount;aParamCount++)
-			//	aFunc->mParam[aParamCount].var->AssignString(*params[aParamCount]);
-			aFuncAndToken.mFunc = aFunc ;
-			returnCount++ ;
-			if (returnCount > 9)
+			EnterCriticalSection(&g_CriticalAhkFunction);
+			if (++returnCount > 9)
 				returnCount = 0 ;
+			FuncAndToken & aFuncAndToken = aFuncAndTokenToReturn[returnCount];
+			if (aParamsCount)
+			{
+				ExprTokenType **new_mem = (ExprTokenType**)realloc(aFuncAndToken.param,sizeof(ExprTokenType)*aParamsCount);
+				if (!new_mem)
+				{
+					g_script.ScriptError(ERR_OUTOFMEM,func);
+					LeaveCriticalSection(&g_CriticalAhkFunction);
+					return -1;
+				}
+				aFuncAndToken.param = new_mem;
+			}
+			else
+				aFuncAndToken.param = NULL;
+			aFuncAndToken.mParamCount = aFunc->mParamCount < aParamsCount ? aFunc->mParamCount : aParamsCount;
+			LPTSTR new_buf;
+			for (int i = 0;(aFunc->mParamCount > i || aFunc->mIsVariadic) && aParamsCount>i;i++)
+			{
+				aFuncAndToken.param[i] = &aFuncAndToken.params[i];
+				aFuncAndToken.param[i]->symbol = SYM_STRING;
+				new_buf = (LPTSTR)realloc(aFuncAndToken.param[i]->marker,(_tcslen(*params[i])+1)*sizeof(TCHAR));
+				if (!new_buf)
+				{
+					g_script.ScriptError(ERR_OUTOFMEM, func);
+					LeaveCriticalSection(&g_CriticalAhkFunction);
+					return -1;
+				}
+				aFuncAndToken.param[i]->marker = new_buf;
+				_tcscpy(aFuncAndToken.param[i]->marker,*params[i]); // Assign parameters
+			}
+			aFuncAndToken.mFunc = aFunc ;
 			PostMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&aFuncAndToken,NULL);
+			LeaveCriticalSection(&g_CriticalAhkFunction);
 			return 0;
 		}
 	} 
@@ -238,185 +361,197 @@ EXPORT unsigned int ahkPostFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, L
 }
 
 #ifndef AUTOHOTKEYSC
-// Finalize addFile/addScript/ahkExec
-BOOL FinalizeScript(Line *aFirstLine,int aFuncCount,int aHotkeyCount)
-{
-#ifndef MINIDLL
-	if (Hotkey::sHotkeyCount > aHotkeyCount)
-	{
-		Line::ToggleSuspendState();
-		Line::ToggleSuspendState();
-	}
-#endif
-	if (!(g_script.AddLine(ACT_RETURN) && g_script.AddLine(ACT_RETURN))) // Second return guaranties non-NULL mRelatedLine(s).
-		return LOADING_FAILED;
-	// Check for any unprocessed static initializers:
-	if (g_script.mFirstStaticLine)
-	{
-		if (!g_script.PreparseBlocks(g_script.mFirstStaticLine))
-			return LOADING_FAILED;
-		// Prepend all Static initializers to the end of script.
-		g_script.mLastLine->mNextLine = g_script.mFirstStaticLine;
-		g_script.mLastLine = g_script.mLastStaticLine;
-		if (!g_script.AddLine(ACT_RETURN))
-			return LOADING_FAILED;
-	}
-	// Scan for undeclared local variables which are named the same as a global variable.
-	// This loop has two purposes (but it's all handled in PreprocessLocalVars()):
-	//
-	//  1) Allow super-global variables to be referenced above the point of declaration.
-	//     This is a bit of a hack to work around the fact that variable references are
-	//     resolved as they are encountered, before all declarations have been processed.
-	//
-	//  2) Warn the user (if appropriate) since they probably meant it to be global.
-	//
-	for (int i = 0; i < g_script.mFuncCount; ++i)
-	{
-		Func &func = *g_script.mFunc[i];
-		if (!func.mIsBuiltIn)
-		{
-			g_script.PreprocessLocalVars(func, func.mVar, func.mVarCount);
-			g_script.PreprocessLocalVars(func, func.mStaticVar, func.mStaticVarCount);
-			g_script.PreprocessLocalVars(func, func.mLazyVar, func.mLazyVarCount);
-			g_script.PreprocessLocalVars(func, func.mStaticLazyVar, func.mStaticLazyVarCount);
-		}
-	}
-
-	if (!g_script.PreparseIfElse(aFirstLine))
-		return LOADING_FAILED;
-	if (g_script.mFirstStaticLine)
-		SendMessage(g_hWnd, AHK_EXECUTE, (WPARAM)g_script.mFirstStaticLine, (LPARAM)NULL);
-	return 0;
-}
 // Naveen: v6 addFile()
 // Todo: support for #Directives, and proper treatment of mIsReadytoExecute
-EXPORT UINT_PTR addFile(LPTSTR fileName, bool aAllowDuplicateInclude, int aIgnoreLoadFailure)
+EXPORT UINT_PTR addFile(LPTSTR fileName, int waitexecute)
 {   // dynamically include a file into a script !!
 	// labels, hotkeys, functions.   
-	Func * aFunc = NULL ; 
-	int inFunc = 0 ;
+	if (!g_script.mIsReadyToExecute)
+		return 0; // AutoHotkey needs to be running at this point // LOADING_FAILED cant be used due to PTR return type
 #ifndef MINIDLL
 	int HotkeyCount = Hotkey::sHotkeyCount;
-#else
-	int HotkeyCount = NULL;
+	int aHotExprLineCount = g_HotExprLineCount;
 #endif
-	if (g->CurrentFunc)  // normally functions definitions are not allowed within functions.  But we're in a function call, not a function definition right now.
+#ifdef _USRDLL
+	g_Loading = true;
+#endif
+	BACKUP_G_SCRIPT
+	LPTSTR oldFileSpec = g_script.mFileSpec;
+	g_script.mFileSpec = fileName;
+	if (g_script.LoadFromFile(false)!= OK) //fileName, aAllowDuplicateInclude, (bool) aIgnoreLoadFailure) != OK) || !g_script.PreparseBlocks(oldLastLine->mNextLine))
 	{
-		aFunc = g->CurrentFunc; 
-		g->CurrentFunc = NULL ; 
-		inFunc = 1 ;
-	}
-	Line *oldLastLine = g_script.mLastLine;
-	int aFuncCount = g_script.mFuncCount;
-	// FirstStaticLine is used only once and therefor can be reused
-	g_script.mFirstStaticLine = NULL;
-	g_script.mLastStaticLine = NULL;
-
-	if ((g_script.LoadIncludedFile(fileName, aAllowDuplicateInclude, (bool) aIgnoreLoadFailure) != OK) || !g_script.PreparseBlocks(oldLastLine->mNextLine))
-	{
-		if (inFunc == 1 )
-			g->CurrentFunc = aFunc ; 
-		return LOADING_FAILED;
+		g_script.mFileSpec = oldFileSpec;				// Restore script path
+		g->CurrentFunc = aCurrFunc;						// Restore current function
+		RESTORE_G_SCRIPT
+#ifndef MINIDLL
+		RESTORE_IF_EXPR
+#endif
+		g_script.mIsReadyToExecute = true; // Set program to be ready for continuing previous script.
+#ifdef _USRDLL
+		g_Loading = false;
+#endif
+		return 0; // LOADING_FAILED cant be used due to PTR return type
 	}	
-	if (FinalizeScript(oldLastLine->mNextLine,aFuncCount,HotkeyCount))
-		return LOADING_FAILED;
-	if (aIgnoreLoadFailure > 1)
+	g_script.mFileSpec = oldFileSpec;
+#ifndef MINIDLL
+	FINALIZE_HOTKEYS
+	RESTORE_IF_EXPR
+#endif
+	g_script.mIsReadyToExecute = true;
+#ifdef _USRDLL
+	g_Loading = false;
+#endif
+	g->CurrentFunc = aCurrFunc;
+	if (waitexecute != 0)
 	{
-		if (aIgnoreLoadFailure > 2)
-			SendMessage(g_hWnd, AHK_EXECUTE, (WPARAM)oldLastLine->mNextLine, (LPARAM)NULL);
+		if (waitexecute == 1)
+		{
+			g_ReturnNotExit = true;
+			SendMessage(g_hWnd, AHK_EXECUTE, (WPARAM)g_script.mFirstLine, (LPARAM)NULL);
+			g_ReturnNotExit = false;
+		}
 		else
-			PostMessage(g_hWnd, AHK_EXECUTE, (WPARAM)oldLastLine->mNextLine, (LPARAM)NULL);
+			PostMessage(g_hWnd, AHK_EXECUTE, (WPARAM)g_script.mFirstLine, (LPARAM)NULL);
+		g_ReturnNotExit = false;
 	}
-    if (inFunc == 1 )
-		g->CurrentFunc = aFunc ;
-	return (UINT_PTR) oldLastLine->mNextLine;
+	else
+	{  // Static init lines need always to run
+		Line *tempstatic = NULL;
+		while (tempstatic != g_script.mLastStaticLine)
+		{
+			if (tempstatic == NULL)
+				tempstatic = g_script.mFirstStaticLine;
+			else
+				tempstatic = tempstatic->mNextLine;
+			SendMessage(g_hWnd, AHK_EXECUTE, (WPARAM)tempstatic, (LPARAM)ONLY_ONE_LINE);
+		}
+	}
+	Line *aTempLine = g_script.mFirstLine; // required for return
+	RESTORE_G_SCRIPT
+	return (UINT_PTR) aTempLine;
 }
 
 // HotKeyIt: addScript()
 // Todo: support for #Directives, and proper treatment of mIsReadytoExecute
-EXPORT UINT_PTR addScript(LPTSTR script, int aExecute)
+EXPORT UINT_PTR addScript(LPTSTR script, int waitexecute)
 {   // dynamically include a script from text!!
-	// labels, hotkeys, functions.   
-	Func * aFunc = NULL ; 
-	int inFunc = 0 ;
+	// labels, hotkeys, functions.
+	if (!g_script.mIsReadyToExecute)
+		return 0; // AutoHotkey needs to be running at this point // LOADING_FAILED cant be used due to PTR return type
 #ifndef MINIDLL
 	int HotkeyCount = Hotkey::sHotkeyCount;
-#else
-	int HotkeyCount = NULL;
+	int aHotExprLineCount = g_HotExprLineCount;
 #endif
-	if (g->CurrentFunc)  // normally functions definitions are not allowed within functions.  But we're in a function call, not a function definition right now.
-	{
-		aFunc = g->CurrentFunc; 
-		g->CurrentFunc = NULL ; 
-		inFunc = 1 ;
-	}
-	Line *oldLastLine = g_script.mLastLine;
-	int aFuncCount = g_script.mFuncCount;
-	// FirstStaticLine is used only once and therefor can be reused
-	g_script.mFirstStaticLine = NULL;
-	g_script.mLastStaticLine = NULL;
 
-	if ((g_script.LoadIncludedText(script) != OK) || !g_script.PreparseBlocks(oldLastLine->mNextLine))
+	LPCTSTR aPathToShow = g_script.mCurrLine->mArg ? g_script.mCurrLine->mArg->text : g_script.mFileSpec;
+#ifdef _USRDLL
+	g_Loading = true;
+#endif
+	BACKUP_G_SCRIPT
+	if (g_script.LoadFromText(script,aPathToShow, false) != OK) // || !g_script.PreparseBlocks(oldLastLine->mNextLine)))
 	{
-		if (inFunc == 1 )
-			g->CurrentFunc = aFunc ; 
-		return LOADING_FAILED;
+		g->CurrentFunc = aCurrFunc;
+		RESTORE_G_SCRIPT
+#ifndef MINIDLL
+		RESTORE_IF_EXPR
+#endif
+		g_script.mIsReadyToExecute = true;
+#ifdef _USRDLL
+		g_Loading = false;
+#endif
+		return 0;  // LOADING_FAILED cant be used due to PTR return type
 	}
-	if (FinalizeScript(oldLastLine->mNextLine,aFuncCount,HotkeyCount))
-		return LOADING_FAILED;
-	if (aExecute > 0)
+#ifndef MINIDLL
+	FINALIZE_HOTKEYS
+	RESTORE_IF_EXPR
+#endif
+	g_script.mIsReadyToExecute = true;
+#ifdef _USRDLL
+	g_Loading = false;
+#endif
+	g->CurrentFunc = aCurrFunc;
+	if (waitexecute != 0)
 	{
-		if (aExecute > 1)
-			SendMessage(g_hWnd, AHK_EXECUTE, (WPARAM)oldLastLine->mNextLine, (LPARAM)NULL);
+		if (waitexecute == 1)
+		{
+			g_ReturnNotExit = true;
+			SendMessage(g_hWnd, AHK_EXECUTE, (WPARAM)g_script.mFirstLine, (LPARAM)NULL);
+			g_ReturnNotExit = false;
+		}
 		else
-			PostMessage(g_hWnd, AHK_EXECUTE, (WPARAM)oldLastLine->mNextLine, (LPARAM)NULL);
+			PostMessage(g_hWnd, AHK_EXECUTE, (WPARAM)g_script.mFirstLine, (LPARAM)NULL);
 	}
-	if (inFunc == 1 )
-		g->CurrentFunc = aFunc ;
-	return (UINT_PTR) oldLastLine->mNextLine;
+	else
+	{  // Static init lines need always to run
+		Line *tempstatic = NULL;
+		while (tempstatic != g_script.mLastStaticLine)
+		{
+			if (tempstatic == NULL)
+				tempstatic = g_script.mFirstStaticLine;
+			else
+				tempstatic = tempstatic->mNextLine;
+			SendMessage(g_hWnd, AHK_EXECUTE, (WPARAM)tempstatic, (LPARAM)ONLY_ONE_LINE);
+		}
+	}
+	Line *aTempLine = g_script.mFirstLine;
+	RESTORE_G_SCRIPT
+	return (UINT_PTR) aTempLine;
 }
 #endif // AUTOHOTKEYSC
 
 #ifndef AUTOHOTKEYSC
 // Todo: support for #Directives, and proper treatment of mIsReadytoExecute
-EXPORT BOOL ahkExec(LPTSTR script)
+EXPORT int ahkExec(LPTSTR script)
 {   // dynamically include a script from text!!
-	// labels, hotkeys, functions.   
-	Func * aFunc = NULL ; 
-	int inFunc = 0 ;
-	if (g->CurrentFunc)  // normally functions definitions are not allowed within functions.  But we're in a function call, not a function definition right now.
+	// labels, hotkeys, functions
+	if (!g_script.mIsReadyToExecute)
+		return 0; // AutoHotkey needs to be running at this point // LOADING_FAILED cant be used due to PTR return type.
+#ifndef MINIDLL
+	int HotkeyCount = Hotkey::sHotkeyCount;
+	int aHotExprLineCount = g_HotExprLineCount;
+#endif
+#ifdef _USRDLL
+	g_Loading = true;
+#endif
+	BACKUP_G_SCRIPT
+	int aSourceFileIdx = Line::sSourceFileCount;
+	if ((g_script.LoadFromText(script, NULL, false) != OK)) // || !g_script.PreparseBlocks(oldLastLine->mNextLine))
 	{
-		aFunc = g->CurrentFunc; 
-		g->CurrentFunc = NULL ; 
-		inFunc = 1 ;
+		g->CurrentFunc = aCurrFunc;
+		RESTORE_G_SCRIPT
+#ifndef MINIDLL
+		RESTORE_IF_EXPR
+#endif
+		g_script.mIsReadyToExecute = true;
+#ifdef _USRDLL
+		g_Loading = false;
+#endif
+		return NULL;
 	}
-	Line *oldLastLine = g_script.mLastLine;
-	// FirstStaticLine is used only once and therefor can be reused
-	g_script.mFirstStaticLine = NULL;
-	g_script.mLastStaticLine = NULL;
-	int aFuncCount = g_script.mFuncCount;
-	
-	if ((g_script.LoadIncludedText(script) != OK) || !g_script.PreparseBlocks(oldLastLine->mNextLine))
+#ifndef MINIDLL
+	FINALIZE_HOTKEYS
+	RESTORE_IF_EXPR
+#endif
+	g_script.mIsReadyToExecute = true;
+#ifdef _USRDLL
+	g_Loading = false;
+#endif
+	g->CurrentFunc = aCurrFunc;
+	Line *aTempLine = g_script.mLastLine;
+	Line *aExecLine = g_script.mFirstLine;
+	RESTORE_G_SCRIPT
+	g_ReturnNotExit = true;
+	SendMessage(g_hWnd, AHK_EXECUTE, (WPARAM)aExecLine, (LPARAM)NULL);
+	g_ReturnNotExit = false;
+	Line *prevLine = aTempLine->mPrevLine;
+	for(; prevLine; prevLine = prevLine->mPrevLine)
 	{
-		if (inFunc == 1 )
-			g->CurrentFunc = aFunc;
-		return LOADING_FAILED;
-	}
-	if (FinalizeScript(oldLastLine->mNextLine,aFuncCount,UINT_MAX))
-		return LOADING_FAILED;
-
-	SendMessage(g_hWnd, AHK_EXECUTE, (WPARAM)oldLastLine->mNextLine, (LPARAM)NULL);
-	
-	if (inFunc == 1 )
-		g->CurrentFunc = aFunc ;
-	Line *prevLine = g_script.mLastLine->mPrevLine;
-	for(; prevLine != oldLastLine; prevLine = prevLine->mPrevLine)
-	{
+		prevLine->mNextLine->FreeDerefBufIfLarge();
 		delete prevLine->mNextLine;
 	}
-	free(Line::sSourceFile[Line::sSourceFileCount - 1]);
-	--Line::sSourceFileCount;
-	oldLastLine->mNextLine = NULL; 
+	for (;Line::sSourceFileCount>aSourceFileIdx;)
+		if (Line::sSourceFile[--Line::sSourceFileCount] != g_script.mOurEXE)
+			free(Line::sSourceFile[Line::sSourceFileCount]);
 	return OK;
 }
 #endif // AUTOHOTKEYSC
@@ -455,84 +590,173 @@ LPTSTR FuncTokenToString(ExprTokenType &aToken, LPTSTR aBuf)
 
 EXPORT LPTSTR ahkFunction(LPTSTR func, LPTSTR param1, LPTSTR param2, LPTSTR param3, LPTSTR param4, LPTSTR param5, LPTSTR param6, LPTSTR param7, LPTSTR param8, LPTSTR param9, LPTSTR param10)
 {
+	if (!g_script.mIsReadyToExecute)
+		return 0; // AutoHotkey needs to be running at this point //
 	Func *aFunc = g_script.FindFunc(func) ;
 	if (aFunc)
 	{	
-		int aParamCount = 0;
 		int aParamsCount = 0;
-		LPTSTR *params[10];
-		params[0]=&param1;params[1]=&param2;params[2]=&param3;params[3]=&param4;params[4]=&param5;
-		params[5]=&param6;params[6]=&param7;params[7]=&param8;params[8]=&param9;params[9]=&param10;
-		for (int i=0;i<10;i++)
+		LPTSTR *params[10] = {&param1,&param2,&param3,&param4,&param5,&param6,&param7,&param8,&param9,&param10};
+		for (;aParamsCount < 10;aParamsCount++)
+			if (!*params[aParamsCount])
+				break;
+		if (aParamsCount < aFunc->mMinParams)
 		{
-			if (*params[i] && _tcscmp(*params[i],_T("")))
-				aParamsCount++;
+			g_script.ScriptError(ERR_TOO_FEW_PARAMS);
+			return _T("");
 		}
 		if(aFunc->mIsBuiltIn)
 		{
 			ResultType aResult = OK;
-			ExprTokenType aResultToken;
-			ExprTokenType **aParam = (ExprTokenType**)_alloca(sizeof(ExprTokenType)*10);
-			for (;aFunc->mParamCount > aParamCount && aParamsCount>aParamCount;aParamCount++)
+			EnterCriticalSection(&g_CriticalAhkFunction);
+			if (++returnCount > 9)
+				returnCount = 0 ;
+			FuncAndToken & aFuncAndToken = aFuncAndTokenToReturn[returnCount];
+			if (aParamsCount)
 			{
-				aParam[aParamCount] = (ExprTokenType*)_alloca(sizeof(ExprTokenType));
-				aParam[aParamCount]->symbol = SYM_OPERAND;aParam[aParamCount]->marker = *params[aParamCount]; // Assign parameters
+				ExprTokenType **new_mem = (ExprTokenType**)realloc(aFuncAndToken.param,sizeof(ExprTokenType)*aParamsCount);
+				if (!new_mem)
+				{
+					g_script.ScriptError(ERR_OUTOFMEM,func);
+					LeaveCriticalSection(&g_CriticalAhkFunction);
+					return _T("");
+				}
+				aFuncAndToken.param = new_mem;
 			}
-			aResultToken.symbol = SYM_INTEGER;
-			aResultToken.marker = aFunc->mName;
-			aFunc->mBIF(aResult,aResultToken,aParam,aParamCount);
-			switch (aResultToken.symbol)
+			else
+				aFuncAndToken.param = NULL;
+			for (int i = 0;aFunc->mParamCount > i && aParamsCount>i;i++)
+			{
+				aFuncAndToken.param[i] = &aFuncAndToken.params[i];
+				aFuncAndToken.param[i]->symbol = SYM_STRING;
+				aFuncAndToken.params[i].marker = *params[i]; // Assign parameters
+			}
+			aFuncAndToken.mToken.symbol = SYM_INTEGER;
+			LPTSTR new_buf = (LPTSTR)realloc(aFuncAndToken.buf,MAX_NUMBER_SIZE * sizeof(TCHAR));
+			if (!new_buf)
+			{
+				g_script.ScriptError(ERR_OUTOFMEM,func);
+				LeaveCriticalSection(&g_CriticalAhkFunction);
+				return _T("");
+			}
+			aFuncAndToken.buf = new_buf;
+			aFuncAndToken.mToken.buf = aFuncAndToken.buf;
+			aFuncAndToken.mToken.marker = aFunc->mName;
+			
+			aFunc->mBIF(aResult,aFuncAndToken.mToken,aFuncAndToken.param,aParamsCount);
+			
+			switch (aFuncAndToken.mToken.symbol)
 			{
 			case SYM_VAR: // Caller has ensured that any SYM_VAR's Type() is VAR_NORMAL.
-				if (_tcslen(aResultToken.var->Contents()))
+				if (_tcslen(aFuncAndToken.mToken.var->Contents()))
 				{
-					result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,(_tcslen(aResultToken.var->Contents()) + 1)*sizeof(TCHAR));
-					_tcscpy(result_to_return_dll,aResultToken.var->Contents()); // Contents() vs. mContents to support VAR_CLIPBOARD, and in case mContents needs to be updated by Contents().
+					new_buf = (LPTSTR )realloc((LPTSTR )result_to_return_dll,(_tcslen(aFuncAndToken.mToken.var->Contents()) + 1)*sizeof(TCHAR));
+					if (!new_buf)
+					{
+						g_script.ScriptError(ERR_OUTOFMEM,func);
+						LeaveCriticalSection(&g_CriticalAhkFunction);
+						return _T("");
+					}
+					result_to_return_dll = new_buf;
+					_tcscpy(result_to_return_dll,aFuncAndToken.mToken.var->Contents()); // Contents() vs. mContents to support VAR_CLIPBOARD, and in case mContents needs to be updated by Contents().
 				}
 				else if (result_to_return_dll)
 					*result_to_return_dll = '\0';
 				break;
 			case SYM_STRING:
 			case SYM_OPERAND:
-				if (_tcslen(aResultToken.marker))
+				if (_tcslen(aFuncAndToken.mToken.marker))
 				{
-					result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,(_tcslen(aResultToken.marker) + 1)*sizeof(TCHAR));
-					_tcscpy(result_to_return_dll,aResultToken.marker);
+					new_buf = (LPTSTR )realloc((LPTSTR )result_to_return_dll,(_tcslen(aFuncAndToken.mToken.marker) + 1)*sizeof(TCHAR));
+					if (!new_buf)
+					{
+						g_script.ScriptError(ERR_OUTOFMEM,func);
+						LeaveCriticalSection(&g_CriticalAhkFunction);
+						return _T("");
+					}
+					result_to_return_dll = new_buf;
+					_tcscpy(result_to_return_dll,aFuncAndToken.mToken.marker);
 				}
 				else if (result_to_return_dll)
 					*result_to_return_dll = '\0';
 				break;
 			case SYM_INTEGER:
-				result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,MAX_INTEGER_LENGTH);
-				ITOA64(aResultToken.value_int64, result_to_return_dll);
+				new_buf = (LPTSTR )realloc((LPTSTR )result_to_return_dll,MAX_INTEGER_LENGTH);
+				if (!new_buf)
+				{
+					g_script.ScriptError(ERR_OUTOFMEM,func);
+					LeaveCriticalSection(&g_CriticalAhkFunction);
+					return _T("");
+				}
+				result_to_return_dll = new_buf;
+				ITOA64(aFuncAndToken.mToken.value_int64, result_to_return_dll);
 				break;
 			case SYM_FLOAT:
-				result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,MAX_INTEGER_LENGTH);
-				sntprintf(result_to_return_dll, MAX_NUMBER_SIZE, g->FormatFloat, aResultToken.value_double);
+				new_buf = (LPTSTR )realloc((LPTSTR )result_to_return_dll,MAX_INTEGER_LENGTH);
+				if (!new_buf)
+				{
+					g_script.ScriptError(ERR_OUTOFMEM,func);
+					LeaveCriticalSection(&g_CriticalAhkFunction);
+					return _T("");
+				}
+				result_to_return_dll = new_buf;
+				sntprintf(result_to_return_dll, MAX_NUMBER_SIZE, g->FormatFloat, aFuncAndToken.mToken.value_double);
 				break;
 			//case SYM_OBJECT: // L31: Treat objects as empty strings (or TRUE where appropriate).
 			default: // Not an operand: continue on to return the default at the bottom.
-				result_to_return_dll = (LPTSTR )realloc((LPTSTR )result_to_return_dll,MAX_INTEGER_LENGTH);
-				ITOA64(aResultToken.value_int64, result_to_return_dll);
+				new_buf = (LPTSTR )realloc((LPTSTR )result_to_return_dll,MAX_INTEGER_LENGTH);
+				if (!new_buf)
+				{
+					g_script.ScriptError(ERR_OUTOFMEM,func);
+					LeaveCriticalSection(&g_CriticalAhkFunction);
+					return _T("");
+				}
+				result_to_return_dll = new_buf;
+				ITOA64(aFuncAndToken.mToken.value_int64, result_to_return_dll);
 			}
+			LeaveCriticalSection(&g_CriticalAhkFunction);
 			return result_to_return_dll;
 		}
 		else // UDF
 		{
 			//for (;aFunc->mParamCount > aParamCount && aParamsCount>aParamCount;aParamCount++)
 			//	aFunc->mParam[aParamCount].var->AssignString(*params[aParamCount]);
+			EnterCriticalSection(&g_CriticalAhkFunction);
+			if (++returnCount > 9)
+				returnCount = 0 ;
 			FuncAndToken & aFuncAndToken = aFuncAndTokenToReturn[returnCount];
-			aFuncAndToken.mParamCount = aParamsCount;
-			for (int i = 0;i < aParamsCount;i++)
+			if (aParamsCount)
 			{
-				aFuncAndToken.param[i] = (LPTSTR)realloc(aFuncAndToken.param[i],(_tcslen(*params[i]) + 1)*sizeof(TCHAR));
-				_tcscpy(aFuncAndToken.param[i],*params[i]);
+				ExprTokenType **new_mem = (ExprTokenType**)realloc(aFuncAndToken.param,sizeof(ExprTokenType)*aParamsCount);
+				if (!new_mem)
+				{
+					g_script.ScriptError(ERR_OUTOFMEM,func);
+					LeaveCriticalSection(&g_CriticalAhkFunction);
+					return _T("");
+				}
+				aFuncAndToken.param = new_mem;
+			}
+			else
+				aFuncAndToken.param = NULL;
+			aFuncAndToken.mParamCount = aFunc->mParamCount < aParamsCount ? aFunc->mParamCount : aParamsCount;
+			LPTSTR new_buf;
+			for (int i = 0;(aFunc->mParamCount > i || aFunc->mIsVariadic) && aParamsCount>i;i++)
+			{
+				aFuncAndToken.param[i] = &aFuncAndToken.params[i];
+				aFuncAndToken.param[i]->symbol = SYM_STRING;
+				new_buf = (LPTSTR)realloc(aFuncAndToken.param[i]->marker,(_tcslen(*params[i])+1)*sizeof(TCHAR));
+				if (!new_buf)
+				{
+					g_script.ScriptError(ERR_OUTOFMEM,func);
+					LeaveCriticalSection(&g_CriticalAhkFunction);
+					return _T("");
+				}
+				aFuncAndToken.param[i]->marker = new_buf;
+				_tcscpy(aFuncAndToken.param[i]->marker,*params[i]); // Assign parameters
 			}
 			aFuncAndToken.mFunc = aFunc ;
-			returnCount++ ;
-			if (returnCount > 9)
-				returnCount = 0 ;
 			SendMessage(g_hWnd, AHK_EXECUTE_FUNCTION_DLL, (WPARAM)&aFuncAndToken,NULL);
+			LeaveCriticalSection(&g_CriticalAhkFunction);
 			return aFuncAndToken.result_to_return_dll;
 		}
 	}
@@ -559,11 +783,11 @@ void callFuncDll(FuncAndToken *aFuncAndToken)
 	// Need to check if backup is needed in case script explicitly called the function rather than using
 	// it solely as a callback.  UPDATE: And now that max_instances is supported, also need it for that.
 	// See ExpandExpression() for detailed comments about the following section.
-	VarBkp *var_backup = NULL;   // If needed, it will hold an array of VarBkp objects.
-	int var_backup_count; // The number of items in the above array.
-	if (func.mInstances > 0) // Backup is needed.
-		if (!Var::BackupFunctionVars(func, var_backup, var_backup_count)) // Out of memory.
-			return;
+	//VarBkp *var_backup = NULL;   // If needed, it will hold an array of VarBkp objects.
+	//int var_backup_count; // The number of items in the above array.
+	//if (func.mInstances > 0) // Backup is needed.
+		//if (!Var::BackupFunctionVars(func, var_backup, var_backup_count)) // Out of memory.
+			// return;
 			// Since we're in the middle of processing messages, and since out-of-memory is so rare,
 			// it seems justifiable not to have any error reporting and instead just avoid launching
 			// the new thread.
@@ -575,8 +799,8 @@ void callFuncDll(FuncAndToken *aFuncAndToken)
 	tcslcpy(ErrorLevel_saved, g_ErrorLevel->Contents(), _countof(ErrorLevel_saved));
 	InitNewThread(0, false, true, func.mJumpToLine->mActionType);
 
-	for (int aParamCount = 0;func.mParamCount > aParamCount && aFuncAndToken->mParamCount > aParamCount;aParamCount++)
-		func.mParam[aParamCount].var->AssignString(aFuncAndToken->param[aParamCount]);
+	//for (int aParamCount = 0;func.mParamCount > aParamCount && aFuncAndToken->mParamCount > aParamCount;aParamCount++)
+	//	func.mParam[aParamCount].var->AssignString(aFuncAndToken->param[aParamCount]);
 
 	// v1.0.38.04: Below was added to maximize responsiveness to incoming messages.  The reasoning
 	// is similar to why the same thing is done in MsgSleep() prior to its launch of a thread, so see
@@ -584,48 +808,77 @@ void callFuncDll(FuncAndToken *aFuncAndToken)
 	g_script.mLastScriptRest = g_script.mLastPeekTime = GetTickCount();
 
 
-		DEBUGGER_STACK_PUSH(func.mJumpToLine, func.mName)
-	// ExprTokenType aResultToken;
+	DEBUGGER_STACK_PUSH(&func)
+	ResultType aResult;
+	FuncCallData func_call;
 	// ExprTokenType &aResultToken = aResultToken_to_return ;
-	func.Call(&aResultToken); // Call the UDF.
+	bool result = func.Call(func_call,aResult,aResultToken,aFuncAndToken->param,(int) aFuncAndToken->mParamCount,false); // Call the UDF.
 
-		DEBUGGER_STACK_POP()
-	switch (aFuncAndToken->mToken.symbol)
+	DEBUGGER_STACK_POP()
+	LPTSTR new_buf;
+	if (result)
 	{
-	case SYM_VAR: // Caller has ensured that any SYM_VAR's Type() is VAR_NORMAL.
-		if (_tcslen(aFuncAndToken->mToken.var->Contents()))
+		switch (aFuncAndToken->mToken.symbol)
 		{
-			aFuncAndToken->result_to_return_dll = (LPTSTR )realloc((LPTSTR )aFuncAndToken->result_to_return_dll,(_tcslen(aFuncAndToken->mToken.var->Contents()) + 1)*sizeof(TCHAR));
-			_tcscpy(aFuncAndToken->result_to_return_dll,aFuncAndToken->mToken.var->Contents()); // Contents() vs. mContents to support VAR_CLIPBOARD, and in case mContents needs to be updated by Contents().
+		case SYM_VAR: // Caller has ensured that any SYM_VAR's Type() is VAR_NORMAL.
+			if (_tcslen(aFuncAndToken->mToken.var->Contents()))
+			{
+				new_buf = (LPTSTR )realloc((LPTSTR )aFuncAndToken->result_to_return_dll,(_tcslen(aFuncAndToken->mToken.var->Contents()) + 1)*sizeof(TCHAR));
+				if (!new_buf)
+				{
+					g_script.ScriptError(ERR_OUTOFMEM,func.mName);
+					return;
+				}
+				aFuncAndToken->result_to_return_dll = new_buf;
+				_tcscpy(aFuncAndToken->result_to_return_dll,aFuncAndToken->mToken.var->Contents()); // Contents() vs. mContents to support VAR_CLIPBOARD, and in case mContents needs to be updated by Contents().
+			}
+			else if (aFuncAndToken->result_to_return_dll)
+				*aFuncAndToken->result_to_return_dll = '\0';
+			break;
+		case SYM_STRING:
+		case SYM_OPERAND:
+			if (_tcslen(aFuncAndToken->mToken.marker))
+			{
+				new_buf = (LPTSTR )realloc((LPTSTR )aFuncAndToken->result_to_return_dll,(_tcslen(aFuncAndToken->mToken.marker) + 1)*sizeof(TCHAR));
+				if (!new_buf)
+				{
+					g_script.ScriptError(ERR_OUTOFMEM,func.mName);
+					return;
+				}
+				aFuncAndToken->result_to_return_dll = new_buf;
+				_tcscpy(aFuncAndToken->result_to_return_dll,aFuncAndToken->mToken.marker);
+			}
+			else if (aFuncAndToken->result_to_return_dll)
+				*aFuncAndToken->result_to_return_dll = '\0';
+			break;
+		case SYM_INTEGER:
+			new_buf = (LPTSTR )realloc((LPTSTR )aFuncAndToken->result_to_return_dll,MAX_INTEGER_LENGTH);
+			if (!new_buf)
+			{
+				g_script.ScriptError(ERR_OUTOFMEM,func.mName);
+				return;
+			}
+			aFuncAndToken->result_to_return_dll = new_buf;
+			ITOA64(aFuncAndToken->mToken.value_int64, aFuncAndToken->result_to_return_dll);
+			break;
+		case SYM_FLOAT:
+			new_buf = (LPTSTR )realloc((LPTSTR )aFuncAndToken->result_to_return_dll,MAX_INTEGER_LENGTH);
+			if (!new_buf)
+			{
+				g_script.ScriptError(ERR_OUTOFMEM,func.mName);
+				return;
+			}
+			result_to_return_dll = new_buf;
+			sntprintf(aFuncAndToken->result_to_return_dll, MAX_NUMBER_SIZE, g->FormatFloat, aFuncAndToken->mToken.value_double);
+			break;
+		//case SYM_OBJECT: // L31: Treat objects as empty strings (or TRUE where appropriate).
+		default: // Not an operand: continue on to return the default at the bottom.
+			if (aFuncAndToken->result_to_return_dll)
+				*aFuncAndToken->result_to_return_dll = '\0';
 		}
-		else if (aFuncAndToken->result_to_return_dll)
-			*aFuncAndToken->result_to_return_dll = '\0';
-		break;
-	case SYM_STRING:
-	case SYM_OPERAND:
-		if (_tcslen(aFuncAndToken->mToken.marker))
-		{
-			aFuncAndToken->result_to_return_dll = (LPTSTR )realloc((LPTSTR )aFuncAndToken->result_to_return_dll,(_tcslen(aFuncAndToken->mToken.marker) + 1)*sizeof(TCHAR));
-			_tcscpy(aFuncAndToken->result_to_return_dll,aFuncAndToken->mToken.marker);
-		}
-		else if (aFuncAndToken->result_to_return_dll)
-			*aFuncAndToken->result_to_return_dll = '\0';
-		break;
-	case SYM_INTEGER:
-		aFuncAndToken->result_to_return_dll = (LPTSTR )realloc((LPTSTR )aFuncAndToken->result_to_return_dll,MAX_INTEGER_LENGTH);
-		ITOA64(aFuncAndToken->mToken.value_int64, aFuncAndToken->result_to_return_dll);
-		break;
-	case SYM_FLOAT:
-		result_to_return_dll = (LPTSTR )realloc((LPTSTR )aFuncAndToken->result_to_return_dll,MAX_INTEGER_LENGTH);
-		sntprintf(aFuncAndToken->result_to_return_dll, MAX_NUMBER_SIZE, g->FormatFloat, aFuncAndToken->mToken.value_double);
-		break;
-	//case SYM_OBJECT: // L31: Treat objects as empty strings (or TRUE where appropriate).
-	default: // Not an operand: continue on to return the default at the bottom.
-		if (aFuncAndToken->result_to_return_dll)
-			*aFuncAndToken->result_to_return_dll = '\0';
 	}
-	
-	Var::FreeAndRestoreFunctionVars(func, var_backup, var_backup_count);
+	else if (aFuncAndToken->result_to_return_dll)
+			*aFuncAndToken->result_to_return_dll = '\0';
 	ResumeUnderlyingThread(ErrorLevel_saved);
 	return;
 }
@@ -639,52 +892,85 @@ VARIANT ahkFunctionVariant(LPTSTR func, VARIANT param1,/*[in,optional]*/ VARIANT
 	Func *aFunc = g_script.FindFunc(func) ;
 	if (aFunc)
 	{	
-		VARIANT *variants[10];
-		int aParamCount = 0;
-		variants[0]=&param1;variants[1]=&param2;variants[2]=&param3;variants[3]=&param4;variants[4]=&param5;
-		variants[5]=&param6;variants[6]=&param7;variants[7]=&param8;variants[8]=&param9;variants[9]=&param10;
+		VARIANT *variants[10] = {&param1,&param2,&param3,&param4,&param5,&param6,&param7,&param8,&param9,&param10};
+		int aParamsCount = 0;
+		for (;aParamsCount < 10;aParamsCount++)
+			if (variants[aParamsCount]->vt == VT_ERROR)
+				break;
+		if (aParamsCount < aFunc->mMinParams)
+		{
+			g_script.ScriptError(ERR_TOO_FEW_PARAMS);
+			VARIANT &r =  aFuncAndTokenToReturn[returnCount + 1].variant_to_return_dll;
+			r.vt = VT_NULL ;
+			return r ; 
+		}
 		if(aFunc->mIsBuiltIn)
 		{
 			ResultType aResult = OK;
+			EnterCriticalSection(&g_CriticalAhkFunction);
 			ExprTokenType aResultToken;
 			ExprTokenType **aParam = (ExprTokenType**)_alloca(sizeof(ExprTokenType)*10);
-			for (;aFunc->mParamCount > aParamCount && variants[aParamCount]->vt != VT_ERROR;aParamCount++)
+			if (!aParam)
 			{
-				aParam[aParamCount] = (ExprTokenType*)_alloca(sizeof(ExprTokenType));
-				aParam[aParamCount]->symbol = SYM_VAR;
-				aParam[aParamCount]->var = (Var*)alloca(sizeof(Var));
-
+				g_script.ScriptError(ERR_OUTOFMEM,func);
+				VARIANT ret = {};
+				ret.vt = NULL;
+				LeaveCriticalSection(&g_CriticalAhkFunction);
+				return ret;
+			}
+			for (int i = 0;aFunc->mParamCount > i && aParamsCount>i;i++)
+			{
+				aParam[i] = (ExprTokenType*)_alloca(sizeof(ExprTokenType));
+				if (!aParam[i])
+				{
+					VARIANT ret = {};
+					ret.vt = NULL;
+					LeaveCriticalSection(&g_CriticalAhkFunction);
+					return ret;
+				}
+				aParam[i]->symbol = SYM_VAR;
+				aParam[i]->var = (Var*)alloca(sizeof(Var));
+				if (!aParam[i]->var)
+				{
+					VARIANT ret = {};
+					ret.vt = NULL;
+					LeaveCriticalSection(&g_CriticalAhkFunction);
+					return ret;
+				}
 				// prepare variable
-				aParam[aParamCount]->var->mType = VAR_NORMAL;
-				aParam[aParamCount]->var->mAttrib = 0;
-				aParam[aParamCount]->var->mByteCapacity = 0;
-				aParam[aParamCount]->var->mHowAllocated = ALLOC_MALLOC;
+				aParam[i]->var->mType = VAR_NORMAL;
+				aParam[i]->var->mAttrib = 0;
+				aParam[i]->var->mByteCapacity = 0;
+				aParam[i]->var->mHowAllocated = ALLOC_MALLOC;
 
-				AssignVariant(*aParam[aParamCount]->var, *variants[aParamCount],false);
+				AssignVariant(*aParam[i]->var, *variants[i],false);
 			}
 			aResultToken.symbol = SYM_INTEGER;
 			aResultToken.marker = aFunc->mName;
-			aFunc->mBIF(aResult,aResultToken,aParam,aParamCount);
+			
+			aFunc->mBIF(aResult,aResultToken,aParam,aParamsCount);
 
 			// free all variables in case memory was allocated
-			for (;aParamCount >= 0;aParamCount--)
-				aParam[aParamCount]->var->Free();
-			TokenToVariant(aResultToken, variant_to_return_dll);
+			for (int i = 0;i < aParamsCount;i++)
+				aParam[i]->var->Free();
+			TokenToVariant(aResultToken, variant_to_return_dll, FALSE);
+			LeaveCriticalSection(&g_CriticalAhkFunction);
 			return variant_to_return_dll;
 		}
 		else // UDF
 		{
-			for (;aFunc->mParamCount > aParamCount && variants[aParamCount]->vt != VT_ERROR;aParamCount++)
-				AssignVariant(*aFunc->mParam[aParamCount].var, *variants[aParamCount],false);
+			EnterCriticalSection(&g_CriticalAhkFunction);
+			for (int i = 0;aFunc->mParamCount > i;i++)
+				AssignVariant(*aFunc->mParam[i].var, *variants[i],false);
+			if (++returnCount > 9)
+				returnCount = 0 ;
 			FuncAndToken & aFuncAndToken = aFuncAndTokenToReturn[returnCount];
 			aFuncAndToken.mFunc = aFunc ;
-			returnCount++ ;
-			if (returnCount > 9)
-				returnCount = 0 ;
-
+			aFuncAndToken.mParamCount = aFunc->mParamCount < aParamsCount ? aFunc->mParamCount : aParamsCount;
 			if (sendOrPost == 1)
 			{
 				SendMessage(g_hWnd, AHK_EXECUTE_FUNCTION_VARIANT, (WPARAM)&aFuncAndToken,NULL);
+				LeaveCriticalSection(&g_CriticalAhkFunction);
 				return aFuncAndToken.variant_to_return_dll;
 			}
 			else
@@ -692,13 +978,12 @@ VARIANT ahkFunctionVariant(LPTSTR func, VARIANT param1,/*[in,optional]*/ VARIANT
 				PostMessage(g_hWnd, AHK_EXECUTE_FUNCTION_VARIANT, (WPARAM)&aFuncAndToken,NULL);
 				VARIANT &r =  aFuncAndToken.variant_to_return_dll;
 				r.vt = VT_NULL ;
+				LeaveCriticalSection(&g_CriticalAhkFunction);
 				return r ; 
 			}
 		}
 	}
 	FuncAndToken & aFuncAndToken = aFuncAndTokenToReturn[returnCount];
-	returnCount++ ;
-
 	VARIANT &r =  aFuncAndToken.variant_to_return_dll;
 	r.vt = VT_NULL ;
 	return r ; 
@@ -723,11 +1008,11 @@ void callFuncDllVariant(FuncAndToken *aFuncAndToken)
 	// Need to check if backup is needed in case script explicitly called the function rather than using
 	// it solely as a callback.  UPDATE: And now that max_instances is supported, also need it for that.
 	// See ExpandExpression() for detailed comments about the following section.
-	VarBkp *var_backup = NULL;   // If needed, it will hold an array of VarBkp objects.
-	int var_backup_count; // The number of items in the above array.
-	if (func.mInstances > 0) // Backup is needed.
-		if (!Var::BackupFunctionVars(func, var_backup, var_backup_count)) // Out of memory.
-			return;
+	//VarBkp *var_backup = NULL;   // If needed, it will hold an array of VarBkp objects.
+	//int var_backup_count; // The number of items in the above array.
+	//if (func.mInstances > 0) // Backup is needed.
+		//if (!Var::BackupFunctionVars(func, var_backup, var_backup_count)) // Out of memory.
+			//return;
 			// Since we're in the middle of processing messages, and since out-of-memory is so rare,
 			// it seems justifiable not to have any error reporting and instead just avoid launching
 			// the new thread.
@@ -746,11 +1031,11 @@ void callFuncDllVariant(FuncAndToken *aFuncAndToken)
 	g_script.mLastScriptRest = g_script.mLastPeekTime = GetTickCount();
 
 
-		DEBUGGER_STACK_PUSH(func.mJumpToLine, func.mName)
+	DEBUGGER_STACK_PUSH(&func)
 	// ExprTokenType aResultToken;
 	// ExprTokenType &aResultToken = aResultToken_to_return ;
 	func.Call(&aResultToken); // Call the UDF.
-	TokenToVariant(aResultToken, aFuncAndToken->variant_to_return_dll);
+	TokenToVariant(aResultToken, aFuncAndToken->variant_to_return_dll, FALSE);
 
 	DEBUGGER_STACK_POP()
 	

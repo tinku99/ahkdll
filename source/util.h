@@ -19,6 +19,7 @@ GNU General Public License for more details.
 
 #include "stdafx.h" // pre-compiled headers
 #include "defines.h"
+#include <WinCrypt.h>
 EXTERN_G;  // For ITOA() and related functions' use of g->FormatIntAsHex
 
 
@@ -395,6 +396,18 @@ inline size_t strip_trailing_backslash(LPTSTR aPath)
 }
 
 
+
+#define IS_IDENTIFIER_CHAR(c) (cisalnum(c) || (c) == '_' || ((UINT)(c) > 0x7F))
+template<typename T> inline T find_identifier_end(T aBuf)
+// Locates the next character which is not valid in an identifier (var, func, or obj.key name).
+{
+	while (IS_IDENTIFIER_CHAR(*aBuf)) ++aBuf;
+	return aBuf;
+}
+
+
+
+
 // Transformation is the same in either direction because the end bytes are swapped
 // and the middle byte is left as-is:
 #define bgr_to_rgb(aBGR) rgb_to_bgr(aBGR)
@@ -765,8 +778,11 @@ HBITMAP IconToBitmap(HICON ahIcon, bool aDestroyIcon);
 HBITMAP IconToBitmap32(HICON aIcon, bool aDestroyIcon); // Lexikos: Used for menu icons on Vista+. Creates a 32-bit (ARGB) device-independent bitmap from an icon.
 int CALLBACK FontEnumProc(ENUMLOGFONTEX *lpelfe, NEWTEXTMETRICEX *lpntme, DWORD FontType, LPARAM lParam);
 bool IsStringInList(LPTSTR aStr, LPTSTR aList, bool aFindExactMatch);
+LPTSTR InStrAny(LPTSTR aStr, LPTSTR aNeedle[], int aNeedleCount, size_t &aFoundLen);
 short IsDefaultType(LPTSTR aTypeDef);
-DWORD DecompressBuffer(LPVOID &buffer);
+DWORD DecompressBuffer(void *buffer,LPVOID &aDataBuf, TCHAR *pwd[] = NULL);
+ResultType LoadDllFunction(LPTSTR parameter, LPTSTR aBuf);
+LONG WINAPI DisableHooksOnException(PEXCEPTION_POINTERS pExceptionPtrs);
 
 int ResourceIndexToId(HMODULE aModule, LPCTSTR aType, int aIndex); // L17: Find integer ID of resource from index. i.e. IconNumber -> resource ID.
 HICON ExtractIconFromExecutable(LPTSTR aFilespec, int aIconNumber, int aWidth, int aHeight); // L17: Extract icon of the appropriate size from an executable (or compatible) file.

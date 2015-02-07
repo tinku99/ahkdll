@@ -46,7 +46,11 @@ Struct *Struct::Create(ExprTokenType *aParam[], int aParamCount)
 
 	// definition and field name are same max size as variables
 	// also add enough room to store pointers (**) and arrays [1000]
-	TCHAR defbuf[MAX_VAR_NAME_LENGTH*2 + 40]; // give more room to use local or static variable Function(variable)
+	// give more room to use local or static variable Function(variable)
+	// Parameter passed to IsDefaultType needs to be ' Definition '
+	// this is because spaces are used as delimiters ( see IsDefaultType function )
+	TCHAR defbuf[MAX_VAR_NAME_LENGTH * 2 + 40] = _T(" UInt "); // Set default UInt definition
+
 	TCHAR keybuf[MAX_VAR_NAME_LENGTH + 40];
 
 	// buffer for arraysize + 2 for bracket ] and terminating character
@@ -60,12 +64,6 @@ Struct *Struct::Create(ExprTokenType *aParam[], int aParamCount)
 
 	// the new structure object
 	Struct *obj = new Struct();
-
-
-	// Parameter passed to IsDefaultType needs to be ' Definition '
-	// this is because spaces are used as delimiters ( see IsDefaultType function )
-	// So first character will be always a space
-	defbuf[0] = ' ';
 
 	if (TokenToObject(*aParam[0]))
 	{
@@ -182,9 +180,9 @@ Struct *Struct::Create(ExprTokenType *aParam[], int aParamCount)
 
 		// Trim trailing spaces
 		rtrim(tempbuf);
-		
+
 		// Pointer
-		if (_tcschr(tempbuf,'*'))
+		if (_tcschr(tempbuf, '*'))
 			ispointer = StrReplace(tempbuf, _T("*"), _T(""), SCS_SENSITIVE, UINT_MAX, LINE_SIZE);
 		
 		// Array
@@ -224,11 +222,14 @@ Struct *Struct::Create(ExprTokenType *aParam[], int aParamCount)
 			else 
 				keybuf[0] = '\0';
 		}
-		else // Not 'TypeOnly' definition because there are more than one fields in array so use default type UInt
+		else // Not 'TypeOnly' definition because there are more than one fields in structure so use previous type
 		{
-			_tcscpy(defbuf,_T(" UInt "));
+			// Commented following line to keep previous definition like in c++, e.g. "Int x,y,Char a,b", 
+			// Note: separator , or ; can be still used but
+			// _tcscpy(defbuf,_T(" UInt "));
 			_tcscpy(keybuf,tempbuf);
 		}
+
 		// Now find size in default types array and create new field
 		// If Type not found, resolve type to variable and get size of struct defined in it
 		if ((thissize = IsDefaultType(defbuf)))
@@ -239,18 +240,26 @@ Struct *Struct::Create(ExprTokenType *aParam[], int aParamCount)
 			if (ispointer)
 			{
 				if (offset % ptrsize)
-					offset += (ptrsize - (offset % ptrsize)) * (arraydef ? arraydef : 1);
+				{
+					offset += ptrsize - (offset % ptrsize);
+					if (uniondepth && offset > unionoffset[uniondepth])
+						unionoffset[uniondepth] = offset;
+				}
 				if (ptrsize > aligntotal)
 					aligntotal = ptrsize;
 			}
 			else
 			{
 				if (offset % thissize)
+				{
 					offset += thissize - (offset % thissize);
+					if (uniondepth && offset > unionoffset[uniondepth])
+						unionoffset[uniondepth] = offset;
+				}
 				if (thissize > aligntotal)
 					aligntotal = thissize > ptrsize ? ptrsize : thissize;
 			}
-			if (!(field = obj->Insert(keybuf, insert_pos++,ispointer,offset,arraydef,NULL,ispointer ? ptrsize : thissize
+			if (!(field = obj->Insert(keybuf, insert_pos++,ispointer,offset,arraydef,NULL,thissize
 						,ispointer ? true : !tcscasestr(_T(" FLOAT DOUBLE PFLOAT PDOUBLE "),defbuf)
 						,!tcscasestr(_T(" PTR SHORT INT INT64 CHAR VOID HALF_PTR BOOL INT32 LONG LONG32 LONGLONG LONG64 USN INT_PTR LONG_PTR POINTER_64 POINTER_SIGNED SSIZE_T WPARAM __int64 "),defbuf)
 						,tcscasestr(_T(" TCHAR LPTSTR LPCTSTR LPWSTR LPCWSTR WCHAR "),defbuf) ? 1200 : tcscasestr(_T(" CHAR LPSTR LPCSTR LPSTR UCHAR "),defbuf) ? 0 : -1)))
@@ -361,16 +370,33 @@ Struct *Struct::Create(ExprTokenType *aParam[], int aParamCount)
 						obj->Release();
 						return NULL;
 					}
+					if (offset % aligntotal)
+					{
+						offset += aligntotal - (offset % aligntotal);
+						if (uniondepth && offset > unionoffset[uniondepth])
+							unionoffset[uniondepth] = offset;
+					}
 				} 
 				else
 				{
+					param[1]->value_int64 = (__int64)0;
+					BIF_sizeof(Result,ResultToken, param, 1);
+					if (ResultToken.symbol != SYM_INTEGER)
+					{	// could not resolve structure
+						obj->Release();
+						return NULL;
+					}
 					if (offset % ptrsize)
-						offset += (ptrsize - (offset % ptrsize)) * (arraydef ? arraydef : 1);
+					{
+						offset += ptrsize - (offset % ptrsize);
+						if (uniondepth && offset > unionoffset[uniondepth])
+							unionoffset[uniondepth] = offset;
+					}
 					if (ptrsize > aligntotal)
 						aligntotal = ptrsize;
 				}
 				// Insert new field in our structure
-				if (!(field = obj->Insert(keybuf, insert_pos++,ispointer,offset,arraydef,Var1.var,ispointer ? ptrsize : (int)ResultToken.value_int64,1,1,-1)))
+				if (!(field = obj->Insert(keybuf, insert_pos++, ispointer, offset, arraydef, Var1.var, (int)ResultToken.value_int64,1,1,-1)))
 				{	// Out of memory.
 					obj->Release();
 					return NULL;
@@ -434,7 +460,7 @@ Struct *Struct::Create(ExprTokenType *aParam[], int aParamCount)
 	// an object was passed to initialize fields
 	// enumerate trough object and assign values
 	if ((aParamCount > 1 && !TokenIsPureNumeric(*aParam[1])) || aParamCount > 2 )
-		obj->ObjectToStruct(TokenToObject(aParamCount == 2 ? *aParam[1] : *aParam[2]));
+		obj->ObjectToStruct(TokenToObject(*aParam[aParamCount - 1]));
 	return obj;
 }
 
@@ -806,7 +832,7 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 				return OK;
 			}
 			// Structure is a reference to variable and not a pointer, get size of structure
-			if (mVarRef && !mIsPointer)
+			if (mVarRef) // && !mIsPointer)
 			{
 				Var2.symbol = SYM_VAR;
 				Var2.var = mVarRef;
@@ -821,12 +847,10 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 				}
 			}
 			// Check if we have an array, if structure is not array and not pointer, assume array
-			if (mArraySize || !mIsPointer) // if not Array and not pointer assume it is an array
-				target = (UINT_PTR*)((UINT_PTR)target + (TokenToInt64(*aParam[0])-1)*(mIsPointer ? ptrsize : (mVarRef ? ResultToken.value_int64 : mSize/(mArraySize ? mArraySize : 1))));
-			else if (mIsPointer) // resolve pointer
-				target = (UINT_PTR*)(*target + (TokenToInt64(*aParam[0])-1)*ptrsize);
-			else // amend target to memory of field
-				target = (UINT_PTR*)((UINT_PTR)target + (TokenToInt64(*aParam[0])-1)*(mVarRef ? ResultToken.value_int64 : mSize));
+			if (mIsPointer) // resolve pointer
+				target = (UINT_PTR*)(*target + (TokenToInt64(*aParam[0]) - 1)*(mIsPointer>1 ? ptrsize : (mVarRef ? ResultToken.value_int64 : mSize / (mArraySize ? mArraySize : 1))));
+			else // amend target to memory of field, if it is not an array and not a pointer assume array
+				target = (UINT_PTR*)((UINT_PTR)target + (TokenToInt64(*aParam[0]) - 1)*(mVarRef ? ResultToken.value_int64 : mSize / (mArraySize ? mArraySize : 1)));
 			
 			// Structure has a variable reference and might be a pointer but not pointer to pointer
 			if (mVarRef && mIsPointer < 2)
@@ -873,11 +897,13 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 						Struct *tempobj = objclone;
 						objclone = objclone->Clone(true);
 						objclone->mStructMem = tempobj->mStructMem;
+						/*
 						if (mArraySize)
 						{
 							objclone->mArraySize = 0;
 							objclone->mSize = mSize / mArraySize;
 						}
+						*/
 						tempobj->Release();
 						if (IS_INVOKE_SET && TokenToObject(*aParam[1]))
 						{
@@ -907,11 +933,12 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 				objclone->mStructMem = target;
 				if (!mArraySize && mIsPointer)
 					objclone->mIsPointer--;
-				else if (mArraySize)
+				/*else if (mArraySize)
 				{
 					objclone->mArraySize = 0;
 					objclone->mSize = mSize / mArraySize;
 				}
+				*/
 				if (objclone->mIsPointer || (aParamCount == 1 && !mTypeOnly))
 				{
 					if (param_count_excluding_rvalue > 1)
@@ -1400,8 +1427,6 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 		{	// field is [T|W|U]CHAR or LP[TC]STR, set get character or string
 			source_string = (LPCVOID)TokenToString(*aParam[1], aResultToken.buf);
 			source_length = (int)((aParam[1]->symbol == SYM_VAR) ? aParam[1]->var->CharLength() : _tcslen((LPCTSTR)source_string));
-			//if (field->mSize > 2) // not [T|W|U]CHAR
-			//	source_length++; // for terminating character
 			if (!source_length)
 			{	// Take a shortcut when source_string is empty, since some paths below might not handle it correctly.
 				if (field->mSize > 2 && !*((UINT_PTR*)((UINT_PTR)target + field->mOffset))) // no memory allocated, don't allocate just return
@@ -1424,6 +1449,8 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 					objclone->Release();
 					return g_script.ScriptError(ERR_MUST_INIT_STRUCT);
 			}
+			if (field->mSize > 2) // not [T|W|U]CHAR
+				source_length++; // for terminating character
 			if (field->mSize > 2 && (!target || !*((UINT_PTR*)((UINT_PTR)target + field->mOffset)) || (field->mMemAllocated > 0 && (field->mMemAllocated < ((source_length + 1) * (int)(field->mEncoding == 1200 ? sizeof(WCHAR) : sizeof(CHAR)))))))
 			{   // no memory allocated yet, allocate now
 				if (field->mMemAllocated == -1 && (!target || !*((UINT_PTR*)((UINT_PTR)target + field->mOffset)))){
@@ -1492,8 +1519,6 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 							return OK;
 						}
 					}
-					if (field->mSize > 2) // Not TCHAR or CHAR or WCHAR
-						++char_count; // + 1 for null-terminator (source_length causes it to be excluded from char_count).
 					// Assume there is sufficient buffer space and hope for the best:
 					length = char_count;
 					// Convert to target encoding.
@@ -1517,28 +1542,45 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 			{
 			case 4: // Listed first for performance.
 				if (field->mIsInteger)
+				{
 					*((unsigned int *)((UINT_PTR)target + field->mOffset)) = (unsigned int)TokenToInt64(*aParam[1]);
+					aResultToken.symbol = SYM_INTEGER;
+					aResultToken.value_int64 = *((unsigned int *)((UINT_PTR)target + field->mOffset));
+				}
 				else // Float (32-bit).
+				{
 					*((float *)((UINT_PTR)target + field->mOffset)) = (float)TokenToDouble(*aParam[1]);
+					aResultToken.symbol = SYM_FLOAT;
+					aResultToken.value_double = *((float *)((UINT_PTR)target + field->mOffset));
+				}
 				break;
 			case 8:
 				if (field->mIsInteger)
+				{
 					// v1.0.48: Support unsigned 64-bit integers like DllCall does:
 					*((__int64 *)((UINT_PTR)target + field->mOffset)) = (field->mIsUnsigned && !IS_NUMERIC(aParam[1]->symbol)) // Must not be numeric because those are already signed values, so should be written out as signed so that whoever uses them can interpret negatives as large unsigned values.
 						? (__int64)ATOU64(TokenToString(*aParam[1])) // For comments, search for ATOU64 in BIF_DllCall().
 						: TokenToInt64(*aParam[1]);
+					aResultToken.symbol = SYM_INTEGER;
+					aResultToken.value_int64 = TokenToInt64(*aParam[1]);
+				}
 				else // Double (64-bit).
+				{
 					*((double *)((UINT_PTR)target + field->mOffset)) = TokenToDouble(*aParam[1]);
+					aResultToken.symbol = SYM_FLOAT;
+					aResultToken.value_double = *((double *)((UINT_PTR)target + field->mOffset));
+				}
 				break;
 			case 2:
 				*((unsigned short *)((UINT_PTR)target + field->mOffset)) = (unsigned short)TokenToInt64(*aParam[1]);
+				aResultToken.symbol = SYM_INTEGER;
+				aResultToken.value_int64 = *((unsigned short *)((UINT_PTR)target + field->mOffset));
 				break;
 			default: // size 1
 				*((unsigned char *)((UINT_PTR)target + field->mOffset)) = (unsigned char)TokenToInt64(*aParam[1]);
+				aResultToken.symbol = SYM_INTEGER;
+				aResultToken.value_int64 = *((unsigned char *)((UINT_PTR)target + field->mOffset));
 			}
-			//*((int*)target + field->mOffset) = (int)TokenToInt64(*aParam[1]);
-			aResultToken.symbol = SYM_INTEGER;
-			aResultToken.value_int64 = TokenToInt64(*aParam[1]);
 		}
 		if (deletefield) // we created the field from a structure
 			delete field;
@@ -1568,7 +1610,7 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 				if (TokenToObject(Var2))
 				{	// Variable is a structure object
 					objclone = ((Struct *)TokenToObject(Var2))->Clone(true);
-					objclone->mStructMem = target + field->mOffset;
+					objclone->mStructMem = (UINT_PTR *)((UINT_PTR)target + (UINT_PTR)field->mOffset);
 					aResultToken.object = objclone;
 					aResultToken.symbol = SYM_OBJECT;
 				}
@@ -1609,8 +1651,7 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 			if (releaseobj)
 				objclone->Release();
 			objclone = this->CloneField(field,true);
-			objclone->mIsPointer--;
-			objclone->mStructMem = (UINT_PTR*)*((UINT_PTR*)((UINT_PTR)target + field->mOffset));
+			objclone->mStructMem = (UINT_PTR*)((UINT_PTR*)((UINT_PTR)target + field->mOffset));
 			aResultToken.symbol = SYM_OBJECT;
 			aResultToken.object = objclone;
 			return OK;
@@ -1693,30 +1734,44 @@ ResultType STDMETHODCALLTYPE Struct::Invoke(
 			{
 			case 4: // Listed first for performance.
 				if (!field->mIsInteger)
+				{
 					aResultToken.value_double = *((float *)((UINT_PTR)target + field->mOffset));
+					aResultToken.symbol = SYM_FLOAT;
+				}
 				else if (!field->mIsUnsigned)
+				{
 					aResultToken.value_int64 = *((int *)((UINT_PTR)target + field->mOffset)); // aResultToken.symbol was set to SYM_FLOAT or SYM_INTEGER higher above.
+					aResultToken.symbol = SYM_INTEGER;
+				}
 				else
+				{
 					aResultToken.value_int64 = *((unsigned int *)((UINT_PTR)target + field->mOffset));
+					aResultToken.symbol = SYM_INTEGER;
+				}
 				break;
 			case 8:
 				// The below correctly copies both DOUBLE and INT64 into the union.
 				// Unsigned 64-bit integers aren't supported because variables/expressions can't support them.
 				aResultToken.value_int64 = *((__int64 *)((UINT_PTR)target + field->mOffset));
+				if (!field->mIsInteger)
+					aResultToken.symbol = SYM_FLOAT;
+				else
+					aResultToken.symbol = SYM_INTEGER;
 				break;
 			case 2:
 				if (!field->mIsUnsigned) // Don't use ternary because that messes up type-casting.
 					aResultToken.value_int64 = *((short *)((UINT_PTR)target + field->mOffset));
 				else
 					aResultToken.value_int64 = *((unsigned short *)((UINT_PTR)target + field->mOffset));
+				aResultToken.symbol = SYM_INTEGER;
 				break;
 			default: // size 1
 				if (!field->mIsUnsigned) // Don't use ternary because that messes up type-casting.
 					aResultToken.value_int64 = *((char *)((UINT_PTR)target + field->mOffset));
 				else
 					aResultToken.value_int64 = *((unsigned char *)((UINT_PTR)target + field->mOffset));
+				aResultToken.symbol = SYM_INTEGER;
 			}
-			aResultToken.symbol = SYM_INTEGER;
 		}
 		if (deletefield) // we created the field from a structure
 			delete field;

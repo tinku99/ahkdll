@@ -23,22 +23,32 @@ GNU General Public License for more details.
 #include "os_version.h" // For the global OS_Version object
 
 #include "Debugger.h"
-
-extern HRSRC g_hResource;
-
+#ifdef _USRDLL
+extern bool g_Reloading;
+extern bool g_Loading;
+#endif
+extern HRSRC g_hResource;		// for compiled AutoHotkey.exe
 extern HINSTANCE g_hInstance;
+extern HMODULE g_hMemoryModule;
 extern DWORD g_MainThreadID;
 extern DWORD g_HookThreadID;
 extern ATOM g_ClassRegistered;
 extern ATOM g_ClassSplashRegistered;
 extern CRITICAL_SECTION g_CriticalRegExCache;
+#ifdef _USRDLL
+extern CRITICAL_SECTION g_CriticalHeapBlocks;
+#endif
+extern CRITICAL_SECTION g_CriticalAhkFunction;
 
 extern UINT g_DefaultScriptCodepage;
+
+extern bool g_ReturnNotExit;	// for ahkExec/addScript/addFile
 
 extern bool g_DestroyWindowCalled;
 extern HWND g_hWnd;  // The main window
 extern HWND g_hWndEdit;  // The edit window, child of main.
 extern HFONT g_hFontEdit;
+
 #ifndef MINIDLL
 extern HWND g_hWndSplash;  // The SplashText window.
 extern HFONT g_hFontSplash;
@@ -76,11 +86,13 @@ extern HHOOK g_MouseHook;
 extern HHOOK g_PlaybackHook;
 extern bool g_ForceLaunch;
 extern bool g_WinActivateForce;
+extern bool g_RunStdIn;
 extern WarnMode g_Warn_UseUnsetLocal;
 extern WarnMode g_Warn_UseUnsetGlobal;
 extern WarnMode g_Warn_UseEnv;
 extern WarnMode g_Warn_LocalSameAsGlobal;
 #ifndef MINIDLL
+extern PVOID g_ExceptionHandler;
 extern SingleInstanceType g_AllowOnlyOneInstance;
 #endif
 extern bool g_persistent;
@@ -90,7 +102,6 @@ extern bool g_NoTrayIcon;
 #ifdef AUTOHOTKEYSC
 	extern bool g_AllowMainWindow;
 #endif
-extern bool g_AllowSameLineComments;
 extern bool g_DeferMessagesForUnderlyingPump;
 extern bool g_MainTimerExists;
 extern bool g_AutoExecTimerExists;
@@ -138,6 +149,7 @@ extern int g_HotExprLineCountMax;
 extern UINT g_HotExprTimeout;
 extern HWND g_HotExprLFW;
 
+extern int g_ScreenDPI;
 extern MenuTypeType g_MenuIsVisible;
 #endif
 extern int g_nMessageBoxes;
@@ -194,8 +206,8 @@ EXTERN_SCRIPT;
 EXTERN_CLIPBOARD;
 EXTERN_OSVER;
 #ifndef MINIDLL
-extern int g_IconTray;
-extern int g_IconTraySuspend;
+extern HICON g_IconSmall;
+extern HICON g_IconLarge;
 #endif
 extern DWORD g_OriginalTimeout;
 
@@ -238,6 +250,18 @@ extern DWORD g_TimeLastInputPhysical;
 extern bool g_KeyHistoryToFile;
 #endif
 #endif // MINIDLL
+
+extern TCHAR g_default_pwd0;
+extern TCHAR g_default_pwd1;
+extern TCHAR g_default_pwd2;
+extern TCHAR g_default_pwd3;
+extern TCHAR g_default_pwd4;
+extern TCHAR g_default_pwd5;
+extern TCHAR g_default_pwd6;
+extern TCHAR g_default_pwd7;
+extern TCHAR g_default_pwd8;
+extern TCHAR g_default_pwd9;
+extern TCHAR *g_default_pwd[];
 
 // 9 might be better than 10 because if the granularity/timer is a little
 // off on certain systems, a Sleep(10) might really result in a Sleep(20),

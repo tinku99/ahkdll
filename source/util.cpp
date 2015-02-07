@@ -19,8 +19,9 @@ GNU General Public License for more details.
 #include <gdiplus.h> // Used by LoadPicture().
 #include "Shlwapi.h"
 #include "util.h"
+#include "script.h"
 #include "globaldata.h"
-
+#include "LiteUnzip.h"
 
 int GetYDay(int aMon, int aDay, bool aIsLeapYear)
 // Returns a number between 1 and 366.
@@ -2288,7 +2289,7 @@ HICON ExtractIconFromExecutable(LPTSTR aFilespec, int aIconNumber, int aWidth, i
 
 	// If the module is already loaded as an executable, LoadLibraryEx returns its handle.
 	// Otherwise each call will receive its own handle to a data file mapping.
-	HMODULE hdatafile = LoadLibraryEx(aFilespec, NULL, LOAD_LIBRARY_AS_DATAFILE);
+	HMODULE hdatafile = aFilespec ? LoadLibraryEx(aFilespec, NULL, LOAD_LIBRARY_AS_DATAFILE) : g_hInstance;
 	if (hdatafile)
 	{
 		int group_icon_id = (aIconNumber < 0 ? -aIconNumber : ResourceIndexToId(hdatafile, (LPCTSTR)RT_GROUP_ICON, aIconNumber ? aIconNumber : 1));
@@ -2305,21 +2306,59 @@ HICON ExtractIconFromExecutable(LPTSTR aFilespec, int aIconNumber, int aWidth, i
 			&& (hresdata = LoadResource(hdatafile, hres))
 			&& (presdata = LockResource(hresdata)))
 		{
-			// LookupIconIdFromDirectoryEx seems to use whichever is larger of aWidth or aHeight,
-			// so one or the other may safely be -1. However, since this behaviour is undocumented,
-			// treat -1 as "same as other dimension":
-			int icon_id = LookupIconIdFromDirectoryEx((PBYTE)presdata, TRUE, aWidth == -1 ? aHeight : aWidth, aHeight == -1 ? aWidth : aHeight, 0);
-			if (icon_id
-				&& (hres = FindResource(hdatafile, MAKEINTRESOURCE(icon_id), RT_ICON))
+#pragma pack(push, 1) // For RESDIR, mainly.
+			struct NEWHEADER {
+				WORD Reserved;
+				WORD ResType;
+				WORD ResCount;
+			};
+			struct ICONRESDIR {
+				BYTE Width;
+				BYTE Height;
+				BYTE ColorCount;
+				BYTE reserved;
+			};
+			// Note that the definition of RESDIR at http://msdn.microsoft.com/en-us/library/ms648026 is
+			// completely wrong as at 2015-01-10, but the correct definition is posted in the comments.
+			struct RESDIR {
+				ICONRESDIR Icon;
+				WORD Planes;
+				WORD BitCount;
+				DWORD BytesInRes;
+				WORD IconCursorId;
+			};
+#pragma pack(pop)
+
+			if (aWidth == -1)
+				aWidth = aHeight;
+			if (aWidth == 0)
+				aWidth = GetSystemMetrics(SM_CXICON);
+
+			NEWHEADER *resHead = (NEWHEADER *)presdata;
+			WORD resCount = resHead->ResCount;
+			RESDIR *resDir = (RESDIR *)(resHead + 1), *chosen = resDir; // Default to the first icon.
+			for (int i = 1; i < resCount; ++i)
+			{
+				// Find the closest match for size, preferring the next larger icon if there's
+				// no exact match.  Normally the system will just pick the closest size, but
+				// at least for our icon, the 32x32 icon rendered at 20x20 looks much better
+				// than the 16x16 icon rendered at 20x20 (i.e. small icon size for 125% DPI).
+				if (resDir[i].Icon.Width > chosen->Icon.Width
+					? chosen->Icon.Width < aWidth // Current icon smaller than desired, so up-size.
+					: resDir[i].Icon.Width >= aWidth) // Current icon larger than desired, so down-size (without going below aWidth).
+					chosen = &resDir[i];
+			}
+			if (   (hres = FindResource(hdatafile, MAKEINTRESOURCE(chosen->IconCursorId), RT_ICON))
 				&& (hresdata = LoadResource(hdatafile, hres))
-				&& (presdata = LockResource(hresdata)))
+				&& (presdata = LockResource(hresdata))   )
 			{
 				hicon = CreateIconFromResourceEx((PBYTE)presdata, SizeofResource(hdatafile, hres), TRUE, 0x30000, 0, 0, 0);
 			}
 		}
 
 		// Decrements the executable module's reference count or frees the data file mapping.
-		FreeLibrary(hdatafile);
+		if (aFilespec)
+			FreeLibrary(hdatafile);
 	}
 
 	// L20: Fall back to ExtractIcon if the above method failed. This may work on some versions of Windows where
@@ -2682,6 +2721,39 @@ bool IsStringInList(LPTSTR aStr, LPTSTR aList, bool aFindExactMatch)
 	return false;  // No match found.
 }
 
+
+
+LPTSTR InStrAny(LPTSTR aStr, LPTSTR aNeedle[], int aNeedleCount, size_t &aFoundLen)
+{
+	// For each character in aStr:
+	for ( ; *aStr; ++aStr)
+		// For each needle:
+		for (int i = 0; i < aNeedleCount; ++i)
+			// For each character in this needle:
+			for (LPTSTR needle_pos = aNeedle[i], str_pos = aStr; ; ++needle_pos, ++str_pos)
+			{
+				if (!*needle_pos)
+				{
+					// All characters in needle matched aStr at this position, so we've
+					// found our string.  If this needle is empty, it implicitly matches
+					// at the first position in the string.
+					aFoundLen = needle_pos - aNeedle[i];
+					return aStr;
+				}
+				// Otherwise, we haven't reached the end of the needle. If we've reached
+				// the end of aStr, *str_pos and *needle_pos won't match, so the check
+				// below will break out of the loop.
+				if (*needle_pos != *str_pos)
+					// Not a match: continue on to the next needle, or the next starting
+					// position in aStr if this is the last needle.
+					break;
+			}
+	// If the above loops completed without returning, no matches were found.
+	return NULL;
+}
+
+
+
 short IsDefaultType(LPTSTR aTypeDef){
 	static LPTSTR sTypeDef[8] = {_T(" CHAR UCHAR BOOLEAN BYTE ")
 #ifndef _WIN64
@@ -2711,51 +2783,432 @@ short IsDefaultType(LPTSTR aTypeDef){
 	return NULL;
 }
 
-DWORD DecompressBuffer(LPVOID &aBuffer)
+ResultType LoadDllFunction(LPTSTR parameter, LPTSTR aBuf)
 {
-	unsigned int hdrsz = 18;
-	ULONG aSizeCompressed = *(ULONG*)((ULONG)aBuffer + 14);
-	DWORD hash;
-	HashData((LPBYTE)aBuffer+8,aSizeCompressed+10,(LPBYTE)&hash,4);
-	if (hash == *(ULONG*)((ULONG)aBuffer + 4))
+	LPTSTR aFuncName = omit_leading_whitespace(parameter);
+	// backup current function
+	// Func currentfunc = **g_script.mFunc;
+	if (!(parameter = _tcschr(parameter, ',')) || !*parameter)
+		return g_script.ScriptError(ERR_PARAM2_REQUIRED, aBuf);
+	else
+		parameter++;
+	if (_tcschr(aFuncName, ','))
+		*(_tcschr(aFuncName, ',')) = '\0';
+	ltrim(parameter);
+	int insert_pos;
+	Func *found_func = g_script.FindFunc(aFuncName, _tcslen(aFuncName), &insert_pos);
+	if (found_func)
+		return g_script.ScriptError(_T("Duplicate function definition."), aFuncName); // Seems more descriptive than "Function already defined."
+	else
+		if (!(found_func = g_script.AddFunc(aFuncName, _tcslen(aFuncName), false, insert_pos)))
+			return FAIL; // It already displayed the error.
+	void *function = NULL; // Will hold the address of the function to be called.
+
+	found_func->mBIF = (BuiltInFunctionType)BIF_DllImport;
+	found_func->mIsBuiltIn = true;
+	found_func->mMinParams = 0;
+
+	TCHAR buf[MAX_PATH];
+	size_t space_remaining = LINE_SIZE - (parameter - aBuf);
+	if (tcscasestr(parameter, _T("%A_ScriptDir%")))
 	{
-		USHORT CompressionMode = *(USHORT*)((ULONG)aBuffer + 8);
-		ULONG aSizeDecompressed = *(ULONG*)((ULONG)aBuffer + 10);
-		ULONG aSizeUncompressed = 0;
-		typedef NTSTATUS (WINAPI * RtlDecompressBuffer)(USHORT, PUCHAR, ULONG, PUCHAR, ULONG, PULONG);
-		RtlDecompressBuffer xRtlDecompressBuffer;
-		xRtlDecompressBuffer = RtlDecompressBuffer(GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "RtlDecompressBuffer"));
-		//aResData = (LPCWSTR)_alloca(aSizeDecompressed);
-		LPVOID aResData = VirtualAlloc(NULL, aSizeDecompressed, MEM_COMMIT, PAGE_READWRITE);
-		xRtlDecompressBuffer(CompressionMode,(PUCHAR)aResData,aSizeDecompressed,(PUCHAR)aBuffer + hdrsz,aSizeCompressed,&aSizeUncompressed);
-		if (*(unsigned int*)aResData == 0x315F5A4C)
+		BIV_ScriptDir(buf, _T("A_ScriptDir"));
+		StrReplace(parameter, _T("%A_ScriptDir%"), buf, SCS_INSENSITIVE, 1, space_remaining);
+	}
+	if (tcscasestr(parameter, _T("%A_AppData%"))) // v1.0.45.04: This and the next were requested by Tekl to make it easier to customize scripts on a per-user basis.
+	{
+		BIV_SpecialFolderPath(buf, _T("A_AppData"));
+		StrReplace(parameter, _T("%A_AppData%"), buf, SCS_INSENSITIVE, 1, space_remaining);
+	}
+	if (tcscasestr(parameter, _T("%A_AppDataCommon%"))) // v1.0.45.04.
+	{
+		BIV_SpecialFolderPath(buf, _T("A_AppDataCommon"));
+		StrReplace(parameter, _T("%A_AppDataCommon%"), buf, SCS_INSENSITIVE, 1, space_remaining);
+	}
+	if (tcscasestr(parameter, _T("%A_AhkPath%"))) // v1.0.45.04.
+	{
+		BIV_AhkPath(buf, _T("A_AhkPath"));
+		StrReplace(parameter, _T("%A_AhkPath%"), buf, SCS_INSENSITIVE, 1, space_remaining);
+	}
+	if (tcscasestr(parameter, _T("%A_AhkDir%"))) // v1.0.45.04.
+	{
+		BIV_AhkDir(buf, _T("A_AhkDir"));
+		StrReplace(parameter, _T("%A_AhkDir%"), buf, SCS_INSENSITIVE, 1, space_remaining);
+	}
+	if (tcscasestr(parameter, _T("%A_DllDir%"))) // v1.0.45.04.
+	{
+		BIV_DllDir(buf, _T("A_DllDir"));
+		StrReplace(parameter, _T("%A_DllDir%"), buf, SCS_INSENSITIVE, 1, space_remaining);
+	}
+	if (tcscasestr(parameter, _T("%A_DllPath%"))) // v1.0.45.04.
+	{
+		BIV_DllPath(buf, _T("A_DllPath"));
+		StrReplace(parameter, _T("%A_DllPath%"), buf, SCS_INSENSITIVE, 1, space_remaining);
+	}
+	if (_tcschr(parameter, '%'))
+	{
+		return g_script.ScriptError(_T("Reference not allowed here, use & where possible. Only %A_AhkPath% %A_AhkDir% %A_DllPath% %A_DllDir% %A_ScriptDir% %A_AppData[Common]% can be used here."), parameter);
+	}
+	// terminate dll\function name, find it and jump to next parameter
+	if (_tcschr(parameter, ','))
+		*(_tcschr(parameter, ',')) = '\0';
+	if (RegExMatch(parameter, _T("^\\s*[A-Fa-f0-9]+(:[A-Fa-f0-9]+)?\\s*$")))
+	{
+		TCHAR hex[4] = { '0', 'x' };
+#ifdef _WIN64
+		if (_tcschr(parameter, ':'))
+			parameter = _tcschr(parameter, ':') + 1;
+#endif
+		int end;
+		if (_tcschr(parameter, ':'))
+			end = (int)(_tcschr(parameter, ':') - parameter);
+		else
+			end = (int)_tcslen(parameter);
+		if (!(function = (void*)SimpleHeap::Malloc(end / 2)))
+			return g_script.ScriptError(ERR_OUTOFMEM, parameter);
+		if (!VirtualAlloc(function, end / 2, MEM_COMMIT, PAGE_EXECUTE_READWRITE))
+			return g_script.ScriptError(_T("Could not commit memory for DllImport."), parameter);
+		for (int i = 0; i < end; i += 2)
 		{
-			*(unsigned int*)aResData = 0x005F5A4C;
-			aSizeCompressed = *(ULONG*)((ULONG)aResData + 14);
-			HashData((LPBYTE)aResData+8,aSizeCompressed+10,(LPBYTE)&hash,4);
-			if (hash == *(ULONG*)((ULONG)aResData + 4))
-			{
-				ULONG aSizeMultiDecompressed = *(ULONG*)((ULONG)aResData + 10);
-				LPVOID aResMultiData = VirtualAlloc(NULL, aSizeMultiDecompressed, MEM_COMMIT, PAGE_READWRITE);
-				xRtlDecompressBuffer(CompressionMode,(PUCHAR)aResMultiData,aSizeMultiDecompressed,(PUCHAR)aResData + hdrsz,aSizeCompressed,&aSizeUncompressed);
-				VirtualFree(aResData,aSizeDecompressed,MEM_RELEASE);
-				aBuffer = aResMultiData;
-				return aSizeUncompressed + hdrsz;
-			}
-			else
-			{
-				aBuffer = aResData;
-				return aSizeUncompressed + hdrsz;
+			_tcsncpy(&hex[2], parameter + i, 2);
+			*((char*)function + i / 2) = (char)_tcstol(hex, NULL, 16);
+		}
+	} 
+	else
+		function = (void*)ATOI64(parameter);
+	if (!function)
+	{
+		LPTSTR dll_name = _tcsrchr(parameter, '\\');
+		if (dll_name)
+		{
+			*dll_name = '\0';
+			if (!GetModuleHandle(parameter))
+				LoadLibrary(parameter);
+			*dll_name = '\\';
+		}
+		function = (void*)GetDllProcAddress(parameter);
+	}
+	if (!function)
+		return g_script.ScriptError(ERR_NONEXISTENT_FUNCTION, parameter);
+	parameter = parameter + _tcslen(parameter) + 1;
+
+	LPTSTR parm = SimpleHeap::Malloc(parameter);
+	bool has_return = false;
+	int aParamCount = !*parm||ATOI(parm) ? 0 : 1;
+	if (*parm)
+		for (; _tcschr(parameter, ','); aParamCount++)
+		{
+		if (parameter = _tcschr(parameter, ','))
+			parameter++;
+		}
+	if (*parm && aParamCount < 1)
+		return g_script.ScriptError(ERR_PARAM3_REQUIRED, aBuf);
+
+	// Determine the type of return value.
+	DYNAPARM *return_attrib = (DYNAPARM*)SimpleHeap::Malloc(sizeof(DYNAPARM));
+	if (!return_attrib)
+		return g_script.ScriptError(ERR_OUTOFMEM);
+	memset(return_attrib, 0, sizeof(DYNAPARM)); // Init all to default in case ConvertDllArgType() isn't called below. This struct holds the type and other attributes of the function's return value.
+#ifdef WIN32_PLATFORM
+	int dll_call_mode = DC_CALL_STD; // Set default.  Can be overridden to DC_CALL_CDECL and flags can be OR'd into it.
+#endif
+	if (!(aParamCount % 2)) // Even number of parameters indicates the return type has been omitted, so assume BOOL/INT.
+		return_attrib->type = DLL_ARG_INT;
+	else
+	{
+		// Check validity of this arg's return type:
+		LPTSTR return_type_string[2];
+		return_type_string[0] = omit_leading_whitespace(parameter);
+		return_type_string[1] = NULL; // Added in 1.0.48.
+
+		// 64-bit note: The calling convention detection code is preserved here for script compatibility.
+
+		if (!_tcsnicmp(return_type_string[0], _T("CDecl"), 5)) // Alternate calling convention.
+		{
+#ifdef WIN32_PLATFORM
+			dll_call_mode = DC_CALL_CDECL;
+#endif
+			return_type_string[0] = omit_leading_whitespace(return_type_string[0] + 5);
+			if (!*return_type_string[0])
+			{	// Take a shortcut since we know this empty string will be used as "Int":
+				return_attrib->type = DLL_ARG_INT;
+				goto has_valid_return_type;
 			}
 		}
-		else
+
+		ConvertDllArgType(return_type_string, *return_attrib);
+		if (return_attrib->type == DLL_ARG_INVALID)
+			return CONDITION_FALSE;
+		has_return = true;
+
+	has_valid_return_type:
+		aParamCount--;
+#ifdef WIN32_PLATFORM
+		if (!return_attrib->passed_by_address) // i.e. the special return flags below are not needed when an address is being returned.
 		{
-			aBuffer = aResData;
-			return aSizeUncompressed + hdrsz;
+			if (return_attrib->type == DLL_ARG_DOUBLE)
+				dll_call_mode |= DC_RETVAL_MATH8;
+			else if (return_attrib->type == DLL_ARG_FLOAT)
+				dll_call_mode |= DC_RETVAL_MATH4;
+		}
+#endif
+	}
+
+	// Using stack memory, create an array of dll args large enough to hold the actual number of args present.
+	int arg_count = aParamCount / 2; // Might provide one extra due to first/last params, which is inconsequential.
+	DYNAPARM *dyna_param_def = arg_count ? (DYNAPARM *)SimpleHeap::Malloc(arg_count * sizeof(DYNAPARM)) : NULL;
+	DYNAPARM *dyna_param = arg_count ? (DYNAPARM *)SimpleHeap::Malloc(arg_count * sizeof(DYNAPARM)) : NULL;
+	if (arg_count && (!dyna_param_def || !dyna_param))
+		return g_script.ScriptError(ERR_OUTOFMEM);
+	// Above: _alloca() has been checked for code-bloat and it doesn't appear to be an issue.
+	// Above: Fix for v1.0.36.07: According to MSDN, on failure, this implementation of _alloca() generates a
+	// stack overflow exception rather than returning a NULL value.  Therefore, NULL is no longer checked,
+	// nor is an exception block used since stack overflow in this case should be exceptionally rare (if it
+	// does happen, it would probably mean the script or the program has a design flaw somewhere, such as
+	// infinite recursion).
+
+	LPTSTR arg_type_string[2];
+	int i = arg_count * sizeof(void *);
+	// for Unicode <-> ANSI charset conversion
+#ifdef UNICODE
+	CStringA **pStr = (CStringA **)
+#else
+	CStringW **pStr = (CStringW **)
+#endif
+		SimpleHeap::Malloc(i); // _alloca vs malloc can make a significant difference to performance in some cases.
+	if (i && !pStr)
+		return g_script.ScriptError(ERR_OUTOFMEM);
+	memset(pStr, 0, i);
+
+	// Above has already ensured that after the first parameter, there are either zero additional parameters
+	// or an even number of them.  In other words, each arg type will have an arg value to go with it.
+	// It has also verified that the dyna_param array is large enough to hold all of the args.
+	LPTSTR this_param;
+	for (arg_count = 0, i = 1; i < aParamCount; ++arg_count, i += 2)  // Same loop as used later below, so maintain them together.
+	{
+		this_param = _tcschr(parm, ',');
+		*this_param = '\0';
+		this_param++;
+		arg_type_string[0] = parm; // It will be detected as invalid below.
+		arg_type_string[1] = NULL;
+
+		//ExprTokenType &this_param = *aParam[i + 1];         // Resolved for performance and convenience.
+		DYNAPARM &this_dyna_param = dyna_param_def[arg_count];  //
+		
+		// Store the each arg into a dyna_param struct, using its arg type to determine how.
+		ConvertDllArgType(arg_type_string, this_dyna_param);
+
+		switch (this_dyna_param.type)
+		{
+		case DLL_ARG_STR:
+			if (ATOI64(this_param))
+			{
+				// For now, string args must be real strings rather than floats or ints.  An alternative
+				// to this would be to convert it to number using persistent memory from the caller (which
+				// is necessary because our own stack memory should not be passed to any function since
+				// that might cause it to return a pointer to stack memory, or update an output-parameter
+				// to be stack memory, which would be invalid memory upon return to the caller).
+				// The complexity of this doesn't seem worth the rarity of the need, so this will be
+				// documented in the help file.
+				return CONDITION_FALSE;
+			}
+			// Otherwise, it's a supported type of string.
+			this_dyna_param.ptr = this_param; // SYM_VAR's Type() is always VAR_NORMAL (except lvalues in expressions).
+			// NOTES ABOUT THE ABOVE:
+			// UPDATE: The v1.0.44.14 item below doesn't work in release mode, only debug mode (turning off
+			// "string pooling" doesn't help either).  So it's commented out until a way is found
+			// to pass the address of a read-only empty string (if such a thing is possible in
+			// release mode).  Such a string should have the following properties:
+			// 1) The first byte at its address should be '\0' so that functions can read it
+			//    and recognize it as a valid empty string.
+			// 2) The memory address should be readable but not writable: it should throw an
+			//    access violation if the function tries to write to it (like "" does in debug mode).
+			// SO INSTEAD of the following, DllCall() now checks further below for whether sEmptyString
+			// has been overwritten/trashed by the call, and if so displays a warning dialog.
+			// See note above about this: v1.0.44.14: If a variable is being passed that has no capacity, pass a
+			// read-only memory area instead of a writable empty string. There are two big benefits to this:
+			// 1) It forces an immediate exception (catchable by DllCall's exception handler) so
+			//    that the program doesn't crash from memory corruption later on.
+			// 2) It avoids corrupting the program's static memory area (because sEmptyString
+			//    resides there), which can save many hours of debugging for users when the program
+			//    crashes on some seemingly unrelated line.
+			// Of course, it's not a complete solution because it doesn't stop a script from
+			// passing a variable whose capacity is non-zero yet too small to handle what the
+			// function will write to it.  But it's a far cry better than nothing because it's
+			// common for a script to forget to call VarSetCapacity before passing a buffer to some
+			// function that writes a string to it.
+			//if (this_dyna_param.str == Var::sEmptyString) // To improve performance, compare directly to Var::sEmptyString rather than calling Capacity().
+			//	this_dyna_param.str = _T(""); // Make it read-only to force an exception.  See comments above.
+			break;
+		case DLL_ARG_xSTR:
+			// See the section above for comments.
+			if (ATOI64(this_param))
+				return CONDITION_FALSE;
+			// String needing translation: ASTR on Unicode build, WSTR on ANSI build.
+			pStr[arg_count] = new UorA(CStringCharFromWChar, CStringWCharFromChar)(this_param);
+			this_dyna_param.ptr = pStr[arg_count]->GetBuffer();
+			break;
+
+		case DLL_ARG_DOUBLE:
+		case DLL_ARG_FLOAT:
+			// This currently doesn't validate that this_dyna_param.is_unsigned==false, since it seems
+			// too rare and mostly harmless to worry about something like "Ufloat" having been specified.
+			this_dyna_param.value_double = ATOF(this_param);
+			if (this_dyna_param.type == DLL_ARG_FLOAT)
+				this_dyna_param.value_float = (float)this_dyna_param.value_double;
+			break;
+
+		case DLL_ARG_INVALID:
+			return CONDITION_FALSE;
+
+		default: // Namely:
+			//case DLL_ARG_INT:
+			//case DLL_ARG_SHORT:
+			//case DLL_ARG_CHAR:
+			//case DLL_ARG_INT64:
+			if (this_dyna_param.is_unsigned && this_dyna_param.type == DLL_ARG_INT64 && !ATOI64(this_param))
+				// The above and below also apply to BIF_NumPut(), so maintain them together.
+				// !IS_NUMERIC() is checked because such tokens are already signed values, so should be
+				// written out as signed so that whoever uses them can interpret negatives as large
+				// unsigned values.
+				// Support for unsigned values that are 32 bits wide or less is done via ATOI64() since
+				// it should be able to handle both signed and unsigned values.  However, unsigned 64-bit
+				// values probably require ATOU64(), which will prevent something like -1 from being seen
+				// as the largest unsigned 64-bit int; but more importantly there are some other issues
+				// with unsigned 64-bit numbers: The script internals use 64-bit signed values everywhere,
+				// so unsigned values can only be partially supported for incoming parameters, but probably
+				// not for outgoing parameters (values the function changed) or the return value.  Those
+				// should probably be written back out to the script as negatives so that other parts of
+				// the script, such as expressions, can see them as signed values.  In other words, if the
+				// script somehow gets a 64-bit unsigned value into a variable, and that value is larger
+				// that LLONG_MAX (i.e. too large for ATOI64 to handle), ATOU64() will be able to resolve
+				// it, but any output parameter should be written back out as a negative if it exceeds
+				// LLONG_MAX (return values can be written out as unsigned since the script can specify
+				// signed to avoid this, since they don't need the incoming detection for ATOU()).
+				this_dyna_param.value_int64 = (__int64)ATOU64(this_param); // Cast should not prevent called function from seeing it as an undamaged unsigned number.
+			else
+				this_dyna_param.value_int64 = ATOI64(this_param);
+
+			// Values less than or equal to 32-bits wide always get copied into a single 32-bit value
+			// because they should be right justified within it for insertion onto the call stack.
+			if (this_dyna_param.type != DLL_ARG_INT64) // Shift the 32-bit value into the high-order DWORD of the 64-bit value for later use by DynaCall().
+				this_dyna_param.value_int = (int)this_dyna_param.value_int64; // Force a failure if compiler generates code for this that corrupts the union (since the same method is used for the more obscure float vs. double below).
+		} // switch (this_dyna_param.type)
+		if ((parm = _tcschr(this_param, ',')))
+			*parm++ = '\0';
+	} // for() each arg.
+	if (has_return && aParamCount)
+		*(this_param) = '\0';
+
+	found_func->mClass = (Object*)function;
+	found_func->mParamCount = arg_count;
+	found_func->mVar = (Var**)return_attrib;
+	found_func->mStaticVar = (Var**)pStr;
+	found_func->mLazyVar = (Var**)dyna_param_def;
+	found_func->mParam = (FuncParam*)dyna_param;
+#ifdef WIN32_PLATFORM
+	found_func->mVarCount = dll_call_mode;
+#endif
+	return CONDITION_TRUE;
+}
+
+
+DWORD DecompressBuffer(void *aBuffer,LPVOID &aDataBuf, TCHAR *pwd[]) // LiteZip Raw compression
+{
+	unsigned int hdrsz = 20;
+	TCHAR pw[1024] = {0};
+	if (pwd && pwd[0])
+		for(unsigned int i = 0;pwd[i];i++)
+			pw[i] = (TCHAR)*pwd[i];
+	ULONG aSizeCompressed = *(ULONG*)((UINT_PTR)aBuffer + 8);
+	DWORD aSizeEncrypted = *(DWORD*)((UINT_PTR)aBuffer + 16);
+	DWORD hash;
+	BYTE *aDataEncrypted = NULL;
+	HashData((LPBYTE)aBuffer + hdrsz,aSizeEncrypted?aSizeEncrypted:aSizeCompressed,(LPBYTE)&hash,4);
+	if (0x04034b50 == *(ULONG*)(UINT_PTR)aBuffer && hash == *(ULONG*)((UINT_PTR)aBuffer + 4))
+	{
+		HUNZIP		huz;
+		ZIPENTRY	ze;
+		DWORD		result;
+		ULONG aSizeDeCompressed = *(ULONG*)((UINT_PTR)aBuffer + 12);
+		aDataBuf = VirtualAlloc(NULL, aSizeDeCompressed, MEM_COMMIT, PAGE_READWRITE);
+		if (aDataBuf)
+		{
+			DWORD aSizeDataEncrypted = 0;
+			if (aSizeEncrypted)
+			{
+				typedef BOOL (_stdcall *MyDecrypt)(HCRYPTKEY,HCRYPTHASH,BOOL,DWORD,BYTE*,DWORD*);
+				HMODULE advapi32 = LoadLibrary(_T("advapi32.dll"));
+				MyDecrypt Decrypt = (MyDecrypt)GetProcAddress(advapi32,"CryptDecrypt");
+				LPSTR aDataEncryptedString = (LPSTR)VirtualAlloc(NULL, aSizeEncrypted, MEM_COMMIT, PAGE_READWRITE);
+				aSizeDataEncrypted = aSizeEncrypted;
+				DWORD aSizeEncryptedString = aSizeEncrypted;
+				HCRYPTPROV hProv;
+				HCRYPTKEY hKey;
+				HCRYPTHASH hHash;
+				CryptAcquireContext(&hProv,NULL,NULL,PROV_RSA_AES,CRYPT_VERIFYCONTEXT);
+				CryptCreateHash(hProv,CALG_SHA1,NULL,NULL,&hHash);
+				CryptHashData(hHash,(BYTE *) pw,(DWORD)_tcslen(pw) * sizeof(TCHAR),0);
+				CryptDeriveKey(hProv,CALG_AES_256,hHash,256<<16,&hKey);
+				CryptDestroyHash(hHash);
+				memmove(aDataEncryptedString,(LPBYTE)aBuffer + hdrsz,aSizeEncrypted);
+				Decrypt(hKey, NULL, true, 0, (BYTE*)aDataEncryptedString, &aSizeDataEncrypted);
+				CryptStringToBinaryA(aDataEncryptedString, NULL, CRYPT_STRING_BASE64, NULL, &aSizeEncryptedString, NULL, NULL);
+				if (aSizeEncryptedString == 0)
+				{   // incorrect password
+					VirtualFree(aDataBuf,aSizeDeCompressed,MEM_RELEASE);
+					VirtualFree(aDataEncryptedString, aSizeEncrypted, MEM_RELEASE);
+					return 0;
+				}
+				aDataEncrypted = (BYTE*)VirtualAlloc(NULL, aSizeDataEncrypted = aSizeEncryptedString, MEM_COMMIT, PAGE_READWRITE);
+				CryptStringToBinaryA(aDataEncryptedString, NULL, CRYPT_STRING_BASE64, aDataEncrypted, &aSizeEncryptedString, NULL, NULL);
+				VirtualFree(aDataEncryptedString,aSizeEncrypted,MEM_RELEASE);
+				CryptDestroyKey(hKey);
+				CryptReleaseContext(hProv,0);
+				if (openArchive(&huz,(LPBYTE)aDataEncrypted, aSizeCompressed, ZIP_MEMORY|ZIP_RAW, 0))
+				{   // failed to open archive
+					closeArchive((TUNZIP *)huz);
+					VirtualFree(aDataBuf,aSizeDeCompressed,MEM_RELEASE);
+					VirtualFree(aDataEncrypted, aSizeDataEncrypted, MEM_RELEASE);
+					return 0;
+				}
+			}
+			else if (openArchive(&huz,(LPBYTE)aBuffer + hdrsz, aSizeCompressed, ZIP_MEMORY|ZIP_RAW, 0))
+			{   // failed to open archive
+				closeArchive((TUNZIP *)huz);
+				VirtualFree(aDataBuf,aSizeDeCompressed,MEM_RELEASE);
+				return 0;
+			}
+			ze.CompressedSize = aSizeDeCompressed;
+			ze.UncompressedSize = aSizeDeCompressed;
+			if ((result = unzipEntry((TUNZIP *)huz, aDataBuf, &ze, ZIP_MEMORY)))
+				VirtualFree(aDataBuf,aSizeDeCompressed,MEM_RELEASE);
+			else
+			{
+				closeArchive((TUNZIP *)huz);
+				if (aDataEncrypted)
+					VirtualFree(aDataEncrypted, aSizeDataEncrypted, MEM_RELEASE);
+				return aSizeDeCompressed;
+			}
+			closeArchive((TUNZIP *)huz);
+			if (aDataEncrypted)
+				VirtualFree(aDataEncrypted, aSizeDataEncrypted, MEM_RELEASE);
 		}
 	}
 	return 0;
 }
+
+#ifndef MINIDLL
+LONG WINAPI DisableHooksOnException(PEXCEPTION_POINTERS pExceptionPtrs)
+{
+	// Disable all hooks to avoid system/mouse freeze
+	if (pExceptionPtrs->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION
+		&& pExceptionPtrs->ExceptionRecord->ExceptionFlags == EXCEPTION_NONCONTINUABLE)
+		AddRemoveHooks(0);
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
 #if defined(_MSC_VER) && defined(_DEBUG)
 void OutputDebugStringFormat(LPCTSTR fmt, ...)
 {

@@ -34,21 +34,21 @@ BIF_DECL(BIF_FindLabel) // HotKeyIt Added in 1.1.02.00
 
 BIF_DECL(BIF_Getvar)
 {
-	int i = 0;
-	if (aParam[0]->symbol == SYM_VAR)
-		i = (int)aParam[0]->var;
-	aResultToken.value_int64 = i;
-}
-
-
-BIF_DECL(BIF_Static)
-{
-	if (aParam[0]->symbol == SYM_VAR)
+	switch(aParam[0]->symbol)
 	{
-		Var *var = aParam[0]->var;
-		if (var->mType == VAR_ALIAS)
-			var = var->mAliasFor;
-		var->mAttrib |= VAR_LOCAL_STATIC;
+		case SYM_STRING:
+		case SYM_OPERAND:
+			if (!(TokenToInt64(*aParam[0])))
+				aResultToken.value_int64 = (__int64)g_script.FindOrAddVar(aParam[0]->marker);
+			break;
+		case SYM_VAR:
+			if (aParam[0]->var->mType == VAR_ALIAS && aParamCount > 1 && TokenToInt64(*aParam[1]))
+				aResultToken.value_int64 = (__int64)aParam[0]->var->mAliasFor;
+			else
+				aResultToken.value_int64 = (__int64)aParam[0]->var;
+			break;
+		default:
+			aResultToken.value_int64 = 0;
 	}
 }
 
@@ -56,26 +56,34 @@ BIF_DECL(BIF_Alias)
 {
 	ExprTokenType &aParam0 = *aParam[0];
 	ExprTokenType &aParam1 = *aParam[1];
+	aResultToken.symbol = SYM_STRING;
+	aResultToken.marker = _T("");
 	if (aParam0.symbol == SYM_VAR)
 	{
 		Var &var = *aParam0.var;
 
 		UINT_PTR len = 0;
-		switch (aParam1.symbol)
-		{
-		case SYM_VAR:
-			len = (UINT_PTR)(aParam[1]->var->mType == VAR_ALIAS ? aParam1.var->ResolveAlias() : aParam1.var);
-			break;
-		case SYM_INTEGER:
-			// HotKeyIt added to accept var pointer
-			len = (UINT_PTR)aParam[1]->value_int64;
-			break;
-			// HotKeyIt H10 added to accept dynamic text and also when value is returned by ahkgetvar in AutoHotkey.dll
-		case SYM_STRING:
-			len = (UINT_PTR)ATOI64(aParam1.marker);
-		}
+		if (aParamCount == 2)
+			switch (aParam1.symbol)
+			{
+			case SYM_VAR:
+				len = (UINT_PTR)(aParam[1]->var->mType == VAR_ALIAS ? aParam1.var->ResolveAlias() : aParam1.var);
+				break;
+			case SYM_INTEGER:
+				// HotKeyIt added to accept var pointer
+				len = (UINT_PTR)aParam[1]->value_int64;
+				break;
+				// HotKeyIt H10 added to accept dynamic text and also when value is returned by ahkgetvar in AutoHotkey.dll
+			case SYM_STRING:
+		case SYM_OPERAND:
+				len = (UINT_PTR)ATOI64(aParam1.marker);
+			}
 		var.mType = len ? VAR_ALIAS : VAR_NORMAL;
 		var.mByteLength = len;
+		if (len && var.mAliasFor->HasObject()){
+			var.mObject = var.mAliasFor->Object();
+			var.mObject->AddRef();
+		}
 	}
 }
 BIF_DECL(BIF_CacheEnable)

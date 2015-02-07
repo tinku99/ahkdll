@@ -154,6 +154,7 @@ void SendKeys(LPTSTR aKeys, bool aSendRaw, SendModes aSendModeOrig, HWND aTarget
 	if (!*aKeys)
 		return;
 	global_struct &g = *::g; // Reduces code size and may improve performance.
+	DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
 
 	// For performance and also to reserve future flexibility, recognize {Blind} only when it's the first item
 	// in the string.
@@ -446,7 +447,6 @@ void SendKeys(LPTSTR aKeys, bool aSendRaw, SendModes aSendModeOrig, HWND aTarget
 	single_char_string[1] = '\0'; // Terminate in advance.
 
 	LONG_OPERATION_INIT  // Needed even for SendInput/Play.
-
 	for (; *aKeys; ++aKeys, sPrevEventModifierDown = this_event_modifier_down)
 	{
 		this_event_modifier_down = 0; // Set default for this iteration, overridden selectively below.
@@ -474,8 +474,6 @@ void SendKeys(LPTSTR aKeys, bool aSendRaw, SendModes aSendModeOrig, HWND aTarget
 					mods_for_next_key |= MOD_LALT;
 				continue;
 			case '#':
-				if (g_script.mIsAutoIt2) // Since AutoIt2 ignores these, ignore them if script is in AutoIt2 mode.
-					continue;
 				if (!(persistent_modifiers_for_this_SendKeys & (MOD_LWIN|MOD_RWIN)))
 					mods_for_next_key |= MOD_LWIN;
 				continue;
@@ -987,6 +985,7 @@ void SendKey(vk_type aVK, sc_type aSC, modLR_type aModifiersLR, modLR_type aModi
 	bool vk_is_mouse = IsMouseVK(aVK); // Caller has ensured that VK is non-zero when it wants a mouse click.
 
 	LONG_OPERATION_INIT
+	DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
 	for (int i = 0; i < aRepeatCount; ++i)
 	{
 		if (!sSendMode)
@@ -1152,6 +1151,7 @@ void SendKeySpecial(TCHAR aChar, int aRepeatCount)
 	_itot((TBYTE)aChar, cp, 10); // Convert to UCHAR in case aChar < 0.
 
 	LONG_OPERATION_INIT
+	DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
 	for (int i = 0; i < aRepeatCount; ++i)
 	{
 		if (!sSendMode)
@@ -1942,7 +1942,6 @@ void ParseClickOptions(LPTSTR aOptions, int &aX, int &aY, vk_type &aVK, KeyEvent
 		}
 
 		// If the item was not handled by the above, ignore it because it is unknown.
-
 		*option_end = orig_char; // Undo the temporary termination because the caller needs aOptions to be unaltered.
 	} // for() each item in option list
 
@@ -2760,6 +2759,7 @@ void SendEventArray(int &aFinalKeyDelay, modLR_type aModsDuringSend)
 // to the desired/final delay.  Caller must not act upon it until changing sTypeOfHookToBuild to something
 // that will allow DoKeyDelay() to do a real delay.
 {
+	DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
 	if (sSendMode == SM_INPUT)
 	{
 		// Remove hook(s) temporarily because the presence of low-level (LL) keybd hook completely disables
@@ -2786,7 +2786,7 @@ void SendEventArray(int &aFinalKeyDelay, modLR_type aModsDuringSend)
 		for (unsigned int i = 0;i < sEventCount;i++)
 		{
 			// wVK and wScan are 0 and dwExtraInfo holds time to sleep
-			if (sEventSI[i].ki.wVk == 0 && sEventSI[i].ki.wScan == 0)
+			if (sEventSI[i].type == INPUT_KEYBOARD && sEventSI[i].ki.wVk == 0 && sEventSI[i].ki.wScan == 0)
 			{
 				sMySendInput(i - aLastEventCount, &sEventSI[aLastEventCount], sizeof(INPUT)); // Must call dynamically-resolved version for Win95/NT compatibility.
 				SLEEP_WITHOUT_INTERRUPTION((int)sEventSI[i].ki.dwExtraInfo);
@@ -2937,6 +2937,7 @@ void CleanupEventArray(int aFinalKeyDelay)
 void DoKeyDelay(int aDelay)
 // Doesn't need to be thread safe because it should only ever be called from main thread.
 {
+	DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
 	if (aDelay < 0) // To support user-specified KeyDelay of -1 (fastest send rate).
 		return;
 	if (sSendMode)
@@ -2991,7 +2992,10 @@ void DoMouseDelay() // Helper function for the mouse functions below.
 	if (mouse_delay < 11 || (mouse_delay < 25 && g_os.IsWin9x()))
 		Sleep(mouse_delay);
 	else
+	{
+		DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
 		SLEEP_WITHOUT_INTERRUPTION(mouse_delay)
+	}
 }
 
 
@@ -3065,6 +3069,7 @@ ToggleValueType ToggleKeyState(vk_type aVK, ToggleValueType aToggleValue)
 	// v1.0.43: Extended the above fix to include all toggleable keys (not just Capslock) and to apply
 	// to both directions (ON and OFF) since it seems likely to be needed for them all.
 	bool our_thread_is_foreground;
+	DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
 	if (our_thread_is_foreground = (GetWindowThreadProcessId(GetForegroundWindow(), NULL) == g_MainThreadID)) // GetWindowThreadProcessId() tolerates a NULL hwnd.
 		SLEEP_WITHOUT_INTERRUPTION(-1);
 	if (aVK == VK_CAPITAL && aToggleValue == TOGGLED_OFF && IsKeyToggledOn(aVK))
@@ -3478,6 +3483,7 @@ void SetModifierLRState(modLR_type aModifiersLRnew, modLR_type aModifiersLRnow, 
 		// exactly as if the hook were in the same thread.
 		if (aTargetWindow)
 		{
+			DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
 			if (g_KeybdHook)
 				SLEEP_WITHOUT_INTERRUPTION(0) // Don't use ternary operator to combine this with next due to "else if".
 			else if (GetWindowThreadProcessId(aTargetWindow, NULL) == g_MainThreadID)
@@ -4367,6 +4373,8 @@ vk_type sc_to_vk(sc_type aSC)
 	//case SC_NUMPADEND:   return VK_NUMPAD1;
 	//case SC_NUMPADPGUP:  return VK_NUMPAD9;
 	//case SC_NUMPADPGDN:  return VK_NUMPAD3;	
+
+	case SC_APPSKEY:	return VK_APPS; // Added in v1.1.17.00.
 	}
 
 	// Use the OS API call to resolve any not manually set above.  This should correctly
@@ -4380,5 +4388,5 @@ vk_type sc_to_vk(sc_type aSC)
 	// should be okay even on XP because the left/right specific keys have already
 	// been resolved above so don't need to be looked up here (LWIN and RWIN
 	// each have their own VK's so shouldn't be problem for the below call to resolve):
-	return MapVirtualKey((BYTE)aSC, 1);
+	return MapVirtualKey(LOBYTE(aSC), 1);
 }

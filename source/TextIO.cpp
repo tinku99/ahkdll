@@ -95,17 +95,34 @@ DWORD TextStream::Read(LPTSTR aBuf, DWORD aBufLen, int aNumLines)
 	int dst_size; // Number of code units in destination character.
 
 	UINT codepage = mCodePage; // For performance.
+	int chr_size = (codepage == CP_UTF16) ? sizeof(WCHAR) : sizeof(CHAR);
 
-	for (;;)
+	// This is set each iteration based on how many bytes we *need* to have in the buffer.
+	// Avoid setting it higher than necessary since that can cause undesired effects with
+	// non-file handles -  such as a console waiting for a second line of input when the
+	// first line is waiting in our buffer.
+	int next_size = chr_size;
+
+	while (target_used < aBufLen)
 	{
-		// Performance note: ReadAtLeast() reads either TEXT_IO_BLOCK bytes or nothing,
-		// depending on how much data is in the buffer.  We want to either have at least
-		// two chars in the buffer (maybe \r and \n) or have the very last char of data.
-		// Byte mode: Try to read at least 4 bytes to simplify handling of 4-byte UTF-8 chars.
-		if (target_used == aBufLen || !ReadAtLeast(4) && !mLength)
+		// Ensure the buffer contains at least one CHAR/WCHAR, or all bytes of the next
+		// character as determined by a previous iteration of the loop.  Note that Read()
+		// only occurs if the buffer contains less than next_size bytes, and that this
+		// check does not occur frequently due to buffering and the inner loop below.
+		if (!ReadAtLeast(next_size) && !mLength)
 			break;
-#define LAST_READ_HIT_EOF (mLength < 4) // Could be (mLength < TEXT_IO_BLOCK), but this seems safer.
+
+		// Reset to default (see comments above).
+		next_size = chr_size;
+
+		// The following macro is used when there is insufficient data in the buffer,
+		// to determine if more data can possibly be read in.  Using mLastRead should be
+		// faster than AtEOF(), and more reliable with console/pipe handles.
+		#define LAST_READ_HIT_EOF (mLastRead == 0)
 		
+		// Because we copy mPos into a temporary variable here and update mPos at the end of
+		// each outer loop iteration, it is very important that ReadAtLeast() not be called
+		// after this point.
 		src = mPos;
 		src_end = mBuffer + mLength; // Maint: mLength is in bytes.
 		
@@ -150,6 +167,7 @@ DWORD TextStream::Read(LPTSTR aBuf, DWORD aBufLen, int aNumLines)
 					{
 						// There's not enough data in the buffer to determine if this is \r\n.
 						// Let the next iteration handle this char after reading more data.
+						next_size = 2 * sizeof(WCHAR);
 						break;
 					}
 					// Since above didn't break or continue, this is an orphan \r.
@@ -201,6 +219,7 @@ DWORD TextStream::Read(LPTSTR aBuf, DWORD aBufLen, int aNumLines)
 						{
 							// There's not enough data in the buffer to determine if this is \r\n.
 							// Let the next iteration handle this char after reading more data.
+							next_size = 2;
 							break;
 						}
 						// Since above didn't break or continue, this is an orphan \r.
@@ -231,15 +250,18 @@ DWORD TextStream::Read(LPTSTR aBuf, DWORD aBufLen, int aNumLines)
 					// Ensure that the expected number of bytes are available:
 					if (src + src_size > src_end)
 					{
-						// We can't call ReadAtLeast() here since it may move the data around.
-						// Instead, rely on the outer loop to ensure that either the buffer has
-						// at least 4 bytes in it or we're at the end of the file.
-						//if (!ReadAtLeast(trail_bytes + 1))
 						if (LAST_READ_HIT_EOF)
 						{
 							mLength = 0; // Discard all remaining data, since it appears to be invalid.
-							src = NULL;  //
+							src = NULL;  // mPos is set to this outside the inner loop.
 							aBuf[target_used++] = INVALID_CHAR;
+						}
+						else
+						{
+							next_size = src_size;
+							// Let the next iteration handle this char after reading more data.
+							// If no more data is read, LAST_READ_HIT_EOF will be true and the
+							// next iteration will produce INVALID_CHAR.
 						}
 						break;
 					}
@@ -565,7 +587,7 @@ DWORD TextStream::Write(LPCVOID aBuf, DWORD aBufLen)
 //
 // TextFile
 //
-bool TextFile::_Open(LPCTSTR aFileSpec, DWORD aFlags)
+bool TextFile::_Open(LPCTSTR aFileSpec, DWORD &aFlags)
 {
 	_Close();
 	DWORD dwDesiredAccess, dwShareMode, dwCreationDisposition;
@@ -591,6 +613,38 @@ bool TextFile::_Open(LPCTSTR aFileSpec, DWORD aFlags)
 	}
 	dwShareMode = ((aFlags >> 8) & (FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE));
 
+	if (*aFileSpec == '*')
+	{
+		// v1.1.17: Allow FileOpen("*", "r|w") to open stdin/stdout/stderr ("**" for stderr).
+		// Can also be used to read script text from stdin, by passing "*" as the filename.
+		DWORD nStdHandle = 0;
+		switch (aFlags & ACCESS_MODE_MASK)
+		{
+		case WRITE:
+			if (!aFileSpec[1])
+				nStdHandle = STD_OUTPUT_HANDLE;
+			else if (aFileSpec[1] == '*' && !aFileSpec[2])
+				nStdHandle = STD_ERROR_HANDLE;
+			break;
+		case READ:
+			if (!aFileSpec[1])
+				nStdHandle = STD_INPUT_HANDLE;
+			break;
+		}
+		if (nStdHandle) // It was * or ** and not something invalid like *Somefile.
+		{
+			HANDLE hstd = GetStdHandle(nStdHandle);
+			if (hstd == NULL)// || !DuplicateHandle(GetCurrentProcess(), hstd, GetCurrentProcess(), &hstd, 0, FALSE, DUPLICATE_SAME_ACCESS))
+				return false;
+			aFlags = (aFlags & ~ACCESS_MODE_MASK) | USEHANDLE; // Avoid calling CloseHandle(), since we don't own it.
+			mFile = hstd; // Only now that we know it's not NULL.
+			return true;
+		}
+		// For any case not handled above, such as WRITE|READ combined or *** or *Somefile,
+		// it should be detected as an error below by CreateFile() failing (or if not, it's
+		// somehow valid and should not be treated as an error).
+	}
+	
 	// FILE_FLAG_SEQUENTIAL_SCAN is set, as sequential accesses are quite common for text files handling.
 	mFile = CreateFile(aFileSpec, dwDesiredAccess, dwShareMode, NULL, dwCreationDisposition,
 		(aFlags & (EOL_CRLF | EOL_ORPHAN_CR)) ? FILE_FLAG_SEQUENTIAL_SCAN : 0, NULL);
@@ -846,7 +900,7 @@ class FileObject : public ObjectBase // fincs: No longer allowing the script to 
 				length = mFile.Read(aResultToken.marker, length);
 				aResultToken.symbol = SYM_STRING;
 				aResultToken.marker[length] = '\0';
-				aResultToken.buf = (LPTSTR)(size_t) length; // Update buf to the actual number of characters read. Only strictly necessary in some cases; see TokenSetResult.
+				aResultToken.marker_length = length; // Update marker_length to the actual number of characters read. Only strictly necessary in some cases; see TokenSetResult.
 				return OK;
 			}
 			break;
@@ -987,6 +1041,13 @@ class FileObject : public ObjectBase // fincs: No longer allowing the script to 
 
 		case Encoding:
 		{
+			// Encoding: UTF-8, UTF-16 or CPnnn.  The -RAW suffix (CP_AHKNOBOM) is not supported; it is normally
+			// stripped out when the file is opened, so passing it to SetCodePage() would break encoding/decoding
+			// of non-ASCII characters (and did in v1.1.15.03 and earlier).  Although it could be detected/added
+			// via TextStream::mFlags, this isn't done because:
+			//  - It would only tell us whether the script passed "-RAW", not whether the file really has a BOM.
+			//  - It's questionable which behaviour is more more useful, but excluding "-RAW" is definitely simpler.
+			//  - Existing scripts may rely on File.Encoding not returning "-RAW".
 			UINT codepage;
 			if (aParamCount > 0)
 			{
@@ -995,32 +1056,29 @@ class FileObject : public ObjectBase // fincs: No longer allowing the script to 
 				else
 					codepage = Line::ConvertFileEncoding(TokenToString(*aParam[1]));
 				if (codepage != -1)
-					mFile.SetCodePage(codepage);
+					mFile.SetCodePage(codepage & ~CP_AHKNOBOM); // Ignore "-RAW" by removing the CP_AHKNOBOM flag; see comments above.
 				// Now fall through to below and return the actual codepage.
 			}
-			LPTSTR buf = aResultToken.buf;
-			aResultToken.marker = buf;
-			aResultToken.symbol = SYM_STRING;
+			LPTSTR name;
 			codepage = mFile.GetCodePage();
-			// This is based on BIV_FileEncoding, so maintain the two together:
+			// There's no need to check for the CP_AHKNOBOM flag here because it's stripped out when the file is opened.
 			switch (codepage)
 			{
 			// GetCodePage() returns the value of GetACP() in place of CP_ACP, so this case is not needed:
-			//case CP_ACP:
-				//*buf = '\0';
-				//return OK;
-			case CP_UTF8:					_tcscpy(buf, _T("UTF-8"));		break;
-			case CP_UTF8 | CP_AHKNOBOM:		_tcscpy(buf, _T("UTF-8-RAW"));	break;
-			case CP_UTF16:					_tcscpy(buf, _T("UTF-16"));		break;
-			case CP_UTF16 | CP_AHKNOBOM:	_tcscpy(buf, _T("UTF-16-RAW"));	break;
+			//case CP_ACP:  name = _T("");  break;
+			case CP_UTF8:	name = _T("UTF-8");  break;
+			case CP_UTF16:	name = _T("UTF-16"); break;
 			default:
 				// Although we could check codepage == GetACP() and return blank in that case, there's no way
 				// to know whether something like "CP0" or the actual codepage was passed to FileOpen, so just
 				// return "CPn" when none of the cases above apply:
-				buf[0] = _T('C');
-				buf[1] = _T('P');
-				_itot(codepage, buf + 2, 10);
+				name = aResultToken.buf;
+				name[0] = _T('C');
+				name[1] = _T('P');
+				_itot(codepage, name + 2, 10);
 			}
+			aResultToken.symbol = SYM_STRING;
+			aResultToken.marker = name;
 			return OK;
 		}
 
@@ -1176,7 +1234,7 @@ invalid_param:
 //
 // TextMem
 //
-bool TextMem::_Open(LPCTSTR aFileSpec, DWORD aFlags)
+bool TextMem::_Open(LPCTSTR aFileSpec, DWORD &aFlags)
 {
 	ASSERT( (aFlags & ACCESS_MODE_MASK) == TextStream::READ ); // Only read mode is supported.
 

@@ -50,7 +50,7 @@ public:
 	// number of attempts from 20 to 40 because Jason (Payam) reported
 	// that he was getting an error on rare occasions (but not reproducible).
 	ResultType Open();
-	HANDLE GetClipboardDataTimeout(UINT uFormat);
+	HANDLE GetClipboardDataTimeout(UINT uFormat, BOOL *aNullIsOkay = NULL);
 
 	// Below: Whether the clipboard is ready to be written to.  Note that the clipboard is not
 	// usually physically open even when this is true, unless the caller specifically opened
@@ -60,7 +60,7 @@ public:
 	#define CLIPBOARD_FAILURE UINT_MAX
 	size_t Get(LPTSTR aBuf = NULL);
 
-	ResultType Set(LPCTSTR aBuf = NULL, UINT_PTR aLength = UINT_MAX); //, bool aTrimIt = false);
+	ResultType Set(LPCTSTR aBuf = NULL, UINT_PTR aLength = UINT_MAX);
 	LPTSTR PrepareForWrite(size_t aAllocSize);
 	ResultType Commit(UINT aFormat = CF_NATIVETEXT);
 	ResultType AbortWrite(LPTSTR aErrorMessage = _T(""));

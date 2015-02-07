@@ -232,7 +232,8 @@ bool MsgSleep(int aSleepDuration, MessageMode aMode)
 	GuiControlType *pcontrol, *ptab_control;
 	GuiIndexType gui_control_index;
 	GuiEventType gui_action;
-	DWORD gui_event_info, gui_size;
+	DWORD_PTR gui_event_info;
+	DWORD gui_size;
 	bool *pgui_label_is_running, event_is_control_generated;
 	Label *gui_label;
 	HDROP hdrop_to_free;
@@ -322,8 +323,9 @@ bool MsgSleep(int aSleepDuration, MessageMode aMode)
 					// to be in chronological order by checking the timestamps of each Peek first message, and
 					// then fetching the one that's oldest (since it should be the one that's been waiting the
 					// longest and thus generally should be ahead of the other Peek's message in the queue):
+					UINT filter_max = (IsInterruptible() ? UINT_MAX : WM_HOTKEY - 1); // Fixed in v1.1.16 to not use MSG_FILTER_MAX, which would produce 0 when IsInterruptible(). Although WM_MOUSELAST+1..0 seems to produce the right results, MSDN does not indicate that it is valid.
 #define PEEK1(mode) PeekMessage(&msg, NULL, 0, WM_MOUSEFIRST-1, mode) // Relies on the fact that WM_MOUSEFIRST < MSG_FILTER_MAX
-#define PEEK2(mode) PeekMessage(&msg, NULL, WM_MOUSELAST+1, MSG_FILTER_MAX, mode)
+#define PEEK2(mode) PeekMessage(&msg, NULL, WM_MOUSELAST+1, filter_max, mode)
 					if (!PEEK1(PM_NOREMOVE))  // Since no message in Peek1, safe to always use Peek2's (even if it has no message either).
 						peek_result = PEEK2(PM_REMOVE);
 					else // Peek1 has a message.  So if Peek2 does too, compare their timestamps.
@@ -514,10 +516,10 @@ bool MsgSleep(int aSleepDuration, MessageMode aMode)
 		if (g_guiCount && msg.hwnd && msg.hwnd != g_hWnd && !(msg.message == AHK_GUI_ACTION || msg.message == AHK_USER_MENU))
 		{
 			// Relies heavily on short-circuit boolean order:
-			if (  (msg.message >= WM_KEYFIRST || msg.message <= WM_KEYLAST)
+			if (  (msg.message >= WM_KEYFIRST && msg.message <= WM_KEYLAST) // v1.1.09.04: Fixed to use && vs || and therefore actually exclude other messages.
 				&& (focused_control = GetFocus())
 				&& (focused_parent = GetNonChildParent(focused_control))
-				&& (pgui = GuiType::FindGui(focused_parent))  )
+				&& (pgui = GuiType::FindGuiParent(focused_control))  )  // v1.1.09.03: Fixed to support +Parent.  v1.1.09.04: Re-fixed to work when focused_control itself is a Gui.
 			{
 				if (pgui->mAccel) // v1.1.04: Keyboard accelerators.
 					if (TranslateAccelerator(focused_parent, pgui->mAccel, &msg))
@@ -588,7 +590,8 @@ bool MsgSleep(int aSleepDuration, MessageMode aMode)
 				// inside an edit.  The following check relies heavily on short-circuit eval. order.
 				if (   msg.message == WM_KEYDOWN
 					&& (msg.wParam == VK_ESCAPE || msg.wParam == VK_TAB // v1.0.38.03: Added VK_TAB handling for "WantTab".
-						|| (msg.wParam == 'A' && (GetKeyState(VK_CONTROL) & 0x8000))) // v1.0.44: Added support for "WantCtrlA".
+						|| (msg.wParam == 'A' && (GetKeyState(VK_CONTROL) & 0x8000) // v1.0.44: Added support for "WantCtrlA".
+							&& !(GetKeyState(VK_RMENU) & 0x8000))) // v1.1.17: Exclude AltGr+A (Ctrl+Alt+A).
 					&& (pcontrol = pgui->FindControl(focused_control))
 					&& pcontrol->type == GUI_CONTROL_EDIT)
 				{
@@ -700,13 +703,13 @@ bool MsgSleep(int aSleepDuration, MessageMode aMode)
 					// GUI windows might cause GuiWindowProc to fwd it back to us, creating an infinite loop.
 					goto break_out_of_main_switch; // Goto seems preferably in this case for code size & performance.
 				
-				gui_event_info =    (DWORD)msg.lParam;
+				gui_event_info =    (DWORD_PTR)msg.lParam;
 				gui_action =        LOWORD(msg.wParam);
 				gui_control_index = HIWORD(msg.wParam); // Caller has set it to NO_CONTROL_INDEX if it isn't applicable.
 
 				if (gui_action == GUI_EVENT_RESIZE) // This section be done after above but before pcontrol below.
 				{
-					gui_size = gui_event_info; // Temp storage until the "g" struct becomes available for the new thread.
+					gui_size = (DWORD)gui_event_info; // Temp storage until the "g" struct becomes available for the new thread.
 					gui_event_info = gui_control_index; // SizeType is stored in index in this case.
 					gui_control_index = NO_CONTROL_INDEX;
 				}
@@ -1236,7 +1239,7 @@ bool MsgSleep(int aSleepDuration, MessageMode aMode)
 				{
 					LITEM item = {};
 					item.mask=LIF_URL|LIF_ITEMID|LIF_ITEMINDEX;
-					item.iLink = gui_event_info - 1;
+					item.iLink = (int)gui_event_info - 1;
 					if(SendMessage(pcontrol->hwnd,LM_GETITEM,NULL,(LPARAM)&item))
 						g_ErrorLevel->AssignString(*item.szUrl ? CStringTCharFromWCharIfNeeded(item.szUrl) : CStringTCharFromWCharIfNeeded(item.szID));
 				}
@@ -1260,7 +1263,7 @@ bool MsgSleep(int aSleepDuration, MessageMode aMode)
 				else if (event_is_control_generated) // An earlier stage has ensured pcontrol isn't NULL in this case.
 					pcontrol->attrib |= GUI_CONTROL_ATTRIB_LABEL_IS_RUNNING; // Must be careful to set this flag only when the event is control-generated, not for a drag-and-drop onto the control, or context menu on the control, etc.
 
-				DEBUGGER_STACK_PUSH(gui_label->mJumpToLine, gui_label->mName)
+				DEBUGGER_STACK_PUSH(_T("Gui"))
 
 				// LAUNCH GUI THREAD:
 				gui_label->Execute();
@@ -1309,7 +1312,7 @@ bool MsgSleep(int aSleepDuration, MessageMode aMode)
 					pgui->AddRef(); //
 					g.GuiWindow = g.GuiDefaultWindow = pgui; // But leave GuiControl at its default, which flags this event as from a menu item.
 				}
-				DEBUGGER_STACK_PUSH(menu_item->mLabel->mJumpToLine, menu_item->mLabel->mName)
+				DEBUGGER_STACK_PUSH(_T("Menu"))
 				menu_item->mLabel->Execute();
 				DEBUGGER_STACK_POP()
 				if (pgui)
@@ -1331,7 +1334,7 @@ bool MsgSleep(int aSleepDuration, MessageMode aMode)
 				// ACT_IS_ALWAYS_ALLOWED() was already checked above.
 				// The message poster has ensured that g_script.mOnClipboardChangeLabel is non-NULL and valid.
 				g_script.mOnClipboardChangeIsRunning = true;
-				DEBUGGER_STACK_PUSH(g_script.mOnClipboardChangeLabel->mJumpToLine, g_script.mOnClipboardChangeLabel->mName)
+				DEBUGGER_STACK_PUSH(_T("OnClipboardChange"))
 				g_script.mOnClipboardChangeLabel->Execute();
 				DEBUGGER_STACK_POP()
 				g_script.mOnClipboardChangeIsRunning = false;
@@ -1711,7 +1714,7 @@ bool CheckScriptTimers()
 		// launches new threads.
 
 		++timer.mExistingThreads;
-		DEBUGGER_STACK_PUSH(timer.mLabel->mJumpToLine, timer.mLabel->mName)
+		DEBUGGER_STACK_PUSH(_T("Timer"))
 		timer.mLabel->Execute();
 		DEBUGGER_STACK_POP()
 		--timer.mExistingThreads;
@@ -1839,7 +1842,7 @@ bool MsgMonitor(HWND aWnd, UINT aMsg, WPARAM awParam, LPARAM alParam, MSG *apMsg
 	TCHAR ErrorLevel_saved[ERRORLEVEL_SAVED_SIZE];
 	tcslcpy(ErrorLevel_saved, g_ErrorLevel->Contents(), _countof(ErrorLevel_saved));
 	InitNewThread(0, false, true, func.mJumpToLine->mActionType);
-	DEBUGGER_STACK_PUSH(func.mJumpToLine, func.mName) // Push a "thread" onto the debugger's stack.  For simplicity and performance, use the function name vs something like "message 0x123".
+	DEBUGGER_STACK_PUSH(_T("OnMessage")) // Push a "thread" onto the debugger's stack.  For simplicity and performance, use the function name vs something like "message 0x123".
 
 #ifndef MINIDLL
 	GuiType *pgui = NULL;
@@ -1848,7 +1851,7 @@ bool MsgMonitor(HWND aWnd, UINT aMsg, WPARAM awParam, LPARAM alParam, MSG *apMsg
 	// Nested controls like ComboBoxes require more than a simple call to GetParent().
 	if (g->hWndLastUsed = GetNonChildParent(aWnd)) // Assign parent window as the last found window (it's ok if it's hidden).
 	{
-		pgui = GuiType::FindGui(g->hWndLastUsed);
+		pgui = GuiType::FindGuiParent(aWnd); // Fix for v1.1.09.03: Search the chain of parent windows in case this control's Gui was embedded in another Gui using +Parent.
 		if (pgui) // This parent window is a GUI window.
 		{
 			pgui->AddRef(); // Keep the pointer valid at least until the thread finishes.

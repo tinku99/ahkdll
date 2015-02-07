@@ -70,7 +70,7 @@ LPTSTR Line::ExpandExpression(int aArgIndex, ResultType &aResult, ExprTokenType 
 
 	// The following must be defined early so that mem_count is initialized and the array is guaranteed to be
 	// "in scope" in case of early "goto" (goto substantially boosts performance and reduces code size here).
-	#define MAX_EXPR_MEM_ITEMS 200 // v1.0.47.01: Raised from 100 because a line consisting entirely of concat operators can exceed it.  However, there's probably not much point to going much above MAX_TOKENS/2 because then it would reach the MAX_TOKENS limit first.
+	#define MAX_EXPR_MEM_ITEMS 256 // v1.0.47.01: Raised from 100 because a line consisting entirely of concat operators can exceed it.  However, there's probably not much point to going much above MAX_TOKENS/2 because then it would reach the MAX_TOKENS limit first.
 	LPTSTR mem[MAX_EXPR_MEM_ITEMS]; // No init necessary.  In most cases, it will never be used.
 	int mem_count = 0; // The actual number of items in use in the above array.
 	LPTSTR result_to_return = _T(""); // By contrast, NULL is used to tell the caller to abort the current thread.  That isn't done for normal syntax errors, just critical conditions such as out-of-memory.
@@ -133,9 +133,10 @@ LPTSTR Line::ExpandExpression(int aArgIndex, ResultType &aResult, ExprTokenType 
 		// But all are checked since that operation is just as fast:
 		if (IS_OPERAND(this_token.symbol)) // If it's an operand, just push it onto stack for use by an operator in a future iteration.
 		{
-			if (this_token.symbol == SYM_DYNAMIC) // CONVERTED HERE/EARLY TO SOMETHING *OTHER* THAN SYM_DYNAMIC so that no later stages need any handling for them as operands. SYM_DYNAMIC is quite similar to SYM_FUNC/BIF in this respect.
+			// HotKeyIt added a way to override default behaviour for Manually added BuildIn Variable -removed->> || (this_token.symbol == SYM_VAR && this_token.var->mType == VAR_BUILTIN)
+			if (this_token.symbol == SYM_DYNAMIC ) // CONVERTED HERE/EARLY TO SOMETHING *OTHER* THAN SYM_DYNAMIC so that no later stages need any handling for them as operands. SYM_DYNAMIC is quite similar to SYM_FUNC/BIF in this respect.
 			{
-				if (SYM_DYNAMIC_IS_DOUBLE_DEREF(this_token)) // Double-deref such as Array%i%.
+				if (SYM_DYNAMIC_IS_DOUBLE_DEREF(this_token)) // Double-deref such as Array%i%.   // Hotkeyit override default behaviour manual build in var -removed->> && this_token.symbol != SYM_VAR
 				{
 					// Start off by looking for the first deref.
 					deref = (DerefType *)this_token.var; // MUST BE DONE PRIOR TO OVERWRITING MARKER/UNION BELOW.
@@ -386,7 +387,7 @@ LPTSTR Line::ExpandExpression(int aArgIndex, ResultType &aResult, ExprTokenType 
 					// Insert an empty string:
 					params[0] = (ExprTokenType *)_alloca(sizeof(ExprTokenType));
 					params[0]->symbol = SYM_STRING;
-					params[0]->marker = _T("");
+					params[0]->marker = _T("");	
 					params--; // Include the object, which is already in the right place.
 					actual_param_count += 2;
 					extern ExprOpFunc g_ObjCall;
@@ -730,21 +731,13 @@ LPTSTR Line::ExpandExpression(int aArgIndex, ResultType &aResult, ExprTokenType 
 			goto push_this_token; // (rather than a simple STACK_PUSH(right)) because it checks for *cascading* short circuit in cases where this ternary's result is the boolean condition of another ternary.
 		}
 
-		if (this_token.symbol == SYM_COMMA) // This can only be a statement-separator comma, not a function comma, since function commas weren't put into the postfix array.
-			// Do nothing other than discarding the right-side operand that was just popped off the stack.
-			// This collapses the two sub-statements delimited by a given comma into a single result for
-			// subsequent uses by another operator.  Unlike C++, the leftmost operand is preserved, not the
-			// rightmost.  This is because it's faster to just discard the topmost item on the stack, but
-			// more importantly it allows ACT_ASSIGNEXPR, ACT_ADD, and others to work properly.  For example:
-			//    Var:=5, Var1:=(Var2:=1, Var3:=2)
-			// Without the behavior implemented here, the above would wrongly put Var3's rvalue into Var2.
-			continue;
-
 		switch (this_token.symbol)
 		{
 		case SYM_ASSIGN:        // These don't need "right_is_number" to be resolved. v1.0.48.01: Also avoid
 		case SYM_CONCAT:        // resolving right_is_number for CONCAT because TokenIsPureNumeric() will take
 		case SYM_ASSIGN_CONCAT: // a long time if the string is very long and consists entirely of digits/whitespace.
+		case SYM_COMMA:
+		case SYM_ADDRESS:
 			break;
 		default:
 			// If the operand is still generic/undetermined, find out whether it is a string, integer, or float:
@@ -905,6 +898,11 @@ LPTSTR Line::ExpandExpression(int aArgIndex, ResultType &aResult, ExprTokenType 
 				this_token.symbol = SYM_INTEGER;
 				this_token.value_int64 = (__int64)right.object;
 			}
+			else if (right.symbol == SYM_STRING && *right.marker) // HotKeyIt added a way to pass pointer of string without using a variable e.g. &"String"
+			{
+				this_token.symbol = SYM_INTEGER;
+				this_token.value_int64 = (__int64)right.marker;
+			}
 			else // Invalid, so make it a localized blank value.
 			{
 				this_token.marker = _T("");
@@ -965,6 +963,28 @@ LPTSTR Line::ExpandExpression(int aArgIndex, ResultType &aResult, ExprTokenType 
 			ExprTokenType &left = *STACK_POP; // i.e. the right operand always comes off the stack before the left.
 			if (!IS_OPERAND(left.symbol)) // Haven't found a way to produce this situation yet, but safe to assume it's possible.
 				goto abnormal_end;
+			
+			if (this_token.symbol == SYM_COMMA) // This can only be a statement-separator comma, not a function comma, since function commas weren't put into the postfix array.
+			{
+				// Do nothing other than discarding the right-side operand that was just popped off the stack.
+				// This collapses the two sub-statements delimited by a given comma into a single result for
+				// subsequent uses by another operator.  Unlike C++, the leftmost operand is preserved, not the
+				// rightmost.  This is because it's faster to just discard the topmost item on the stack, but
+				// more importantly it allows ACT_ASSIGNEXPR, ACT_ADD, and others to work properly.  For example:
+				//    Var:=5, Var1:=(Var2:=1, Var3:=2)
+				// Without the behavior implemented here, the above would wrongly put Var3's rvalue into Var2.
+				// Lexikos: Comments above may be incorrect; if SYM_COMMA is placed immediately after the left
+				// branch (i.e. when the topmost item on the stack is the leftmost operand), the rightmost
+				// operand is preserved while retaining performance and correct behaviour.  However, the old
+				// behaviour is kept in v1 for backward-compatibility.
+				// The left operand is popped off the stack (above) and pushed back on so that circuit_token
+				// is checked.  Without this, expressions like ((x, y) and z) fail.
+				this_token = left; // Struct copy.
+				this_token.circuit_token = this_postfix->circuit_token;
+				if (this_token.symbol == SYM_OBJECT)
+					this_token.object->AddRef();
+				goto push_this_token;
+			}
 
 			if (IS_ASSIGNMENT_EXCEPT_POST_AND_PRE(this_token.symbol)) // v1.0.46: Added support for various assignment operators.
 			{
@@ -1103,6 +1123,16 @@ LPTSTR Line::ExpandExpression(int aArgIndex, ResultType &aResult, ExprTokenType 
 					if (temp_var)
 					{
 						result = temp_var->Contents(FALSE); // No need to update the contents because we just want to know if the current address of mContents matches some other addresses.
+						if (result == Var::sEmptyString) // Added in v1.1.09.03.
+						{
+							// One of the following is true:
+							//   1) temp_var has zero capacity and is empty.
+							//   2) temp_var has zero capacity and contains an unflushed binary number.
+							// In the first case, AppendIfRoom() will always fail, so we want to skip it and use
+							// the "no overlap" optimization below. In the second case, calling AppendIfRoom()
+							// would produce the wrong result; e.g. (x := 0+1, x := y 0) would produce "10".
+							result = NULL;
+						}
 						if (result == left_string) // This is something like x := x . y, so simplify it to x .= y
 						{
 							// MUST DO THE ABOVE CHECK because the next section further below might free the
@@ -1296,7 +1326,7 @@ LPTSTR Line::ExpandExpression(int aArgIndex, ResultType &aResult, ExprTokenType 
 				case SYM_MULTIPLY: this_token.value_double = left_double * right_double; break;
 				case SYM_DIVIDE:
 				case SYM_FLOORDIVIDE:
-					if (right_double == 0.0) // Divide by zero produces blank result (perhaps will produce exception if script's ever support exception handlers).
+					if (right_double == 0.0) // Divide by zero produces blank result.
 					{
 						this_token.marker = _T("");
 						result_symbol = SYM_STRING;
@@ -1701,39 +1731,67 @@ bool Func::Call(FuncCallData &aFuncCall, ResultType &aResult, ExprTokenType &aRe
 //   space available after aParam for expanding the array of parameters for a variadic function call.
 {
 	aResult = OK; // Set default.
+	
+	Object *param_obj = NULL;
+	CriticalObject *param_critical = NULL;
+	CRITICAL_SECTION *crisec = NULL;
+	if (aIsVariadic) // i.e. this is a variadic function call.
+	{
+		ExprTokenType *rvalue = NULL;
+		if (mName == (LPTSTR)IT_SET && aParamCount > 1) // x[y*]:=z
+			rvalue = aParam[--aParamCount];
+		
+		--aParamCount; // i.e. make aParamCount the count of normal params.
+		if (param_critical = dynamic_cast<CriticalObject *>(TokenToObject(*aParam[aParamCount])))
+			EnterCriticalSection(crisec = (LPCRITICAL_SECTION)param_critical->GetCriSec());
+		if (	(param_critical && (param_obj = (Object *)param_critical->GetObj())) 
+			||  (param_obj = dynamic_cast<Object *>(TokenToObject(*aParam[aParamCount]))) )
+		{
+			int extra_params = param_obj->MaxIndex();
+			if (extra_params > 0 || param_obj->HasNonnumericKeys())
+			{
+				// Calculate space required for ...
+				size_t space_needed = extra_params * sizeof(ExprTokenType) // ... new param tokens
+					+ max(mParamCount, aParamCount + extra_params) * sizeof(ExprTokenType *); // ... existing and new param pointers
+				if (rvalue)
+					space_needed += sizeof(rvalue); // ... extra slot for aRValue
+				// Allocate new param list and tokens; tokens first for convenience.
+				ExprTokenType *token = (ExprTokenType *)_alloca(space_needed);
+				ExprTokenType **param_list = (ExprTokenType **)(token + extra_params);
+				// Since built-in functions don't have variables we can directly assign to,
+				// we need to expand the param object's contents into an array of tokens:
+				if (!param_obj->ArrayToParams(token, param_list, extra_params, aParam, aParamCount))
+				{
+					if (crisec)
+						LeaveCriticalSection(crisec);
+					return false; // Abort expression.
+				}
+			}
+		}
+		if (rvalue)
+			aParam[aParamCount++] = rvalue; // In place of the variadic param.
+		// mMinParams isn't validated at load-time for variadic calls, so we must do it here:
+		// However, this check must be skipped for user-defined functions so that a named value
+		// can be supplied for a required parameter.  Missing required parameters are detected
+		// in the loop below by the absence of a default value.
+		if (aParamCount < mMinParams && mIsBuiltIn)
+		{
+			if (crisec)
+				LeaveCriticalSection(crisec);
+			return false; // Abort expression.
+		}
+		// Otherwise, even if some params are SYM_MISSING, it is relatively safe to call the function.
+		// The TokenTo' set of functions will produce 0 or "" for missing params.  Although that isn't
+		// technically correct, it seems preferable over silently aborting the call.
+	}
 
 	if (mIsBuiltIn)
 	{
 		aResultToken.symbol = SYM_INTEGER; // Set default return type so that functions don't have to do it if they return INTs.
 		aResultToken.marker = mName;       // Inform function of which built-in function called it (allows code sharing/reduction). Can't use circuit_token because it's value is still needed later below.
 
-		if (aIsVariadic) // i.e. this is a variadic function call.
-		{
-			Object *param_obj;
-			--aParamCount; // i.e. make aParamCount the count of normal params.
-			if (param_obj = dynamic_cast<Object *>(TokenToObject(*aParam[aParamCount])))
-			{
-				void *mem_to_free;
-				// Since built-in functions don't have variables we can directly assign to,
-				// we need to expand the param object's contents into an array of tokens:
-				if (!param_obj->ArrayToParams(mem_to_free, aParam, aParamCount, mMinParams))
-					return false; // Abort expression.
-
-				// CALL THE BUILT-IN FUNCTION:
-				mBIF(aResult, aResultToken, aParam, aParamCount);
-
-				if (mem_to_free)
-					free(mem_to_free);
-				if (g->ThrownToken)
-					aResult = FAIL; // Abort thread.
-				return (aResult != EARLY_EXIT && aResult != FAIL);
-			}
-			// Caller-supplied "params*" is not an Object, so treat it like an empty list; however,
-			// mMinParams isn't validated at load-time for variadic calls, so we must do it here:
-			if (aParamCount < mMinParams)
-				return false; // Abort expression.
-			// Otherwise just call the function normally.
-		}
+		if (crisec)
+			LeaveCriticalSection(crisec);
 
 		// CALL THE BUILT-IN FUNCTION:
 		mBIF(aResult, aResultToken, aParam, aParamCount);
@@ -1743,30 +1801,11 @@ bool Func::Call(FuncCallData &aFuncCall, ResultType &aResult, ExprTokenType &aRe
 	}
 	else // It's not a built-in function, or it's a built-in that was overridden with a custom function.
 	{
-		ExprTokenType indexed_token, named_token; // Separate for code simplicity.
-		INT_PTR param_offset, param_key = -1;
-		Object *param_obj = NULL;
-		if (aIsVariadic) // i.e. this is a variadic function call.
-		{
-			--aParamCount; // i.e. make aParamCount the count of normal params.
-			// For performance, only the Object class is supported:
-			if (param_obj = dynamic_cast<Object *>(TokenToObject(*aParam[aParamCount])))
-			{
-				param_offset = -1;
-				// Below retrieves the first item with integer key >= 1, or sets
-				// param_offset to the offset of the first item with a non-int key.
-				// Performance note: this might be slow if there are many items
-				// with negative integer keys; but that should be vanishingly rare.
-				while (param_obj->GetNextItem(indexed_token, param_offset, param_key)
-						&& param_key < 1);
-			}
-		}
-
 		int j, count_of_actuals_that_have_formals;
 		count_of_actuals_that_have_formals = (aParamCount > mParamCount)
 			? mParamCount  // Omit any actuals that lack formals (this can happen when a dynamic call passes too many parameters).
 			: aParamCount;
-
+		
 		// If there are other instances of this function already running, either via recursion or
 		// an interrupted quasi-thread, back up the local variables of the instance that lies immediately
 		// beneath ours (in turn, that instance is responsible for backing up any instance that lies
@@ -1797,7 +1836,7 @@ bool Func::Call(FuncCallData &aFuncCall, ResultType &aResult, ExprTokenType &aRe
 			for (j = 0; j < aParamCount; ++j) // For each actual parameter.
 			{
 				ExprTokenType &this_param_token = *aParam[j]; // stack[stack_count] is the first actual parameter. A check higher above has already ensured that this line won't cause stack overflow.
-				if (this_param_token.symbol == SYM_VAR && !mParam[j].is_byref)
+				if (this_param_token.symbol == SYM_VAR && !(j < mParamCount && mParam[j].is_byref))
 				{
 					// Since this formal parameter is passed by value, if it's SYM_VAR, convert it to
 					// a non-var to allow the variables to be backed up and reset further below without
@@ -1816,6 +1855,8 @@ bool Func::Call(FuncCallData &aFuncCall, ResultType &aResult, ExprTokenType &aRe
 			if (!Var::BackupFunctionVars(*this, aFuncCall.mBackup, aFuncCall.mBackupCount)) // Out of memory.
 			{
 				aResult = g_script.ScriptError(ERR_OUTOFMEM, mName);
+				if (crisec)
+					LeaveCriticalSection(crisec);
 				return false;
 			}
 		} // if (func.mInstances > 0)
@@ -1829,65 +1870,49 @@ bool Func::Call(FuncCallData &aFuncCall, ResultType &aResult, ExprTokenType &aRe
 		// Set after above succeeds to ensure local vars are freed and the backup is restored (at some point):
 		aFuncCall.mFunc = this;
 		
-		// The following loop will have zero iterations unless at least one formal parameter lacks an actual,
-		// which should be possible only if the parameter is optional (i.e. has a default value).
-		for (j = aParamCount; j < mParamCount; ++j) // For each formal parameter that lacks an actual, provide a default value.
+		for (j = 0; j < mParamCount; ++j) // For each formal parameter.
 		{
 			FuncParam &this_formal_param = mParam[j]; // For performance and convenience.
-			if (this_formal_param.is_byref) // v1.0.46.13: Allow ByRef parameters to be optional by converting an omitted-actual into a non-alias formal/local.
-				this_formal_param.var->ConvertToNonAliasIfNecessary(); // Convert from alias-to-normal, if necessary.
-			// Check if this parameter has been supplied a value via a param array/object:
-			if (param_obj)
-			{
-				// Numbered parameter?
-				if (param_key == j - aParamCount + 1)
-				{
-					if (!this_formal_param.var->Assign(indexed_token))
-					{
-						aResult = FAIL; // Abort thread.
-						return false;
-					}
-					// Get the next item, which might be at [i+1] (in which case the next iteration will
-					// get indexed_token) or a later index (in which case the next iteration will get a
-					// regular default value and a later iteration may get indexed_token). If there aren't
-					// any more items, param_key will be left as-is (so this IF won't be re-entered).
-					// If there aren't any more parameters needing values, param_offset will remain the
-					// offset of the first unused item; this is relied on below to copy the remaining
-					// items into the function's "param*" array if it has one (i.e. if mIsVariadic).
-					param_obj->GetNextItem(indexed_token, param_offset, param_key);
-					// This parameter has been supplied a value, so don't assign it a default value.
-					continue;
-				}
-				// Named parameter?
-				if (param_obj->GetItem(named_token, this_formal_param.var->mName))
-				{
-					if (!this_formal_param.var->Assign(named_token))
-					{
-						aResult = FAIL; // Abort thread.
-						return false;
-					}
-					continue;
-				}
-			}
-			switch(this_formal_param.default_type)
-			{
-			case PARAM_DEFAULT_STR:   this_formal_param.var->Assign(this_formal_param.default_str);    break;
-			case PARAM_DEFAULT_INT:   this_formal_param.var->Assign(this_formal_param.default_int64);  break;
-			case PARAM_DEFAULT_FLOAT: this_formal_param.var->Assign(this_formal_param.default_double); break;
-			default: //case PARAM_DEFAULT_NONE:
-				// Since above didn't continue, no value has been supplied for this REQUIRED parameter.
-				return false; // Abort expression.
-			}
-		}
 
-		for (j = 0; j < count_of_actuals_that_have_formals; ++j) // For each actual parameter that has a formal, assign the actual to the formal.
-		{
+			if (j >= aParamCount || aParam[j]->symbol == SYM_MISSING)
+			{
+				if (this_formal_param.is_byref) // v1.0.46.13: Allow ByRef parameters to be optional by converting an omitted-actual into a non-alias formal/local.
+					this_formal_param.var->ConvertToNonAliasIfNecessary(); // Convert from alias-to-normal, if necessary.
+
+				if (param_obj)
+				{
+					ExprTokenType named_value;
+					if (param_obj->GetItem(named_value, this_formal_param.var->mName))
+					{
+						this_formal_param.var->Assign(named_value);
+						continue;
+					}
+				}
+			
+				switch(this_formal_param.default_type)
+				{
+				case PARAM_DEFAULT_STR:   this_formal_param.var->Assign(this_formal_param.default_str);    break;
+				case PARAM_DEFAULT_INT:   this_formal_param.var->Assign(this_formal_param.default_int64);  break;
+				case PARAM_DEFAULT_FLOAT: this_formal_param.var->Assign(this_formal_param.default_double); break;
+				default: //case PARAM_DEFAULT_NONE:
+					// No value has been supplied for this REQUIRED parameter.
+					if (crisec)
+						LeaveCriticalSection(crisec);
+					return false; // Abort expression.
+				}
+				continue;
+			}
+
 			ExprTokenType &token = *aParam[j];
 			
 			if (!IS_OPERAND(token.symbol)) // Haven't found a way to produce this situation yet, but safe to assume it's possible.
+			{
+				if (crisec)
+					LeaveCriticalSection(crisec);
 				return false; // Abort expression.
-			
-			if (mParam[j].is_byref)
+			}
+
+			if (this_formal_param.is_byref)
 			{
 				// Note that the previous loop might not have checked things like the following because that
 				// loop never ran unless a backup was needed:
@@ -1897,11 +1922,11 @@ bool Func::Call(FuncCallData &aFuncCall, ResultType &aResult, ExprTokenType &aRe
 					// to act like regular parameters when no var was specified.  If we force script
 					// authors to pass a variable, they may pass a temporary variable which is then
 					// discarded, adding a little overhead and impacting the readability of the script.
-					mParam[j].var->ConvertToNonAliasIfNecessary();
+					this_formal_param.var->ConvertToNonAliasIfNecessary();
 				}
 				else
 				{
-					mParam[j].var->UpdateAlias(token.var); // Make the formal parameter point directly to the actual parameter's contents.
+					this_formal_param.var->UpdateAlias(token.var); // Make the formal parameter point directly to the actual parameter's contents.
 					continue;
 				}
 			}
@@ -1912,40 +1937,35 @@ bool Func::Call(FuncCallData &aFuncCall, ResultType &aResult, ExprTokenType &aRe
 			// A SYM_VAR token can still happen because the previous loop's conversion of all
 			// by-value SYM_VAR operands into SYM_OPERAND would not have happened if no
 			// backup was needed for this function (which is usually the case).
-			if (!mParam[j].var->Assign(token))
+			if (!this_formal_param.var->Assign(token))
 			{
 				aResult = FAIL; // Abort thread.
+				if (crisec)
+					LeaveCriticalSection(crisec);
 				return false;
 			}
 		} // for each formal parameter.
 		
 		if (mIsVariadic) // i.e. this function is capable of accepting excess params via an object/array.
 		{
-			Object *obj;
-			if (param_obj) // i.e. caller supplied an array of params.
+			// If the caller supplied an array of parameters, copy any key-value pairs with non-numbered keys;
+			// otherwise, just create a new object.  Either way, numbered params will be inserted below.
+			Object *vararg_obj = param_obj ? param_obj->Clone(true) : Object::Create();
+			if (!vararg_obj)
 			{
-				// Clone the caller's param object, excluding the numbered keys we've used:
-				if (obj = param_obj->Clone(param_offset))
-				{
-					if (mParamCount > aParamCount)
-						// Adjust numeric keys based on how many items we would've used if the "array" was contiguous:
-						obj->ReduceKeys(mParamCount - aParamCount); // Should be harmless if there are no numeric keys left.
-					//else param_offset should be 0; we didn't use any items.
-				}
+				if (crisec)
+					LeaveCriticalSection(crisec);
+				aResult = g_script.ScriptError(ERR_OUTOFMEM, mName);
+				return false; // Abort thread.
 			}
-			else
-				obj = (Object *)Object::Create();
-			
-			if (obj)
-			{
-				if (j < aParamCount)
-					// Insert the excess parameters from the actual parameter list.
-					obj->InsertAt(0, 1, aParam + j, aParamCount - j);
-				// Assign to the "param*" var:
-				mParam[mParamCount].var->AssignSkipAddRef(obj);
-			}
+			if (j < aParamCount)
+				// Insert the excess parameters from the actual parameter list.
+				vararg_obj->InsertAt(0, 1, aParam + j, aParamCount - j);
+			// Assign to the "param*" var:
+			mParam[mParamCount].var->AssignSkipAddRef(vararg_obj);
 		}
-
+		if (crisec)
+			LeaveCriticalSection(crisec);
 		aResult = Call(&aResultToken); // Call the UDF.
 	}
 	return (aResult != EARLY_EXIT && aResult != FAIL);
@@ -2194,6 +2214,7 @@ ResultType Line::ExpandArgs(ExprTokenType *aResultToken, VarSizeType aSpaceNeede
 				arg_deref[i] = // The following is ordered for short-circuit performance:
 					(   ACT_IS_ASSIGN(mActionType) && i == 1  // By contrast, for the below i==anything (all args):
 					|| (mActionType <= ACT_LAST_OPTIMIZED_IF && mActionType >= ACT_FIRST_OPTIMIZED_IF) // Ordered for short-circuit performance.
+					||  mActionType == ACT_BREAKIF ||  mActionType == ACT_CONTINUEIF
 					//|| mActionType == ACT_WHILE // Not necessary to check this one because loadtime leaves ACT_WHILE as an expression in all common cases. Also, there's no easy way to get ACT_WHILE into the range above due to the overlap of other ranges in enum_act.
 					) && the_only_var_of_this_arg->Type() == VAR_NORMAL // Otherwise, users of this optimization would have to reproduce more of the logic in ArgMustBeDereferenced().
 					? _T("") : NULL; // See "Update #2" and later comments above.

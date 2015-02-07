@@ -103,6 +103,7 @@ HWND AttemptSetForeground(HWND aTargetWindow, HWND aForeWindow)
 	// Note: Increasing the sleep time below did not help with occurrences of "indicated success
 	// even though it failed", at least with metapad.exe being activated while command prompt
 	// and/or AutoIt2's InputBox were active or present on the screen:
+	DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
 	SLEEP_WITHOUT_INTERRUPTION(SLEEP_INTERVAL); // Specify param so that it will try to specifically sleep that long.
 	HWND new_fore_window = GetForegroundWindow();
 	if (new_fore_window == aTargetWindow)
@@ -471,11 +472,15 @@ HWND WinClose(HWND aWnd, int aTimeToWaitForClose, bool aKillIfHung)
 	// to refer to those strings once MsgSleep() has been done, below:
 
 	// This is the same basic code used for ACT_WINWAITCLOSE and such:
+	DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
 	for (;;)
 	{
 		// Seems best to always do the first one regardless of the value 
 		// of aTimeToWaitForClose:
-		MsgSleep(INTERVAL_UNSPECIFIED);
+		if (g_MainThreadID == aThreadID)
+			MsgSleep(INTERVAL_UNSPECIFIED);
+		else
+			Sleep(SLEEP_INTERVAL);
 		if (!IsWindow(aWnd)) // It's gone, so we're done.
 			return aWnd;
 		// Must cast to int or any negative result will be lost due to DWORD type:
@@ -793,6 +798,8 @@ ResultType StatusBarUtil(Var *aOutputVar, HWND aBarHwnd, int aPartNumber, LPTSTR
 	DWORD_PTR result, start_time;
 	--aPartNumber; // Convert to zero-based for use below.
 
+	DWORD aThreadID = GetCurrentThreadId(); // Used to identify if code is called from different thread (AutoHotkey.dll)
+
 	// Always do the first iteration so that at least one check is done.  Also,  start_time is initialized
 	// unconditionally in the name of code size reduction (it's a low overhead call):
 	for (*local_buf = '\0', start_time = GetTickCount();;)
@@ -841,8 +848,10 @@ ResultType StatusBarUtil(Var *aOutputVar, HWND aBarHwnd, int aPartNumber, LPTSTR
 		// Since above didn't break, we're in "wait" mode (more than one iteration).
 		// In the following, must cast to int or any negative result will be lost due to DWORD type.
 		// Note: A negative aWaitTime means we're waiting indefinitely for a match to appear.
-		if (aWaitTime < 0 || (int)(aWaitTime - (GetTickCount() - start_time)) > SLEEP_INTERVAL_HALF)
+		if (g_MainThreadID == aThreadID && (aWaitTime < 0 || (int)(aWaitTime - (GetTickCount() - start_time)) > SLEEP_INTERVAL_HALF))
 			MsgSleep(aCheckInterval);
+		else if (aWaitTime < 0 || (int)(aWaitTime - (GetTickCount() - start_time)) > SLEEP_INTERVAL_HALF)
+			Sleep(aCheckInterval);
 		else // Timed out.
 		{
 			g_ErrorLevel->Assign(ERRORLEVEL_ERROR); // Indicate "timeout".
@@ -1550,6 +1559,19 @@ ResultType WindowSearch::SetCriteria(global_struct &aSettings, LPTSTR aTitle, LP
 				return FAIL; // Inform caller of invalid criteria.  No need to do anything else further below.
 			}
 		}
+		else if (!_tcsnicmp(cp, _T("parent"), 6)) // Parent of the window
+		{
+			cp += 6;
+			mCriteria |= CRITERION_PARENT;
+			mCriterionParentHwnd = (HWND)ATOU64(cp);
+			// Note that this can validly be the HWND of a child window; i.e. ahk_id %ChildWindowHwnd% is supported.
+			if (mCriterionParentHwnd != HWND_BROADCAST && !IsWindow(mCriterionParentHwnd)) // Checked here once rather than each call to IsMatch().
+			{
+				mCriterionParentHwnd = NULL;
+				return FAIL; // Inform caller of invalid criteria.  No need to do anything else further below.
+			}
+		}
+
 		else if (!_tcsnicmp(cp, _T("pid"), 3))
 		{
 			cp += 3;
@@ -1677,6 +1699,8 @@ void WindowSearch::UpdateCandidateAttributes()
 	}
 	if (mCriteria & CRITERION_CLASS)
 		GetClassName(mCandidateParent, mCandidateClass, _countof(mCandidateClass)); // Limit to WINDOW_CLASS_SIZE in this case since that's the maximum that can be searched.
+	if (mCriteria & CRITERION_PARENT)
+		mCandidateParentHwnd = GetParent(mCandidateParent);
 	// Nothing to do for these:
 	//CRITERION_GROUP:    Can't be pre-processed at this stage.
 	//CRITERION_ID:       It is mCandidateParent, which has already been set by SetCandidate().
@@ -1765,6 +1789,8 @@ HWND WindowSearch::IsMatch(bool aInvert)
 	// mCriterionHwnd should already be filled in, though it might be an explicitly specified zero.
 	// Note: IsWindow(mCriterionHwnd) was already called by SetCriteria().
 	if ((mCriteria & CRITERION_ID) && mCandidateParent != mCriterionHwnd) // Doesn't match the required HWND.
+		return NULL;
+	if ((mCriteria & CRITERION_PARENT) && mCandidateParentHwnd != mCriterionParentHwnd) // Parent window doesn't match the reqired Hwnd
 		return NULL;
 	//else it's a match so far, but continue onward in case there are other criteria.
 

@@ -33,6 +33,7 @@ GNU General Public License for more details.
 
 #define AHK_NAME "AutoHotkey"
 #include "ahkversion.h"
+#define AHK_WEBSITE "http://ahkscript.org"
 
 #define T_AHK_NAME			_T(AHK_NAME)
 #define T_AHK_VERSION		_T(AHK_VERSION)
@@ -51,10 +52,7 @@ GNU General Public License for more details.
 #define WINDOW_CLASS_SPLASH _T("AutoHotkey2")
 #define WINDOW_CLASS_GUI _T("AutoHotkeyGUI") // There's a section in Script::Edit() that relies on these all starting with "AutoHotkey".
 #endif
-#define EXT_AUTOIT2 _T(".aut")
 #define EXT_AUTOHOTKEY _T(".ahk")
-#define CONVERSION_FLAG (EXT_AUTOIT2 EXT_AUTOHOTKEY)
-#define CONVERSION_FLAG_LENGTH 8
 
 // AutoIt2 supports lines up to 16384 characters long, and we want to be able to do so too
 // so that really long lines from aut2 scripts, such as a chain of IF commands, can be
@@ -146,6 +144,7 @@ enum SymbolType // For use with ExpandExpression() and IsPureNumeric().
 	, PURE_INTEGER, PURE_FLOAT
 	, SYM_STRING = PURE_NOT_NUMERIC, SYM_INTEGER = PURE_INTEGER, SYM_FLOAT = PURE_FLOAT // Specific operand types.
 #define IS_NUMERIC(symbol) ((symbol) == SYM_INTEGER || (symbol) == SYM_FLOAT) // Ordered for short-circuit performance.
+	, SYM_MISSING // Only used in parameter lists.
 	, SYM_VAR // An operand that is a variable's contents.
 	, SYM_OPERAND // Generic/undetermined type of operand.
 	, SYM_OBJECT // L31: Represents an IObject interface pointer.
@@ -199,18 +198,26 @@ struct IDebugProperties;
 
 
 struct DECLSPEC_NOVTABLE IObject // L31: Abstract interface for "objects".
+	: public IDispatch
 {
 	// See script_object.cpp for comments.
 	virtual ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount) = 0;
 	
-	// Simple reference-counting mechanism.  Usage should be similar to IUnknown (COM).
-	// Some scripts may rely on these being at the same offset as IUnknown::AddRef/Release.
-	virtual ULONG STDMETHODCALLTYPE AddRef(void) = 0;
-    virtual ULONG STDMETHODCALLTYPE Release(void) = 0;
-
 #ifdef CONFIG_DEBUGGER
 	virtual void DebugWriteProperty(IDebugProperties *, int aPage, int aPageSize, int aMaxDepth) = 0;
 #endif
+};
+
+
+struct DECLSPEC_NOVTABLE IObjectComCompatible : public IObject
+{
+	STDMETHODIMP QueryInterface(REFIID riid, void **ppv);
+	//STDMETHODIMP_(ULONG) AddRef() = 0;
+	//STDMETHODIMP_(ULONG) Release() = 0;
+	STDMETHODIMP GetTypeInfoCount(UINT *pctinfo);
+	STDMETHODIMP GetTypeInfo(UINT itinfo, LCID lcid, ITypeInfo **pptinfo);
+	STDMETHODIMP GetIDsOfNames(REFIID riid, LPOLESTR *rgszNames, UINT cNames, LCID lcid, DISPID *rgDispId);
+	STDMETHODIMP Invoke(DISPID dispIdMember, REFIID riid, LCID lcid, WORD wFlags, DISPPARAMS *pDispParams, VARIANT *pVarResult, EXCEPINFO *pExcepInfo, UINT *puArgErr);
 };
 
 
@@ -245,6 +252,8 @@ struct DECLSPEC_NOVTABLE IDebugProperties
 #define IF_METAFUNC			0x20000 // Indicates Invoke should call a meta-function before checking the object's fields.
 #define IF_META				(IF_METAOBJ | IF_METAFUNC)	// Flags for regular recursion into base object.
 #define IF_FUNCOBJ			0x40000 // Indicates 'this' is a function, being called via another object (aParam[0]).
+#define IF_NEWENUM			0x80000 // Workaround for COM objects which don't resolve "_NewEnum" to DISPID_NEWENUM.
+#define IF_CALL_FUNC_ONLY	0x100000 // Used by IDispatch: call only if value is a function.
 
 
 struct DerefType; // Forward declarations for use below.
@@ -302,7 +311,6 @@ enum enum_act {
   ACT_INVALID = FAIL  // These should both be zero for initialization and function-return-value purposes.
 , ACT_ASSIGN, ACT_ASSIGNEXPR, ACT_EXPRESSION, ACT_ADD, ACT_SUB, ACT_MULT, ACT_DIV
 , ACT_ASSIGN_FIRST = ACT_ASSIGN, ACT_ASSIGN_LAST = ACT_DIV
-, ACT_REPEAT // Never parsed directly, only provided as a translation target for the old command (see other notes).
 , ACT_ELSE   // Parsed at a lower level than most commands to support same-line ELSE-actions (e.g. "else if").
 , ACT_IFIN, ACT_IFNOTIN, ACT_IFCONTAINS, ACT_IFNOTCONTAINS, ACT_IFIS, ACT_IFISNOT
 , ACT_IFBETWEEN, ACT_IFNOTBETWEEN
@@ -339,8 +347,8 @@ enum enum_act {
 , ACT_CLIPWAIT, ACT_KEYWAIT
 , ACT_SLEEP, ACT_RANDOM
 , ACT_GOTO, ACT_GOSUB, ACT_ONEXIT, ACT_HOTKEY, ACT_SETTIMER, ACT_CRITICAL, ACT_THREAD, ACT_RETURN, ACT_EXIT
-, ACT_LOOP, ACT_FOR, ACT_WHILE, ACT_UNTIL, ACT_BREAK, ACT_CONTINUE // Keep LOOP, FOR, WHILE and UNTIL together and in this order for range checks in various places.
-, ACT_TRY, ACT_CATCH, ACT_THROW
+, ACT_LOOP, ACT_FOR, ACT_WHILE, ACT_UNTIL, ACT_BREAK, ACT_BREAKIF, ACT_CONTINUE, ACT_CONTINUEIF // Keep LOOP, FOR, WHILE and UNTIL together and in this order for range checks in various places.
+, ACT_TRY, ACT_CATCH, ACT_THROW, ACT_FINALLY
 , ACT_BLOCK_BEGIN, ACT_BLOCK_END
 , ACT_WINACTIVATE, ACT_WINACTIVATEBOTTOM
 , ACT_WINWAIT, ACT_WINWAITCLOSE, ACT_WINWAITACTIVE, ACT_WINWAITNOTACTIVE
@@ -392,8 +400,6 @@ enum enum_act_old {
   , OLD_SETENV, OLD_ENVADD, OLD_ENVSUB, OLD_ENVMULT, OLD_ENVDIV
   // ACT_IS_IF_OLD() relies on the items in this next line being adjacent to one another and in this order:
   , OLD_IFEQUAL, OLD_IFNOTEQUAL, OLD_IFGREATER, OLD_IFGREATEROREQUAL, OLD_IFLESS, OLD_IFLESSOREQUAL
-  , OLD_LEFTCLICK, OLD_RIGHTCLICK, OLD_LEFTCLICKDRAG, OLD_RIGHTCLICKDRAG
-  , OLD_HIDEAUTOITWIN, OLD_REPEAT, OLD_ENDREPEAT
   , OLD_WINGETACTIVETITLE, OLD_WINGETACTIVESTATS
 };
 
@@ -531,7 +537,7 @@ typedef UCHAR HookType;
 	tick_now = GetTickCount();\
 	if (tick_now - g_script.mLastPeekTime > ::g->PeekFrequency)\
 	{\
-		if (PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE))\
+		if (PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE) && g_MainThreadID == aThreadID)\
 			MsgSleep(-1);\
 		tick_now = GetTickCount();\
 		g_script.mLastPeekTime = tick_now;\
@@ -642,7 +648,9 @@ struct FuncAndToken {
 	LPTSTR result_to_return_dll;
 	Func * mFunc ;
 	VARIANT variant_to_return_dll;
-	LPTSTR param[10];
+	ExprTokenType **param;
+	ExprTokenType params[10];
+	LPTSTR buf;
 	BYTE mParamCount;
 };
 
@@ -782,7 +790,7 @@ inline void global_init(global_struct &g)
 	// deeper recursion.  When the interrupting subroutine returns, the former
 	// subroutine's values for these are restored prior to resuming execution:
 	global_clear_state(g);
-	g.SendMode = SM_INPUT;
+	g.SendMode = SM_EVENT;  // v1.0.43: Default to SM_EVENT for backward compatibility
 	g.TitleMatchMode = FIND_IN_LEADING_PART; // Standard default for AutoIt2 and 3.
 	g.TitleFindFast = true; // Since it's so much faster in many cases.
 	g.DetectHiddenWindows = false;  // Same as AutoIt2 but unlike AutoIt3; seems like a more intuitive default.

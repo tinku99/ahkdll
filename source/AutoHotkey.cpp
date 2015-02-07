@@ -20,7 +20,7 @@ GNU General Public License for more details.
 #include "application.h" // for MsgSleep()
 #include "window.h" // For MsgBox() & SetForegroundLockTimeout()
 #include "TextIO.h"
-
+#include "LiteUnzip.h"
 // General note:
 // The use of Sleep() should be avoided *anywhere* in the code.  Instead, call MsgSleep().
 // The reason for this is that if the keyboard or mouse hook is installed, a straight call
@@ -42,6 +42,7 @@ int WINAPI _tWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmd
 #endif
 	g_hInstance = hInstance;
 	InitializeCriticalSection(&g_CriticalRegExCache); // v1.0.45.04: Must be done early so that it's unconditional, so that DeleteCriticalSection() in the script destructor can also be unconditional (deleting when never initialized can crash, at least on Win 9x).
+	InitializeCriticalSection(&g_CriticalAhkFunction); // used to call a function in multithreading environment.
 
 	if (!GetCurrentDirectory(_countof(g_WorkingDir), g_WorkingDir)) // Needed for the FileSelectFile() workaround.
 		*g_WorkingDir = '\0';
@@ -161,26 +162,12 @@ int WINAPI _tWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmd
 		}
 	}
 
-#ifndef AUTOHOTKEYSC
-	if (script_filespec)// Script filename was explicitly specified, so check if it has the special conversion flag.
-	{
-		size_t filespec_length = _tcslen(script_filespec);
-		if (filespec_length >= CONVERSION_FLAG_LENGTH)
-		{
-			LPTSTR cp = script_filespec + filespec_length - CONVERSION_FLAG_LENGTH;
-			// Now cp points to the first dot in the CONVERSION_FLAG of script_filespec (if it has one).
-			if (!_tcsicmp(cp, CONVERSION_FLAG))
-				return Line::ConvertEscapeChar(script_filespec);
-		}
-	}
-#endif
-
 	// Like AutoIt2, store the number of script parameters in the script variable %0%, even if it's zero:
 	if (   !(var = g_script.FindOrAddVar(_T("0")))   )
 		return CRITICAL_ERROR;  // Realistically should never happen.
 	var->Assign(script_param_num - 1);
 
-	global_init(*g);  // Set defaults prior to the below, since below might override them for AutoIt2 scripts.
+	global_init(*g);  // Set defaults.
 
 // Set up the basics of the script:
 #ifdef AUTOHOTKEYSC
@@ -203,26 +190,20 @@ int WINAPI _tWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmd
 	// instance terminates, so it should work ok:
 	//CreateMutex(NULL, FALSE, script_filespec); // script_filespec seems a good choice for uniqueness.
 	//if (!g_ForceLaunch && !restart_mode && GetLastError() == ERROR_ALREADY_EXISTS)
-#ifdef STANDALONE
-	UINT load_result;
-	if (script_filespec != NULL)
-		load_result = g_script.LoadFromFile(script_filespec);
-	else
-	{
-		TCHAR INTERNAL_SCRIPT[] = {
-			#include "Script.ahk"
-		};
-		load_result = g_script.LoadFromText(INTERNAL_SCRIPT);
-	}
-#else
+
 #ifdef AUTOHOTKEYSC
 	UINT load_result = g_script.LoadFromFile();
 #else
 	UINT load_result = g_script.LoadFromFile(script_filespec == NULL);
 #endif
-#endif
 	if (load_result == LOADING_FAILED) // Error during load (was already displayed by the function call).
+	{
+#ifndef AUTOHOTKEYSC
+		if (g_script.mIncludeLibraryFunctionsThenExit)
+			g_script.mIncludeLibraryFunctionsThenExit->Close(); // Flush its buffer to disk.
+#endif
 		return CRITICAL_ERROR;  // Should return this value because PostQuitMessage() also uses it.
+	}
 	if (!load_result) // LoadFromFile() relies upon us to do this check.  No script was loaded or we're in /iLib mode, so nothing more to do.
 		return 0;
 
@@ -269,7 +250,7 @@ int WINAPI _tWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmd
 		int interval_count;
 		for (interval_count = 0; ; ++interval_count)
 		{
-			Sleep(20);  // No need to use MsgSleep() in this case.
+			Sleep(50);  // No need to use MsgSleep() in this case.
 			if (!IsWindow(w_existing))
 				break;  // done waiting.
 			if (interval_count == 100)
@@ -337,7 +318,9 @@ int WINAPI _tWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmd
 		g_Debugger.Break();
 	}
 #endif
-
+	
+	// set exception filter to disable hook before exception occures to avoid system/mouse freeze
+	g_ExceptionHandler = AddVectoredExceptionHandler(NULL,DisableHooksOnException);
 	// Activate the hotkeys, hotstrings, and any hooks that are required prior to executing the
 	// top part (the auto-execute part) of the script so that they will be in effect even if the
 	// top part is something that's very involved and requires user interaction:
@@ -351,7 +334,6 @@ int WINAPI _tWinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmd
 		// Since other applications and the user should see any changes the program makes to the clipboard,
 		// don't write-cache it either.
 		clipboard_var->DisableCache();
-
 	// Run the auto-execute part at the top of the script (this call might never return):
 	if (!g_script.AutoExecSection()) // Can't run script at all. Due to rarity, just abort.
 		return CRITICAL_ERROR;

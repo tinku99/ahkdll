@@ -67,7 +67,10 @@ BIF_DECL(BIF_sizeof)
 
 	// definition and field name are same max size as variables
 	// also add enough room to store pointers (**) and arrays [1000]
-	TCHAR defbuf[MAX_VAR_NAME_LENGTH*2 + 40];
+	// give more room to use local or static variable Function(variable)
+	// Parameter passed to IsDefaultType needs to be ' Definition '
+	// this is because spaces are used as delimiters ( see IsDefaultType function )
+	TCHAR defbuf[MAX_VAR_NAME_LENGTH*2 + 40] = _T(" UInt "); // Set default UInt definition
 	
 	// buffer for arraysize + 2 for bracket ] and terminating character
 	TCHAR intbuf[MAX_INTEGER_LENGTH + 2];
@@ -86,7 +89,7 @@ BIF_DECL(BIF_sizeof)
 	{
 		aResultToken.symbol = SYM_INTEGER;
 		Struct *obj = (Struct*)TokenToObject(*aParam[0]);
-		aResultToken.value_int64 = obj->mSize;
+		aResultToken.value_int64 = obj->mSize + (aParamCount > 1 ? TokenToInt64(*aParam[1],true) : 0);
 		return;
 	}
 
@@ -187,10 +190,14 @@ BIF_DECL(BIF_sizeof)
 		// Pointer, while loop will continue here because we only need size
 		if (_tcschr(tempbuf,'*'))
 		{
-			offset += ptrsize * (arraydef ? arraydef : 1);
 			// align offset for pointer
 			if (offset % ptrsize)
-				offset += (ptrsize - (offset % ptrsize)) * (arraydef ? arraydef : 1);
+			{
+				offset += (ptrsize - (offset % ptrsize));
+				if (uniondepth && offset > unionoffset[uniondepth])
+					unionoffset[uniondepth] = offset;
+			}
+			offset += ptrsize * (arraydef ? arraydef : 1);
 			if (ptrsize > *aligntotal)
 				*aligntotal = ptrsize;
 			// update offset
@@ -221,8 +228,8 @@ BIF_DECL(BIF_sizeof)
 			_tcsncpy(defbuf + 1,tempbuf,_tcscspn(tempbuf,_T("\t [")));
 			_tcscpy(defbuf + 1 + _tcscspn(tempbuf,_T("\t [")),_T(" "));
 		}
-		else // Not 'TypeOnly' definition because there are more than one fields in array so use default type UInt
-			_tcscpy(defbuf,_T(" UInt "));
+		// else // Not 'TypeOnly' definition because there are more than one fields in array so use default type UInt
+			// _tcscpy(defbuf,_T(" UInt "));
 		
 		// Now find size in default types array and create new field
 		// If Type not found, resolve type to variable and get size of struct defined in it
@@ -230,12 +237,14 @@ BIF_DECL(BIF_sizeof)
 		{
 			if (!_tcscmp(defbuf,_T(" bool ")))
 				thissize = 1;
-			offset += thissize * (arraydef ? arraydef : 1);
 			// align offset
 			if (thissize > 1 && offset % thissize)
 			{
 				offset += thissize - (offset % thissize);
+				if (uniondepth && offset > unionoffset[uniondepth])
+					unionoffset[uniondepth] = offset;
 			}
+			offset += thissize * (arraydef ? arraydef : 1);
 			if (thissize > *aligntotal)
 				*aligntotal = thissize>ptrsize ? ptrsize : thissize;
 		}
@@ -276,6 +285,12 @@ BIF_DECL(BIF_sizeof)
 				if (ResultToken.symbol != SYM_INTEGER)
 				{	// could not resolve structure
 					return;
+				}
+				if (offset % *aligntotal)
+				{
+					offset += *aligntotal - (offset % *aligntotal);
+					if (uniondepth && offset > unionoffset[uniondepth])
+						unionoffset[uniondepth] = offset;
 				}
 				// sizeof was given an offset that it applied and aligned if necessary, so set offset =  and not +=
 				offset = (int)ResultToken.value_int64 + (arraydef ? ((arraydef - 1) * ((int)ResultToken.value_int64 - offset)) : 0);
@@ -371,7 +386,6 @@ BIF_DECL(BIF_ObjArray)
 //
 
 BIF_DECL(BIF_IsObject)
-// IsObject(obj) is currently equivalent to (obj && obj=""), but much more intuitive.
 {
 	int i;
 	for (i = 0; i < aParamCount && TokenToObject(*aParam[i]); ++i);
@@ -521,6 +535,7 @@ BIF_DECL(BIF_ObjNew)
 		aResultToken.buf = buf;
 		if (result == FAIL)
 		{
+			new_object->Release();
 			aParam[0] = class_token; // Restore it to original caller-supplied value.
 			return;
 		}
@@ -672,6 +687,7 @@ BIF_METHOD(SetCapacity)
 BIF_METHOD(GetAddress)
 BIF_METHOD(MaxIndex)
 BIF_METHOD(MinIndex)
+BIF_METHOD(Count)
 BIF_METHOD(NewEnum)
 BIF_METHOD(HasKey)
 BIF_METHOD(Clone)

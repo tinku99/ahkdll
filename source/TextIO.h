@@ -51,14 +51,17 @@ public:
 	};
 
 	TextStream()
-		: mFlags(0), mCodePage(-1), mLength(0), mBuffer(NULL), mPos(NULL)
+		: mFlags(0), mCodePage(-1), mLength(0), mBuffer(NULL), mPos(NULL), mLastRead(0)
 	{
 		SetCodePage(CP_ACP);
 	}
 	virtual ~TextStream()
 	{
 		if (mBuffer)
+		{
+			SecureZeroMemory(mBuffer, TEXT_IO_BLOCK);
 			free(mBuffer);
+		}
 		//if (mLocale)
 		//	_free_locale(mLocale);
 		// Close() isn't called here, it will rise a "pure virtual function call" exception.
@@ -128,7 +131,7 @@ public:
 
 protected:
 	// IO abstraction
-	virtual bool    _Open(LPCTSTR aFileSpec, DWORD aFlags) = 0;
+	virtual bool    _Open(LPCTSTR aFileSpec, DWORD &aFlags) = 0;
 	virtual void    _Close() = 0;
 	virtual DWORD   _Read(LPVOID aBuffer, DWORD aBufSize) = 0;
 	virtual DWORD   _Write(LPCVOID aBuffer, DWORD aBufSize) = 0;
@@ -194,7 +197,7 @@ protected:
 		DWORD dwRead = _Read(mBuffer + mLength, aReadSize);
 		if (dwRead)
 			mLength += dwRead;
-		return dwRead;
+		return mLastRead = dwRead; // The amount read *this time*.
 	}
 	bool ReadAtLeast(DWORD aReadSize)
 	{
@@ -222,6 +225,7 @@ protected:
 
 	DWORD mFlags;
 	DWORD mLength;		// The length of available data in the buffer, in bytes.
+	DWORD mLastRead;
 	UINT  mCodePage;
 	CPINFO mCodePageInfo;
 	
@@ -300,7 +304,7 @@ public:
 	}
 	HANDLE  Handle() { RollbackFilePointer(); FlushWriteBuffer(); return mFile; }
 protected:
-	virtual bool    _Open(LPCTSTR aFileSpec, DWORD aFlags);
+	virtual bool    _Open(LPCTSTR aFileSpec, DWORD &aFlags);
 	virtual void    _Close();
 	virtual DWORD   _Read(LPVOID aBuffer, DWORD aBufSize);
 	virtual DWORD   _Write(LPCVOID aBuffer, DWORD aBufSize);
@@ -342,7 +346,7 @@ public:
 	}
 	virtual ~TextMem() { _Close(); }
 protected:
-	virtual bool    _Open(LPCTSTR aFileSpec, DWORD aFlags);
+	virtual bool    _Open(LPCTSTR aFileSpec, DWORD &aFlags);
 	virtual void    _Close();
 	virtual DWORD   _Read(LPVOID aBuffer, DWORD aBufSize);
 	virtual DWORD   _Write(LPCVOID aBuffer, DWORD aBufSize);
